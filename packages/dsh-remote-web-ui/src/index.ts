@@ -25,6 +25,7 @@ import { makeMobileApiRoutes } from './mobile-api.ts'
 import { createMobileGatewayProxy } from './mobile-gateway.ts'
 import { desktopLanGatewayBase, lanIPv4Addresses } from './lan.ts'
 import { TunnelManager, type TunnelInfo } from './tunnel.ts'
+import { SshTunnelManager } from './ssh-tunnel.ts'
 import {
   checkUpdates,
   fetchLatestVersion,
@@ -87,6 +88,14 @@ interface SessionSearchEngine {
  */
 export const REMOTE_WEB_UI_SETTINGS_NAMESPACE = 'remote-web-ui'
 
+/**
+ * Which transport `autoTunnel` drives. `cloudflare` is the bundled quick
+ * tunnel and stays the default; `ssh` forwards a port on a server you control
+ * back to this machine, for deployments that already publish their own HTTPS
+ * origin in front of that server.
+ */
+export type TunnelTransport = 'cloudflare' | 'ssh'
+
 /** Plugin config, validated by the same-named schemastery schema. */
 export interface Config {
   /** Token lifetime in ms; the QR link dies after this. */
@@ -124,6 +133,33 @@ export interface Config {
    */
   autoTunnel?: boolean
   /**
+   * Which transport `autoTunnel` drives. `cloudflare` (default) runs the
+   * bundled quick tunnel; `ssh` opens a reverse SSH forward from a server you
+   * control, so the QR link is served by your own HTTPS origin instead of a
+   * random `trycloudflare.com` hostname. In `ssh` mode `publicBaseUrl` is NOT
+   * ignored — it supplies the advertised origin (see `sshTunnelPublicUrl`).
+   */
+  tunnelTransport?: TunnelTransport
+  /**
+   * SSH reverse tunnel destination: `host` or `user@host`. Required in `ssh`
+   * mode; the transport stays stopped (and reports a failure) when unset.
+   */
+  sshTunnelServer?: string
+  /** SSH server port (default 22). */
+  sshTunnelPort?: number
+  /**
+   * Port exposed on the remote loopback, i.e. what the reverse proxy in front
+   * of the server forwards to (default 7788).
+   */
+  sshTunnelRemotePort?: number
+  /** Private key file handed to the ssh client as `-i` (default: its own identity). */
+  sshTunnelKeyPath?: string
+  /**
+   * Public origin the QR link is built from while the ssh transport is up.
+   * Falls back to `publicBaseUrl`; `ssh` mode needs one of the two.
+   */
+  sshTunnelPublicUrl?: string
+  /**
    * Mobile composer behavior: when true (default), a plain Enter in the
    * phone chat textarea sends the prompt and Shift+Enter inserts a newline.
    * When false, plain Enter inserts a newline and only the send button
@@ -143,6 +179,12 @@ export const Config: z<Config> = z.object({
   remoteApiMode: z.union(['mobile-only', 'legacy-full-api']).default('mobile-only'),
   publicBaseUrl: z.string(),
   autoTunnel: z.boolean().default(false),
+  tunnelTransport: z.union(['cloudflare', 'ssh']).default('cloudflare'),
+  sshTunnelServer: z.string(),
+  sshTunnelPort: z.number().step(1).min(1).max(65_535).default(22),
+  sshTunnelRemotePort: z.number().step(1).min(1).max(65_535).default(7788),
+  sshTunnelKeyPath: z.string(),
+  sshTunnelPublicUrl: z.string(),
   mobileEnterToSend: z.boolean().default(true),
   enabled: z.boolean().default(true),
 })
@@ -151,11 +193,15 @@ export const Config: z<Config> = z.object({
 const SWEEP_INTERVAL_MS = 10_000
 
 /**
- * Fully resolved config: every field non-optional except `publicBaseUrl`,
- * which legitimately resolves to `undefined` when unset (the schema keeps it
- * optional, so `Required` alone would over-narrow it to `string`).
+ * Config keys that legitimately resolve to `undefined` when unset (the schema
+ * keeps them optional, so `Required` alone would over-narrow them to string).
  */
-type ResolvedConfig = Required<Omit<Config, 'publicBaseUrl'>> & { publicBaseUrl: string | undefined }
+type OptionalConfigKey = 'publicBaseUrl' | 'sshTunnelServer' | 'sshTunnelKeyPath' | 'sshTunnelPublicUrl'
+
+/** Fully resolved config: every field non-optional except the optional keys. */
+type ResolvedConfig = Required<Omit<Config, OptionalConfigKey>> & {
+  [K in OptionalConfigKey]: string | undefined
+}
 
 /** Schema defaults, re-read for hand-built test contexts (the loader applies them normally). */
 const DEFAULTS: ResolvedConfig = {
@@ -167,6 +213,12 @@ const DEFAULTS: ResolvedConfig = {
   remoteApiMode: 'mobile-only',
   publicBaseUrl: undefined,
   autoTunnel: false,
+  tunnelTransport: 'cloudflare',
+  sshTunnelServer: undefined,
+  sshTunnelPort: 22,
+  sshTunnelRemotePort: 7788,
+  sshTunnelKeyPath: undefined,
+  sshTunnelPublicUrl: undefined,
   mobileEnterToSend: true,
   enabled: true,
 }
@@ -186,6 +238,12 @@ export function apply(ctx: Context, config?: Config): void {
     remoteApiMode: config?.remoteApiMode ?? DEFAULTS.remoteApiMode,
     publicBaseUrl: config?.publicBaseUrl,
     autoTunnel: config?.autoTunnel ?? DEFAULTS.autoTunnel,
+    tunnelTransport: config?.tunnelTransport ?? DEFAULTS.tunnelTransport,
+    sshTunnelServer: config?.sshTunnelServer,
+    sshTunnelPort: config?.sshTunnelPort ?? DEFAULTS.sshTunnelPort,
+    sshTunnelRemotePort: config?.sshTunnelRemotePort ?? DEFAULTS.sshTunnelRemotePort,
+    sshTunnelKeyPath: config?.sshTunnelKeyPath,
+    sshTunnelPublicUrl: config?.sshTunnelPublicUrl,
     mobileEnterToSend: config?.mobileEnterToSend ?? DEFAULTS.mobileEnterToSend,
     enabled: config?.enabled ?? DEFAULTS.enabled,
   }
@@ -204,6 +262,12 @@ export function apply(ctx: Context, config?: Config): void {
       remoteApiMode: value.remoteApiMode ?? DEFAULTS.remoteApiMode,
       publicBaseUrl: value.publicBaseUrl,
       autoTunnel: value.autoTunnel ?? DEFAULTS.autoTunnel,
+      tunnelTransport: value.tunnelTransport ?? DEFAULTS.tunnelTransport,
+      sshTunnelServer: value.sshTunnelServer,
+      sshTunnelPort: value.sshTunnelPort ?? DEFAULTS.sshTunnelPort,
+      sshTunnelRemotePort: value.sshTunnelRemotePort ?? DEFAULTS.sshTunnelRemotePort,
+      sshTunnelKeyPath: value.sshTunnelKeyPath,
+      sshTunnelPublicUrl: value.sshTunnelPublicUrl,
       mobileEnterToSend: value.mobileEnterToSend ?? DEFAULTS.mobileEnterToSend,
       enabled: value.enabled ?? DEFAULTS.enabled,
     }
@@ -246,31 +310,44 @@ export function apply(ctx: Context, config?: Config): void {
     cookieName: resolved.cookieName,
   }, undefined, pairingIdentity)
 
-  // ── auto tunnel ─────────────────────────────────────────────────────────
-  // The minted public URL becomes the QR base (and the pairing fence's
-  // trusted host). Phone /api traffic rides the plugin's own /m/api channel,
-  // which is NOT subject to the connection trust fence — so no fence
-  // mutation is needed here (a distributable plugin must not change the
-  // harness's connection plugin).
-  const tunnel = new TunnelManager()
+  // ── tunnel transports ───────────────────────────────────────────────────
+  // `autoTunnel` remains the single "the plugin runs a tunnel for me" switch;
+  // `tunnelTransport` selects the implementation. Cloudflare is the default,
+  // so a deployment that never touches the new field behaves exactly as
+  // before; the ssh transport is opt-in for deployments that publish their
+  // own HTTPS origin in front of a server they control, and it is what keeps
+  // such a deployment off a random `trycloudflare.com` hostname. Either way
+  // the advertised URL becomes the QR base (and the pairing fence's trusted
+  // host). Phone /api traffic rides the plugin's own /m/api channel, which is
+  // NOT subject to the connection trust fence — so no fence mutation is
+  // needed here (a distributable plugin must not change the harness's
+  // connection plugin).
+  const cloudflareTunnel = new TunnelManager()
+  const sshTunnel = new SshTunnelManager()
   let autoTunnel = resolved.autoTunnel
-  tunnel.onPhase((info: TunnelInfo) => {
-    if (!autoTunnel) return
+  let activeTransport: TunnelTransport = resolved.tunnelTransport
+  const onTunnelPhase = (transport: TunnelTransport) => (info: TunnelInfo): void => {
+    // A transport that is no longer selected must never publish state.
+    if (!autoTunnel || activeTransport !== transport) return
     if (info.phase === 'running' && info.url !== undefined) {
       service.setPublicBaseUrl(info.url)
       service.setTunnelStatus({ state: 'running', url: info.url })
     } else if (info.phase === 'starting') {
-      // A restart mints a NEW hostname: the previous URL dies with the old
-      // process, so clear it now rather than advertising a dead link.
+      // A restart mints a NEW hostname (cloudflare) or rebinds the forward
+      // (ssh): the previous URL dies with the old process, so clear it now
+      // rather than advertising a dead link.
       service.setPublicBaseUrl(undefined)
       service.setTunnelStatus({ state: 'starting' })
     } else if (info.phase === 'failed') {
       service.setPublicBaseUrl(undefined)
       service.setTunnelStatus(info.error === undefined ? { state: 'failed' } : { state: 'failed', error: info.error })
     }
-  })
+  }
+  cloudflareTunnel.onPhase(onTunnelPhase('cloudflare'))
+  sshTunnel.onPhase(onTunnelPhase('ssh'))
   ctx.effect(() => () => {
-    tunnel.dispose()
+    cloudflareTunnel.dispose()
+    sshTunnel.dispose()
   }, 'remote-web-ui: auto tunnel')
   // The bind facts are known by now (webServer is an inject edge): the LAN
   // bases are frozen per process, matching the CLI's once-per-invocation
@@ -383,17 +460,46 @@ export function apply(ctx: Context, config?: Config): void {
       maxDevices: value.maxDevices,
       cookieName: isSafePairingCookieName(value.cookieName) ? value.cookieName : DEFAULTS.cookieName,
     }
-    // The auto tunnel owns the public base while enabled: the minted URL
-    // lands in the service through the tunnel's phase listener. The manual
-    // publicBaseUrl applies only when the auto tunnel is off.
+    // The selected tunnel owns the public base while `autoTunnel` is on: the
+    // advertised URL lands in the service through that transport's phase
+    // listener. The manual publicBaseUrl applies when no tunnel is running —
+    // except in ssh mode, where it doubles as the advertised origin so a
+    // deployment that already configured one needs no second field.
     autoTunnel = value.autoTunnel === true
-    if (autoTunnel) {
+    activeTransport = value.tunnelTransport
+    const advertisedOrigin = value.sshTunnelPublicUrl ?? value.publicBaseUrl
+    sshTunnel.options = {
+      server: value.sshTunnelServer,
+      sshPort: value.sshTunnelPort,
+      remotePort: value.sshTunnelRemotePort,
+      keyPath: value.sshTunnelKeyPath,
+      publicUrl: advertisedOrigin,
+    }
+    const localTarget = `http://127.0.0.1:${String(ctx.webServer.port)}`
+    if (autoTunnel && activeTransport === 'ssh') {
+      cloudflareTunnel.stop()
+      if (value.sshTunnelServer === undefined || value.sshTunnelServer.trim() === '') {
+        // Without a destination there is no forward to establish: stay
+        // stopped and say so, rather than reporting a tunnel that cannot run.
+        sshTunnel.stop()
+        service.setTunnelStatus({ state: 'failed', error: 'sshTunnelServer is not configured' })
+      } else {
+        if (advertisedOrigin === undefined) {
+          console.warn('remote-web-ui: ssh tunnel transport has no advertised origin — set sshTunnelPublicUrl or publicBaseUrl so QR links can be built')
+        } else if (!isSecurePublicBaseUrl(advertisedOrigin)) {
+          console.warn(`remote-web-ui: ignoring malformed ssh tunnel public origin ${JSON.stringify(advertisedOrigin)} (expected https://host[:port])`)
+        }
+        sshTunnel.start(localTarget)
+      }
+    } else if (autoTunnel) {
+      sshTunnel.stop()
       if (value.publicBaseUrl !== undefined) {
         console.warn('remote-web-ui: autoTunnel is on — ignoring the manually configured publicBaseUrl')
       }
-      tunnel.start(`http://127.0.0.1:${String(ctx.webServer.port)}`)
+      cloudflareTunnel.start(localTarget)
     } else {
-      tunnel.stop()
+      cloudflareTunnel.stop()
+      sshTunnel.stop()
       // A malformed public base is ignored with a warning — LAN-only behavior
       // stays intact rather than silently minting unusable QR links.
       if (value.publicBaseUrl !== undefined && !isSecurePublicBaseUrl(value.publicBaseUrl)) {
