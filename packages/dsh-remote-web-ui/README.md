@@ -246,6 +246,32 @@ its own paired-device gate plus a method allowlist — the tunneled Host
 never needs to enter the connection plugin's trust fence, so **no profile
 or harness customization is required for the auto tunnel to work**.
 
+### SSH reverse tunnel to your own server
+
+Set `tunnelTransport: ssh` alongside `autoTunnel: true` to replace the quick
+tunnel with a reverse SSH forward: the plugin runs `ssh -N -T ... -R
+127.0.0.1:<sshTunnelRemotePort>:127.0.0.1:<dsh web port>` to a server you
+control, so a reverse proxy on that server publishes your own HTTPS origin
+instead of a random `trycloudflare.com` hostname. `cloudflare` stays the
+default, the ssh transport is opt-in, and nothing else about the plugin's
+behavior changes.
+
+- **`tunnelTransport`** (`cloudflare` | `ssh`, default `cloudflare`): which transport `autoTunnel` drives.
+- **`sshTunnelServer`**: the destination, `host` or `user@host`. Required for the ssh transport; while blank the forward stays stopped and the panel reports `sshTunnelServer is not configured`.
+- **`sshTunnelPort`** (default 22): the SSH server port.
+- **`sshTunnelRemotePort`** (default 7788): the port bound on the server loopback, i.e. the upstream your reverse proxy points at.
+- **`sshTunnelKeyPath`**: the private key passed to the ssh client as `-i`; leave blank to use the client's own identity.
+- **`sshTunnelPublicUrl`**: the public origin the QR link is built from, e.g. `https://dsh.example.com`; it falls back to `publicBaseUrl`. Unlike cloudflare mode, `publicBaseUrl` is not ignored here.
+
+The client runs with `BatchMode=yes` (it never prompts), with
+`ExitOnForwardFailure=yes` (a refused bind exits at once instead of silently
+doing nothing) and with keepalives; a crash restarts with backoff. The server
+account must accept a non-interactive key login, and its reverse proxy must
+forward to the loopback port above. The phone's data channel is `/m/api`,
+outside the connection plugin's `/api` fence, so the ssh transport needs no
+harness customization either; a proxy that cannot forward Server-Sent Events
+only costs live push, where the mobile chat falls back to polling.
+
 ### Manual tunnels (bring your own)
 
 The QR link is normally a LAN URL, so a phone outside the house cannot use

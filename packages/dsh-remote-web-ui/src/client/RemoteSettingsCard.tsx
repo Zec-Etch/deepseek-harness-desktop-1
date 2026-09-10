@@ -27,14 +27,29 @@ export interface RemoteSettings {
   remoteApiMode?: RemoteApiMode
   /** Public (tunneled) base URL the QR link is built from when set. */
   publicBaseUrl?: string
-  /** When on, the plugin runs its own Cloudflare quick tunnel automatically. */
+  /** When on, the plugin runs its own public tunnel automatically. */
   autoTunnel?: boolean
+  /** Which transport the automatic tunnel drives. */
+  tunnelTransport?: TunnelTransport
+  /** SSH reverse tunnel destination: `host` or `user@host`. */
+  sshTunnelServer?: string
+  /** SSH server port. */
+  sshTunnelPort?: number
+  /** Port the forward exposes on the remote loopback (the proxy upstream). */
+  sshTunnelRemotePort?: number
+  /** Private key file handed to the ssh client as `-i`. */
+  sshTunnelKeyPath?: string
+  /** Public origin the QR link uses while the ssh tunnel is up. */
+  sshTunnelPublicUrl?: string
   /** Mobile composer: plain Enter sends; off means Enter inserts a newline. */
   mobileEnterToSend?: boolean
 }
 
 /** Full non-loopback /api policy exposed by the remote plugin. */
 export type RemoteApiMode = 'mobile-only' | 'legacy-full-api'
+
+/** Automatic-tunnel transports exposed by the remote plugin. */
+export type TunnelTransport = 'cloudflare' | 'ssh'
 
 /** What the remote-control card renders. */
 export interface RemoteSettingsCardState extends CardShell {
@@ -56,6 +71,18 @@ export interface RemoteSettingsCardState extends CardShell {
   publicBaseUrl: CardFieldState
   /** Auto public tunnel switch. */
   autoTunnel: CardFieldState
+  /** Automatic-tunnel transport. */
+  tunnelTransport: CardFieldState
+  /** SSH reverse tunnel destination. */
+  sshTunnelServer: CardFieldState
+  /** SSH server port. */
+  sshTunnelPort: CardFieldState
+  /** Port exposed on the remote loopback. */
+  sshTunnelRemotePort: CardFieldState
+  /** SSH private key path. */
+  sshTunnelKeyPath: CardFieldState
+  /** Public origin advertised while the ssh tunnel is up. */
+  sshTunnelPublicUrl: CardFieldState
   /** Mobile composer Enter-to-send switch. */
   mobileEnterToSend: CardFieldState
 }
@@ -85,6 +112,12 @@ export class RemoteSettingsCardController {
       choiceField('remoteApiMode', ['mobile-only', 'legacy-full-api']),
       textField('publicBaseUrl'),
       booleanField('autoTunnel'),
+      choiceField('tunnelTransport', ['cloudflare', 'ssh']),
+      textField('sshTunnelServer'),
+      numberField('sshTunnelPort'),
+      numberField('sshTunnelRemotePort'),
+      textField('sshTunnelKeyPath'),
+      textField('sshTunnelPublicUrl'),
       booleanField('mobileEnterToSend'),
     ])
     this.store = this.form.bind(() => this.projection())
@@ -102,6 +135,12 @@ export class RemoteSettingsCardController {
       remoteApiMode: this.form.field('remoteApiMode'),
       publicBaseUrl: this.form.field('publicBaseUrl'),
       autoTunnel: this.form.field('autoTunnel'),
+      tunnelTransport: this.form.field('tunnelTransport'),
+      sshTunnelServer: this.form.field('sshTunnelServer'),
+      sshTunnelPort: this.form.field('sshTunnelPort'),
+      sshTunnelRemotePort: this.form.field('sshTunnelRemotePort'),
+      sshTunnelKeyPath: this.form.field('sshTunnelKeyPath'),
+      sshTunnelPublicUrl: this.form.field('sshTunnelPublicUrl'),
       mobileEnterToSend: this.form.field('mobileEnterToSend'),
     }
   }
@@ -247,6 +286,69 @@ export function RemoteSettingsCard(props: RemoteSettingsCardProps) {
         {...state.autoTunnel}
         onEdit={(text) => { props.edit('autoTunnel', text) }}
         onReset={() => { props.resetField('autoTunnel') }}
+      />
+      <ChoiceField
+        id="settings-remote-tunnel-transport"
+        label={t('settings.tunnelTransport')}
+        hint={t('settings.tunnelTransportHint')}
+        inheritLabel={t('settings.inherit')}
+        choices={[
+          { value: 'cloudflare', label: t('settings.tunnelTransportCloudflare') },
+          { value: 'ssh', label: t('settings.tunnelTransportSsh') },
+        ]}
+        {...choiceFieldProps}
+        {...state.tunnelTransport}
+        onEdit={(text) => { props.edit('tunnelTransport', text) }}
+        onReset={() => { props.resetField('tunnelTransport') }}
+      />
+      <ValueField
+        id="settings-remote-ssh-server"
+        label={t('settings.sshTunnelServer')}
+        hint={t('settings.sshTunnelServerHint')}
+        placeholder="root@tunnel.example.com"
+        {...fieldProps}
+        {...state.sshTunnelServer}
+        onEdit={(text) => { props.edit('sshTunnelServer', text) }}
+        onReset={() => { props.resetField('sshTunnelServer') }}
+      />
+      <ValueField
+        id="settings-remote-ssh-port"
+        label={t('settings.sshTunnelPort')}
+        hint={t('settings.sshTunnelPortHint')}
+        numeric
+        {...fieldProps}
+        {...state.sshTunnelPort}
+        onEdit={(text) => { props.edit('sshTunnelPort', text) }}
+        onReset={() => { props.resetField('sshTunnelPort') }}
+      />
+      <ValueField
+        id="settings-remote-ssh-remote-port"
+        label={t('settings.sshTunnelRemotePort')}
+        hint={t('settings.sshTunnelRemotePortHint')}
+        numeric
+        {...fieldProps}
+        {...state.sshTunnelRemotePort}
+        onEdit={(text) => { props.edit('sshTunnelRemotePort', text) }}
+        onReset={() => { props.resetField('sshTunnelRemotePort') }}
+      />
+      <ValueField
+        id="settings-remote-ssh-key"
+        label={t('settings.sshTunnelKeyPath')}
+        hint={t('settings.sshTunnelKeyPathHint')}
+        {...fieldProps}
+        {...state.sshTunnelKeyPath}
+        onEdit={(text) => { props.edit('sshTunnelKeyPath', text) }}
+        onReset={() => { props.resetField('sshTunnelKeyPath') }}
+      />
+      <ValueField
+        id="settings-remote-ssh-public-url"
+        label={t('settings.sshTunnelPublicUrl')}
+        hint={t('settings.sshTunnelPublicUrlHint')}
+        placeholder="https://dsh.example.com"
+        {...fieldProps}
+        {...state.sshTunnelPublicUrl}
+        onEdit={(text) => { props.edit('sshTunnelPublicUrl', text) }}
+        onReset={() => { props.resetField('sshTunnelPublicUrl') }}
       />
       <BooleanField
         id="settings-remote-mobile-enter"

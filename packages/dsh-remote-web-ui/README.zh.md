@@ -97,6 +97,19 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-remote-web-ui
 
 二维码在隧道报告其 URL 前保持仅局域网，且隧道重启会铸一枚**新的** hostname——插件清除旧链接并铸一枚新的，用户永远不必触碰配置。注意 quick tunnel 是公网的：任何拿到 URL 的人都能加载静态页；配对门才是真正的围栏，手机的数据通道（`/m/api`）由自己的已配对设备门加方法白名单保护——被隧道化的 Host 永远不必进入连接插件的信任围栏，因此 **auto tunnel 工作无需任何 profile 或 harness 定制**。
 
+### SSH 反向隧道（自有服务器）
+
+把 `tunnelTransport: ssh` 与 `autoTunnel: true` 一起打开，即可用反向 SSH 转发替换 quick tunnel：插件向你控制的服务器执行 `ssh -N -T ... -R 127.0.0.1:<sshTunnelRemotePort>:127.0.0.1:<dsh web 端口>`，于是由那台服务器上的反向代理发布你自己的 HTTPS origin，而不是随机的 `trycloudflare.com` 主机名。`cloudflare` 仍是默认值，ssh 传输为可选启用，插件其余行为不变。
+
+- **`tunnelTransport`**（`cloudflare` | `ssh`，默认 `cloudflare`）：`autoTunnel` 驱动的传输方式。
+- **`sshTunnelServer`**：目标，`host` 或 `user@host`。ssh 方式必填；留空时转发保持停止，面板报告 `sshTunnelServer is not configured`。
+- **`sshTunnelPort`**（默认 22）：SSH 服务端口。
+- **`sshTunnelRemotePort`**（默认 7788）：在服务器回环上绑定的端口，即你反向代理指向的上游。
+- **`sshTunnelKeyPath`**：作为 `-i` 传给 ssh 客户端的私钥；留空则使用客户端自身的身份。
+- **`sshTunnelPublicUrl`**：二维码链接使用的公网 origin，如 `https://dsh.example.com`；留空回退到 `publicBaseUrl`。与 cloudflare 方式不同，这里不会忽略 `publicBaseUrl`。
+
+客户端以 `BatchMode=yes`（绝不弹提示）、`ExitOnForwardFailure=yes`（绑定被拒即刻退出，而不是静默无效）与保活参数运行，崩溃按退避重启。服务器账号需接受非交互式密钥登录，其反向代理需转发到上面那个回环端口。手机的数据通道是 `/m/api`，位于连接插件 `/api` 围栏之外，因此 ssh 传输同样不需要任何 harness 定制；若代理无法转发 Server-Sent Events，代价仅是失去实时推送，移动端聊天会回退到轮询。
+
 ### 手动隧道（自带）
 
 二维码链接通常是局域网 URL，所以家外的手机无法使用。把隧道指向 dsh web 端口，并告知插件其公网地址——二维码随后由隧道 URL 构建，面向手机的配对围栏信任隧道化的主机。涉及两个钮：
