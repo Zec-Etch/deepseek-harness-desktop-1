@@ -177,6 +177,21 @@ describe('resolveSshBinary', () => {
 })
 
 describe('SshTunnelManager', () => {
+  it('carries the origin on the running phase frame itself', () => {
+    // The host publishes the public base from this notification, so a running
+    // frame without a URL reads as "no public address" and leaves the QR link
+    // in its lan-required state even though the forward is up.
+    const h = makeHarness()
+    const frames: { phase: TunnelPhase; url?: string }[] = []
+    h.manager.onPhase(info => { frames.push(info) })
+    h.manager.start('http://127.0.0.1:3080')
+    h.fireOne()
+    expect(frames).toEqual([
+      { phase: 'starting' },
+      { phase: 'running', url: 'https://dsh.example.com' },
+    ])
+  })
+
   it('reaches running and advertises the configured public origin', () => {
     const h = makeHarness()
     h.manager.start('http://127.0.0.1:3080')

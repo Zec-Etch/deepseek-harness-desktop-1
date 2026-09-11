@@ -305,15 +305,22 @@ export class SshTunnelManager {
     this.readyTimer = this.timer.setTimeout(() => {
       this.readyTimer = undefined
       if (this.handle !== handle || this.stopping) return
+      // The advertised origin must ride the running frame itself: the host
+      // publishes the public base from that notification, and a running frame
+      // without a URL is indistinguishable from "no public address", which
+      // would leave the QR link in its lan-required state even though the
+      // forward is up. The Cloudflare transport assigns its minted URL before
+      // the same transition, for the same reason.
+      const publicUrl = this.options.publicUrl
+      if (publicUrl !== undefined && publicUrl !== '') this.url = publicUrl
       this.attempts = 0
       this.error = undefined
       this.setPhase('running')
-      const publicUrl = this.options.publicUrl
-      if (publicUrl === undefined || publicUrl === '') return
-      this.url = publicUrl
+      const announced = this.url
+      if (announced === undefined) return
       for (const listener of this.urlListeners) {
         try {
-          listener(publicUrl)
+          listener(announced)
         } catch {
           // A throwing subscriber must not break the emit loop.
         }
