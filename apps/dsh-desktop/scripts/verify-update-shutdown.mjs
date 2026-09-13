@@ -46,7 +46,10 @@ async function waitForRuntimeWindow(application, timeoutMs) {
     if (application.process().exitCode !== null) {
       throw new Error(`packaged application exited with code ${application.process().exitCode} before Runtime readiness`)
     }
-    const runtimeWindow = application.windows().find((candidate) => /^http:\/\/127\.0\.0\.1:/u.test(candidate.url()))
+    const runtimeWindow = application.windows().find((candidate) => {
+      const url = candidate.url()
+      return url.startsWith('dsh-runtime://app/') || /^http:\/\/127\.0\.0\.1:/u.test(url)
+    })
     if (runtimeWindow !== undefined) return runtimeWindow
     await delay(100)
   }
