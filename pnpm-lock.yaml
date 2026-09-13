@@ -22,7 +22,7 @@ packageExtensionsChecksum: sha256-CI8ynf22QKxVjKACZponkD9CG5jiqoapj+RXyvj5PZo=
 patchedDependencies:
   '@linxin666/dsh-chat-recovery@0.2.5': 21d4309825eeee6710c22af349c746b9bff607046b05cd508813ccd858a2b9fe
   '@linxin666/dsh-client-ui-model-capabilities@0.3.20': 91f1b1deacb1c35078e1610a1e7aaa3b18aeedb484ed6813611ec6b0ec874564
-  '@linxin666/dsh-client-ui-skin-center@0.2.5': 12c9427a9e962ae5a9dbe035ea9a05d28e1f5e55ef690bed943bb22a1354d5ae
+  '@linxin666/dsh-client-ui-skin-center@0.2.5': 07872f63717002b7717cae6de5e079a0df0751b1cde6b66dd08e7a10fdd91ae9
   '@linxin666/dsh-liangshen@0.2.5': 1aead417e1872c887dbfff48bc1638f2f84e248f1689b73397c2aafb30f106f5
   '@linxin666/dsh-pet@0.2.5': a26b9f8340b17eed227d37b3c2f2bee24e05ac72f77af842b8193cee895d125b
   '@linxin666/dsh-web-ui-all@0.2.5': 3b5b2f033a6f4ffd26246c6a1dfb6d2467cb47edd7c6b1546d2b3d094a02a75a
@@ -307,7 +307,7 @@ importers:
         version: 0.3.20(react@18.3.1)
       '@linxin666/dsh-client-ui-skin-center':
         specifier: 0.2.5
-        version: 0.2.5(patch_hash=12c9427a9e962ae5a9dbe035ea9a05d28e1f5e55ef690bed943bb22a1354d5ae)(react@18.3.1)
+        version: 0.2.5(patch_hash=07872f63717002b7717cae6de5e079a0df0751b1cde6b66dd08e7a10fdd91ae9)(react@18.3.1)
       '@linxin666/dsh-client-ui-web-ui-settings':
         specifier: workspace:*
         version: link:../../packages/dsh-web-ui-settings
@@ -12674,7 +12674,7 @@ snapshots:
     dependencies:
       react: 18.3.1
 
-  '@linxin666/dsh-client-ui-skin-center@0.2.5(patch_hash=12c9427a9e962ae5a9dbe035ea9a05d28e1f5e55ef690bed943bb22a1354d5ae)(react@18.3.1)':
+  '@linxin666/dsh-client-ui-skin-center@0.2.5(patch_hash=07872f63717002b7717cae6de5e079a0df0751b1cde6b66dd08e7a10fdd91ae9)(react@18.3.1)':
     dependencies:
       lightningcss: 1.32.0
       react: 18.3.1
@@ -12709,7 +12709,7 @@ snapshots:
 
   '@linxin666/dsh-skins@0.2.5(react@18.3.1)':
     dependencies:
-      '@linxin666/dsh-client-ui-skin-center': 0.2.5(patch_hash=12c9427a9e962ae5a9dbe035ea9a05d28e1f5e55ef690bed943bb22a1354d5ae)(react@18.3.1)
+      '@linxin666/dsh-client-ui-skin-center': 0.2.5(patch_hash=07872f63717002b7717cae6de5e079a0df0751b1cde6b66dd08e7a10fdd91ae9)(react@18.3.1)
     transitivePeerDependencies:
       - react
 
@@ -12726,7 +12726,7 @@ snapshots:
       '@linxin666/dsh-client-ui-git-graph': link:packages/dsh-git-graph
       '@linxin666/dsh-client-ui-plugin-manager': 0.3.20(react@18.3.1)
       '@linxin666/dsh-client-ui-skill-explorer': 0.3.20(react@18.3.1)
-      '@linxin666/dsh-client-ui-skin-center': 0.2.5(patch_hash=12c9427a9e962ae5a9dbe035ea9a05d28e1f5e55ef690bed943bb22a1354d5ae)(react@18.3.1)
+      '@linxin666/dsh-client-ui-skin-center': 0.2.5(patch_hash=07872f63717002b7717cae6de5e079a0df0751b1cde6b66dd08e7a10fdd91ae9)(react@18.3.1)
       '@linxin666/dsh-client-ui-task-board': link:packages/dsh-task-board
       '@linxin666/dsh-client-ui-web-ui-settings': 0.2.5(react@18.3.1)
       '@linxin666/dsh-desktop-launcher': 0.3.13(react-dom@18.3.1(react@18.3.1))(react@18.3.1)

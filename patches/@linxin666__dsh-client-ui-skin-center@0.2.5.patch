@@ -1,8 +1,97 @@
 diff --git a/lib/client.js b/lib/client.js
-index b0bb430..94a30fc 100644
+index b0bb430657b4d67a2f197d15201c3d17a1a0f423..c6d8e889eb967a5b1f4e03c878f37fbd83a662ba 100644
 --- a/lib/client.js
 +++ b/lib/client.js
-@@ -2333,6 +2333,7 @@ window.__ModuleLoader__.load({
+@@ -1660,6 +1660,10 @@ window.__ModuleLoader__.load({
+ 			rafId = null;
+ 			/** Guard: after dispose no scheduled work may reinstall anything. */
+ 			disposed = false;
++			/** Latest local settings write; older settlements must not restore stale snapshots. */
++			writeGeneration = 0;
++			/** Fields whose newest local intent has not reached the authoritative mirror yet. */
++			pendingFields = /* @__PURE__ */ new Set();
+ 			/**
+ 			* @param scope - the bound skin-background settings scope.
+ 			*/
+@@ -1672,10 +1676,7 @@ window.__ModuleLoader__.load({
+ 				this.applyOcclusion();
+ 				this.syncBlur();
+ 				scope.subscribe(() => {
+-					this.enabledValue = this.readEnabled();
+-					this.opacityValue = this.readOpacity();
+-					this.blurEmptyValue = this.readBlur(BLUR_EMPTY_FIELD);
+-					this.blurContentValue = this.readBlur(BLUR_CONTENT_FIELD);
++					this.refreshFromScope();
+ 					this.applyOcclusion();
+ 					this.syncBlur();
+ 					this.publish();
+@@ -1687,7 +1688,7 @@ window.__ModuleLoader__.load({
+ 				this.applyOcclusion();
+ 				this.syncBlur();
+ 				this.publish();
+-				this.scope.set("enabled", value);
++				this.persist("enabled", value);
+ 			}
+ 			opacity = () => this.opacityValue;
+ 			blurEmpty = () => this.blurEmptyValue;
+@@ -1703,7 +1704,7 @@ window.__ModuleLoader__.load({
+ 				this.opacityValue = clamped;
+ 				this.applyOcclusion();
+ 				this.publish();
+-				this.scope.set(OPACITY_FIELD, clamped);
++				this.persist(OPACITY_FIELD, clamped);
+ 			}
+ 			setBlurEmpty(value) {
+ 				const clamped = this.clampBlur(value);
+@@ -1711,7 +1712,7 @@ window.__ModuleLoader__.load({
+ 				this.ensureObserver();
+ 				this.syncBlur();
+ 				this.publish();
+-				this.scope.set(BLUR_EMPTY_FIELD, clamped);
++				this.persist(BLUR_EMPTY_FIELD, clamped);
+ 			}
+ 			setBlurContent(value) {
+ 				const clamped = this.clampBlur(value);
+@@ -1719,10 +1720,37 @@ window.__ModuleLoader__.load({
+ 				this.ensureObserver();
+ 				this.syncBlur();
+ 				this.publish();
+-				this.scope.set(BLUR_CONTENT_FIELD, clamped);
++				this.persist(BLUR_CONTENT_FIELD, clamped);
++			}
++			/**
++			* Preserve the newest local intent until the scope's complete serialized
++			* write queue settles. The scope fences responses globally, not per field,
++			* so an earlier field promise may resolve before a later field publishes
++			* the authoritative snapshot.
++			*/
++			persist(field, value) {
++				const generation = ++this.writeGeneration;
++				this.pendingFields.add(field);
++				this.scope.set(field, value).catch(() => {}).finally(() => {
++					if (this.disposed || generation !== this.writeGeneration) return;
++					this.pendingFields.clear();
++					this.refreshFromScope();
++					this.applyOcclusion();
++					this.syncBlur();
++					this.publish();
++				});
++			}
++			/** Refresh only fields that have no newer local intent in flight. */
++			refreshFromScope() {
++				if (!this.pendingFields.has("enabled")) this.enabledValue = this.readEnabled();
++				if (!this.pendingFields.has(OPACITY_FIELD)) this.opacityValue = this.readOpacity();
++				if (!this.pendingFields.has(BLUR_EMPTY_FIELD)) this.blurEmptyValue = this.readBlur(BLUR_EMPTY_FIELD);
++				if (!this.pendingFields.has(BLUR_CONTENT_FIELD)) this.blurContentValue = this.readBlur(BLUR_CONTENT_FIELD);
+ 			}
+ 			dispose() {
+ 				this.disposed = true;
++				this.writeGeneration += 1;
++				this.pendingFields.clear();
+ 				if (this.rafId !== null) {
+ 					cancelAnimationFrame(this.rafId);
+ 					this.rafId = null;
+@@ -2333,6 +2361,7 @@ window.__ModuleLoader__.load({
  				doc.head.appendChild(link);
  			}));
  			let latestRequest = 0;
@@ -10,7 +99,7 @@ index b0bb430..94a30fc 100644
  			let currentActivation = null;
  			const initialSkinId = doc.documentElement?.getAttribute("data-dsh-skin") || null;
  			let active = initialSkinId;
-@@ -2480,7 +2481,8 @@ window.__ModuleLoader__.load({
+@@ -2480,7 +2509,8 @@ window.__ModuleLoader__.load({
  					body: JSON.stringify({ active: id })
  				});
  			}
@@ -20,7 +109,7 @@ index b0bb430..94a30fc 100644
  				const seq = ++latestRequest;
  				const activation = ledger.beginActivation();
  				try {
-@@ -2504,7 +2506,7 @@ window.__ModuleLoader__.load({
+@@ -2504,7 +2534,7 @@ window.__ModuleLoader__.load({
  					currentActivation = activation;
  					active = id;
  					if (entry !== null) lastEntry = entry;
@@ -29,7 +118,7 @@ index b0bb430..94a30fc 100644
  						committed = {
  							id,
  							entry
-@@ -2545,6 +2547,9 @@ window.__ModuleLoader__.load({
+@@ -2545,6 +2575,9 @@ window.__ModuleLoader__.load({
  				async switchTo(id, entry) {
  					return await switchInternal(id, entry, true);
  				},
@@ -39,7 +128,7 @@ index b0bb430..94a30fc 100644
  				async tryOn(id, entry) {
  					return await switchInternal(id, entry, false);
  				},
-@@ -2567,6 +2572,7 @@ window.__ModuleLoader__.load({
+@@ -2567,6 +2600,7 @@ window.__ModuleLoader__.load({
  					return await switchInternal(id, id === null ? null : lastEntry, false);
  				},
  				shutdown() {
@@ -47,7 +136,7 @@ index b0bb430..94a30fc 100644
  					latestRequest += 1;
  					if (currentActivation !== null) {
  						ledger.disposeActivation(currentActivation);
-@@ -2608,11 +2614,25 @@ window.__ModuleLoader__.load({
+@@ -2608,11 +2642,25 @@ window.__ModuleLoader__.load({
  			const doc = options.doc ?? document;
  			const apiBase = options.apiBase ?? "/api/skin-center/v2";
  			const fetchImpl = options.fetchImpl ?? fetch.bind(doc.defaultView);
@@ -73,7 +162,7 @@ index b0bb430..94a30fc 100644
  				suppressBackgroundMedia: options.suppressBackgroundMedia,
  				onError: (message, error) => {
  					console.error(`[skin-center] ${message}`, error);
-@@ -2627,9 +2647,11 @@ window.__ModuleLoader__.load({
+@@ -2627,9 +2675,11 @@ window.__ModuleLoader__.load({
  				for (const listener of listeners) listener();
  			};
  			async function refreshCatalog() {
@@ -85,7 +174,7 @@ index b0bb430..94a30fc 100644
  				catalog = payload.skins ?? [];
  				diagnostics = payload.diagnostics ?? [];
  				emit();
-@@ -2652,10 +2674,27 @@ window.__ModuleLoader__.load({
+@@ -2652,10 +2702,27 @@ window.__ModuleLoader__.load({
  					};
  				},
  				shutdown() {
@@ -113,7 +202,7 @@ index b0bb430..94a30fc 100644
  			{
  				const root = doc.defaultView;
  				root.__skinRuntime = store;
-@@ -2663,22 +2702,39 @@ window.__ModuleLoader__.load({
+@@ -2663,22 +2730,39 @@ window.__ModuleLoader__.load({
  			(async () => {
  				try {
  					await refreshCatalog();
@@ -156,15 +245,8 @@ index b0bb430..94a30fc 100644
  			return store;
  		}
  		//#endregion
-@@ -2791,4 +2847,4 @@ window.__ModuleLoader__.load({
- 	}
- });
- 
--//# sourceMappingURL=client.js.map
-\ No newline at end of file
-+//# sourceMappingURL=client.js.map
 diff --git a/lib/index.js b/lib/index.js
-index 959216d..bbce336 100644
+index 959216d1d7d13e6b87c1b010271f55577fe3b119..bbce336ad329c3bd0e9bfccd7a9849b992399206 100644
 --- a/lib/index.js
 +++ b/lib/index.js
 @@ -1,4 +1,3 @@
@@ -219,7 +301,7 @@ index 959216d..bbce336 100644
  	const routes = [...makeSkinCenterV2Routes(), ...makeWeRoutes({
  		getConfig: () => wallpaperSource(),
 diff --git a/package.json b/package.json
-index bcd1044..d9cb8e0 100644
+index bcd10443944eebb4146c75b2d216296b2377ac8f..d9cb8e071e39ea66933a4131905f22edeff1854d 100644
 --- a/package.json
 +++ b/package.json
 @@ -16,7 +16,9 @@
