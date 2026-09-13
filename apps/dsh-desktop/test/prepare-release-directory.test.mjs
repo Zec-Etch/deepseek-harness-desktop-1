@@ -16,6 +16,9 @@ test('release directory preparation removes generated outputs but preserves unre
       writeFile(join(directory, 'latest.yml'), 'stale metadata'),
       writeFile(join(directory, 'SHA256SUMS.txt'), 'stale checksums'),
       writeFile(join(directory, 'release-manifest.json'), 'stale manifest'),
+      writeFile(join(directory, 'acceptance-evidence.json'), 'stale receipt'),
+      writeFile(join(directory, 'acceptance-evidence-deadbee.json'), 'stale commit receipt'),
+      writeFile(join(directory, 'acceptance-evidence-not-a-commit.json'), 'keep named evidence'),
       writeFile(join(directory, 'keep.txt'), 'keep'),
       mkdir(join(directory, 'win-unpacked'), { recursive: true }),
       mkdir(join(directory, 'previous-artifacts'), { recursive: true }),
@@ -29,11 +32,14 @@ test('release directory preparation removes generated outputs but preserves unre
       'DeepSeek-Harness-Desktop-Setup-3.0.0-x64.exe',
       'DeepSeek-Harness-Desktop-Setup-3.0.0-x64.exe.blockmap',
       'SHA256SUMS.txt',
+      'acceptance-evidence-deadbee.json',
+      'acceptance-evidence.json',
       'dsh-latest.exe',
       'latest.yml',
       'release-manifest.json',
       'win-unpacked',
     ].toSorted())
+    assert.equal(await readFile(join(directory, 'acceptance-evidence-not-a-commit.json'), 'utf8'), 'keep named evidence')
     assert.equal(await readFile(join(directory, 'keep.txt'), 'utf8'), 'keep')
     assert.equal(await readFile(join(directory, 'previous-artifacts', 'old.exe'), 'utf8'), 'preserve')
     await assert.rejects(readFile(join(directory, 'win-unpacked', 'DeepSeek Harness Desktop.exe')), { code: 'ENOENT' })

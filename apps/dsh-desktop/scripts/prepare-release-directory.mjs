@@ -17,6 +17,7 @@ const GENERATED_RELEASE_FILES = new Set([
 
 function isGeneratedReleaseFile(name) {
   return GENERATED_RELEASE_FILES.has(name)
+    || /^acceptance-evidence(?:-[0-9a-f]{7,40})?\.json$/u.test(name)
     || extname(name).toLowerCase() === '.exe'
     || name.toLowerCase().endsWith('.exe.blockmap')
 }
