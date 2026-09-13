@@ -642,8 +642,8 @@ Capability discovery is compatibility evidence only. Renderer surface identity, 
 | profile-home | apps/dsh-desktop/scripts/verify-skin-center.mjs | 60 | DSH_HOME |
 | profile-home | apps/dsh-desktop/scripts/verify-star-prompt.mjs | 29 | DSH_HOME |
 | profile-home | apps/dsh-desktop/scripts/verify-terminal.mjs | 105 | DSH_HOME |
-| profile-home | apps/dsh-desktop/scripts/verify-update-shutdown.mjs | 76 | DSH_HOME |
-| profile-home | apps/dsh-desktop/scripts/verify-update-shutdown.mjs | 139 | DSH_HOME |
+| profile-home | apps/dsh-desktop/scripts/verify-update-shutdown.mjs | 79 | DSH_HOME |
+| profile-home | apps/dsh-desktop/scripts/verify-update-shutdown.mjs | 142 | DSH_HOME |
 | profile-home | apps/dsh-desktop/scripts/verify-window-chrome.mjs | 54 | DSH_HOME |
 | profile-home | apps/dsh-desktop/scripts/verify-workspace-relocation.mjs | 32 | profileDir |
 | profile-home | apps/dsh-desktop/scripts/verify-workspace-relocation.mjs | 67 | DSH_HOME |

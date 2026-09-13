@@ -5146,13 +5146,13 @@
     {
       "category": "profile-home",
       "path": "apps/dsh-desktop/scripts/verify-update-shutdown.mjs",
-      "line": 76,
+      "line": 79,
       "operation": "DSH_HOME"
     },
     {
       "category": "profile-home",
       "path": "apps/dsh-desktop/scripts/verify-update-shutdown.mjs",
-      "line": 139,
+      "line": 142,
       "operation": "DSH_HOME"
     },
     {
