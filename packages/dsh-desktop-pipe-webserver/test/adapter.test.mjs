@@ -95,6 +95,31 @@ test('adapter request cancellation cannot emit an unhandled Readable error', asy
   assert.equal(observedAbort, true)
 })
 
+test('adapter ignores asynchronous response writes after request cancellation', async () => {
+  const web = server()
+  let release
+  let settleLateWrite
+  const lateWrite = new Promise((resolve, reject) => { settleLateWrite = { resolve, reject } })
+  web.register({ kind: 'exact', path: '/cancel-late-write', handler: async (_req, res) => {
+    await new Promise(resolve => { release = resolve })
+    try {
+      res.writeHead(200, { 'content-type': 'application/octet-stream' })
+      res.end('late body')
+      settleLateWrite.resolve()
+    } catch (error) {
+      settleLateWrite.reject(error)
+      throw error
+    }
+  } })
+  const controller = new AbortController()
+  const response = web.fetch(new Request('http://dsh.internal/cancel-late-write', { signal: controller.signal }))
+  await new Promise(resolve => setImmediate(resolve))
+  controller.abort(new Error('expected cancellation'))
+  assert.equal((await response).status, 500)
+  release()
+  await lateWrite
+})
+
 test('adapter renders structured injections and raw index taps', () => {
   const ctx = new Context()
   const web = new DesktopPipeWebServer(ctx)

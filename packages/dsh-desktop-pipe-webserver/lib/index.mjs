@@ -123,6 +123,7 @@ class FetchResponseBridge extends EventEmitter {
   statusCode = 200
   statusMessage = undefined
   headersSent = false
+  destroyed = false
   writableEnded = false
 
   constructor(method) {
@@ -135,6 +136,7 @@ class FetchResponseBridge extends EventEmitter {
   }
 
   setHeader(name, value) {
+    if (this.destroyed) return this
     if (this.headersSent) throw new Error('headers already sent')
     this.#headers.set(name, Array.isArray(value) ? value.join(', ') : String(value))
     return this
@@ -149,11 +151,13 @@ class FetchResponseBridge extends EventEmitter {
   }
 
   removeHeader(name) {
+    if (this.destroyed) return
     if (this.headersSent) throw new Error('headers already sent')
     this.#headers.delete(name)
   }
 
   writeHead(statusCode, statusMessageOrHeaders, maybeHeaders) {
+    if (this.destroyed) return this
     this.statusCode = statusCode
     const headers = typeof statusMessageOrHeaders === 'string' ? maybeHeaders : statusMessageOrHeaders
     if (typeof statusMessageOrHeaders === 'string') this.statusMessage = statusMessageOrHeaders
@@ -175,7 +179,7 @@ class FetchResponseBridge extends EventEmitter {
   }
 
   write(chunk, encoding, callback) {
-    if (this.writableEnded) return false
+    if (this.destroyed || this.writableEnded) return false
     this.flushHeaders()
     const bytes = typeof chunk === 'string' ? Buffer.from(chunk, typeof encoding === 'string' ? encoding : undefined) : Buffer.from(chunk)
     this.#writes = this.#writes.then(() => this.#writer.write(bytes)).then(
@@ -186,7 +190,7 @@ class FetchResponseBridge extends EventEmitter {
   }
 
   end(chunk, encoding, callback) {
-    if (this.writableEnded) return this
+    if (this.destroyed || this.writableEnded) return this
     if (chunk !== undefined && chunk !== null) this.write(chunk, encoding)
     else this.flushHeaders()
     this.writableEnded = true
@@ -199,7 +203,8 @@ class FetchResponseBridge extends EventEmitter {
   }
 
   destroy(error) {
-    if (this.writableEnded) return this
+    if (this.destroyed || this.writableEnded) return this
+    this.destroyed = true
     this.writableEnded = true
     if (!this.#settled) {
       this.statusCode = 500
