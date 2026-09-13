@@ -313,9 +313,6 @@ export class DesktopPipeWebServer extends Service {
     const res = new FetchResponseBridge(request.method)
     Promise.resolve()
       .then(() => handler(req, res))
-      .then(() => {
-        if (!res.headersSent) res.end()
-      })
       .catch(error => {
         safeLogError(this.ctx, error)
         if (res.headersSent) res.destroy(error instanceof Error ? error : undefined)

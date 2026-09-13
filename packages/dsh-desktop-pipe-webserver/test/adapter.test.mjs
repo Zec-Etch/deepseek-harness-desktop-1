@@ -50,6 +50,20 @@ test('adapter preserves streamed responses and request bodies', async () => {
   assert.equal(await response.text(), 'firstsecond')
 })
 
+test('adapter preserves callback-style responses after the handler returns', async () => {
+  const web = server()
+  web.register({ kind: 'exact', path: '/callback', handler: (_req, res) => {
+    setImmediate(() => {
+      res.writeHead(200, { 'content-type': 'text/plain' })
+      res.end('callback body')
+    })
+  } })
+
+  const response = await web.fetch(new Request('http://dsh.internal/callback'))
+  assert.equal(response.status, 200)
+  assert.equal(await response.text(), 'callback body')
+})
+
 test('adapter normalizes custom-scheme authority and bridges index authorization', async () => {
   const ctx = new Context()
   let observed
