@@ -67,6 +67,11 @@ async function launch() {
       DSH_DESKTOP_REMOTE_HOST: runtimeHost,
       DSH_HOME: dshHome,
       DSH_AGENTS_HOME: join(userData, 'agents'),
+      // The isolated DSH Home intentionally has no user credentials. This
+      // placeholder satisfies the bounded startup availability check without
+      // exposing or charging a real account; the test never awaits a model
+      // response and only verifies the packaged remote authorization surface.
+      DEEPSEEK_API_KEY: 'desktop-e2e-invalid-placeholder',
     },
   })
   // Retain the handle before any readiness assertion so a failed startup
@@ -84,7 +89,9 @@ async function launch() {
     errors.push(`console:${message.text()}`)
   })
   try {
-    await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 120_000 })
+    // Explicit Remote Gateway mode is HTTP even though the default local mode
+    // uses the no-port dsh-runtime scheme.
+    await page.waitForURL(/^http:\/\/127\.0\.0\.1:\d+\//u, { timeout: 120_000 })
   } catch (error) {
     const diagnostic = await page.evaluate(async () => ({
       url: location.href,
@@ -121,14 +128,16 @@ async function requestJson(url, options = {}) {
 
 async function rpc(origin, method, payload, { mobile = false, cookie } = {}) {
   const prefix = mobile ? '/m/api' : '/api'
-  return requestJson(`${origin}${prefix}/${method}`, {
+  const endpoint = mobile ? method : method.replace('.', '/')
+  const requestField = method === 'session.list' ? '_request' : 'request'
+  return requestJson(`${origin}${prefix}/${endpoint}`, {
     method: 'POST',
     cookie,
     body: {
       type: 'client-request',
       rpcId: randomUUID(),
-      method,
-      payload,
+      method: endpoint,
+      payload: mobile ? payload : { args: { [requestField]: payload } },
     },
   })
 }
@@ -196,6 +205,10 @@ try {
   app = launched.instance
   const loopbackOrigin = new URL(await launched.page.url()).origin
   const port = new URL(loopbackOrigin).port
+  const desktopCookie = (await launched.page.context().cookies(loopbackOrigin))
+    .map(({ name, value }) => `${name}=${value}`)
+    .join('; ')
+  assert.notEqual(desktopCookie, '', 'authenticated desktop browser cookie was not issued')
 
   // Pairing deliberately refuses to mint a dead loopback-only QR by default.
   // For the packaged authorization run, configure the documented manual
@@ -248,8 +261,8 @@ try {
   }
   const lanOrigin = loopbackMode ? loopbackOrigin : `http://${lanAddress}:${port}`
 
-  const workspaceA = rpcValue(await rpc(loopbackOrigin, 'workspace.create', { path: workspaceAPath }), 'workspace A create')
-  const workspaceB = rpcValue(await rpc(loopbackOrigin, 'workspace.create', { path: workspaceBPath }), 'workspace B create')
+  const workspaceA = rpcValue(await rpc(loopbackOrigin, 'workspace.create', { path: workspaceAPath }, { cookie: desktopCookie }), 'workspace A create')
+  const workspaceB = rpcValue(await rpc(loopbackOrigin, 'workspace.create', { path: workspaceBPath }, { cookie: desktopCookie }), 'workspace B create')
   const workspaceAId = workspaceA.workspace.workspaceId
   const workspaceBId = workspaceB.workspace.workspaceId
   assert.notEqual(workspaceAId, workspaceBId)
