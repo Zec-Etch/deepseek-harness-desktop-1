@@ -1,12 +1,14 @@
 # Desktop Client SDK
 
-`@linxin666/dsh-desktop-client` is the browser-safe public client for the versioned DeepSeek Harness Desktop Contract. It is independently versioned at `1.0.0` and contains no Electron, Node filesystem, Runtime Provider, or `@deepseek-ai/dsh*` runtime import.
+`@linxin666/dsh-desktop-client` is the browser-safe public client for the versioned DeepSeek Harness Desktop Contract. It is independently versioned at `1.2.0` and contains no Electron, Node filesystem, Runtime Provider, or `@deepseek-ai/dsh*` runtime import.
 
 ## API boundary
 
 The SDK exposes typed wrappers for Desktop information and Contract discovery, Runtime Status subscription, notifications, Deep Link helpers, and the fixed Desktop surfaces `extensions` and `updates`. It returns `{ available: false, reason: 'unavailable' }` outside Desktop instead of requiring callers to special-case normal DSH Web.
 
 `getRuntimeStatus()` includes the read-only background summary when Desktop provides it. It does not expose a Tray handle, close-preference writer, background scheduler controller, raw preload object, IPC channel, Electron object, credential, direct plugin installer, or DSH internal service.
+
+SDK `1.2` adds `getLocalLanGatewayStatus()`, `configureLocalLanGateway()`, and `subscribeLocalLanGatewayStatus()` behind Desktop capability `lan-gateway.manage`. These methods expose only enabled/state, an exact private IPv4 address, a high port, available private interface literals, a validated HTTP origin, and stable bounded error codes. They do not expose a listener, socket, Runtime token, general proxy, arbitrary bind host, or full API route.
 
 ## Safe workspace external open
 

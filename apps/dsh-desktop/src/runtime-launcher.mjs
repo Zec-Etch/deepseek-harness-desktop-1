@@ -24,6 +24,7 @@ import {
   RUNTIME_PIPE_READY_LINE,
   RUNTIME_PIPE_TOKEN_ENV,
 } from './runtime-pipe.mjs'
+import { mergeDesktopPipeCookies } from './runtime-cookie.mjs'
 import { consumeRuntimeShutdownControl, listenRuntimeShutdownControl } from './runtime-shutdown-control.mjs'
 import { createRuntimeEventStreamDrain } from './runtime-stream-drain.mjs'
 import { createRuntimeStartupTiming } from './runtime-startup-timing.mjs'
@@ -92,7 +93,9 @@ function createDesktopPipeFetch(ctx) {
   }
   return async (sourceRequest) => {
     const headers = new Headers(sourceRequest.headers)
-    headers.set('cookie', await sessionCookie())
+    const sourceCookie = headers.get('cookie')
+    const browserCookie = await sessionCookie()
+    headers.set('cookie', mergeDesktopPipeCookies(browserCookie, sourceCookie))
     const request = new Request(sourceRequest, { headers })
     const url = new URL(request.url)
     const route = ctx.webServer.match(url.pathname)

@@ -53,7 +53,7 @@ try {
     const intro = page.getByRole('dialog').filter({ hasText: /内测声明|插件、技能和桌面核心功能在这里/u })
     const proceed = intro.getByRole('button', { name: /^(继续|Continue)$/u }).last()
     if (await proceed.isVisible().catch(() => false) && await proceed.isEnabled().catch(() => false)) {
-      await proceed.click({ timeout: 1_000 }).catch(async error => {
+      await proceed.click({ force: true, timeout: 1_000 }).catch(async error => {
         if (await proceed.isVisible().catch(() => false)) throw error
       })
     }

@@ -172,7 +172,10 @@
       "id": "remote-web-ui",
       "features": [
         "pending-send-preserves-new-draft",
-        "ime-composition-enter-guard"
+        "ime-composition-enter-guard",
+        "desktop-owned-exact-interface-lan-gateway",
+        "mobile-page-direct-pair-bootstrap",
+        "paired-mobile-api-only-lan-allowlist"
       ],
       "package": "@linxin666/dsh-remote-web-ui",
       "path": "packages/dsh-remote-web-ui",
@@ -598,7 +601,14 @@
     {
       "id": "remote-settings-card",
       "name": "远程移动控制与配对安全卡片",
-      "e2eScript": "scripts/verify-packaged-remote-lan.mjs"
+      "e2eScript": "scripts/verify-packaged-local-lan-gateway.mjs",
+      "features": [
+        "explicit-native-opt-in-before-lan-listen",
+        "exact-private-ipv4-bind-never-all-interfaces",
+        "authenticated-pipe-runtime-remains-default",
+        "full-api-and-local-admin-routes-denied",
+        "persistent-disable-and-clean-listener-stop"
+      ]
     },
     {
       "id": "skin-center",

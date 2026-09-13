@@ -208,6 +208,12 @@ Task Board v3 behavior is documented in [Task Board v3](task-board-v3.md), [Git 
 
 The public SDK boundary, SemVer policy, normal-Web fallback, and bounded workspace-file external-open capability are specified in [Desktop Client SDK](desktop-client-sdk.md). Extension Dock and extension preloads do not receive the workspace-file capability.
 
+## Local LAN mobile access
+
+Desktop 4 keeps the official Runtime on its authenticated operating-system pipe. In the mobile remote-control panel, choose a listed private IPv4 address and enable local LAN access. After the native warning is accepted, Desktop listens only on that exact address and the displayed high port; it never asks the official Runtime to bind `0.0.0.0`. The QR opens the standalone `/m` phone page, consumes a one-time pairing token, and uses only device-authorized `/m/api` operations.
+
+Use this only on a trusted private network. HTTP protects neither the local radio link nor a hostile shared network, so pairing tokens remain short-lived and single-use. Windows Firewall may ask whether to allow the application on Private networks; Public-network access should remain denied. If the selected adapter disappears or its address changes, reopen the panel and select a currently listed address. Disable local LAN access from the same panel when it is no longer needed; Desktop closes the listener during normal shutdown as well.
+
 ## Build from source
 
 ```powershell

@@ -9,6 +9,7 @@ import {
   normalizeToolAction,
   normalizeWindowChromeTheme,
   publicBackgroundStatus,
+  publicLanGatewayStatus,
   publicRepairStatus,
   publicRuntimeStatus,
   publicUpdateChannel,
@@ -230,7 +231,7 @@ test('startup IPC serves only the first page read-only contract until full regis
       'desktop:window-chrome-theme',
     ])
     assert.deepEqual(await handlers.get('desktop:contract')({ sender }), {
-      apiVersion: '1.4.0',
+      apiVersion: '1.5.0',
       surface: 'main',
       capabilities: ['updates.read'],
     })
@@ -362,6 +363,66 @@ test('desktop repair status degrades to unavailable when the incident store cann
   })
   try {
     assert.deepEqual(await handlers.get('desktop:repair-status')({ sender }), { available: false })
+  } finally {
+    unregister()
+  }
+})
+
+test('LAN gateway IPC is main-only and returns a bounded network projection', async () => {
+  assert.deepEqual(publicLanGatewayStatus({
+    state: 'running',
+    enabled: true,
+    address: '192.168.1.8',
+    port: 43126,
+    availableAddresses: ['192.168.1.8', '8.8.8.8', '192.168.1.8'],
+    url: 'http://192.168.1.8:43126',
+    secret: 'PRIVATE',
+  }), {
+    state: 'running',
+    enabled: true,
+    address: '192.168.1.8',
+    port: 43126,
+    availableAddresses: ['192.168.1.8'],
+    url: 'http://192.168.1.8:43126',
+  })
+
+  const handlers = new Map()
+  const ipcMain = {
+    handle: (channel, handler) => handlers.set(channel, handler),
+    removeHandler: channel => handlers.delete(channel),
+  }
+  const mainSender = {}
+  const extensionSender = {}
+  const surfaceRegistry = new DesktopSurfaceRegistry()
+  surfaceRegistry.register(mainSender, 'main')
+  surfaceRegistry.register(extensionSender, 'extensions')
+  const controller = new EventEmitter()
+  controller.status = { state: 'ready' }
+  const requests = []
+  const unregister = registerDesktopIpc({
+    ipcMain,
+    surfaceRegistry,
+    controller,
+    getLanGatewayStatus: () => ({ state: 'stopped', enabled: false, port: 43126, availableAddresses: ['10.0.0.2'] }),
+    configureLanGateway: async request => {
+      requests.push(request)
+      return { state: 'running', enabled: true, address: '10.0.0.2', port: 43126, availableAddresses: ['10.0.0.2'], url: 'http://10.0.0.2:43126' }
+    },
+  })
+  try {
+    assert.deepEqual(await handlers.get('desktop:lan-gateway-status-get')({ sender: mainSender }), {
+      state: 'stopped', enabled: false, port: 43126, availableAddresses: ['10.0.0.2'],
+    })
+    assert.deepEqual(await handlers.get('desktop:lan-gateway-configure')({ sender: mainSender }, {
+      enabled: true, address: '10.0.0.2', port: 43126,
+    }), {
+      state: 'running', enabled: true, address: '10.0.0.2', port: 43126, availableAddresses: ['10.0.0.2'], url: 'http://10.0.0.2:43126',
+    })
+    assert.deepEqual(requests, [{ enabled: true, address: '10.0.0.2', port: 43126 }])
+    await assert.rejects(
+      handlers.get('desktop:lan-gateway-status-get')({ sender: extensionSender }),
+      /surface|capability|allowed/iu,
+    )
   } finally {
     unregister()
   }

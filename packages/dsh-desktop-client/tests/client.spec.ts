@@ -9,7 +9,7 @@ import {
 
 describe('Desktop Client SDK v1', () => {
   it('advertises the additive Dock API release', () => {
-    expect(DESKTOP_CLIENT_API_VERSION).toBe('1.1.0')
+    expect(DESKTOP_CLIENT_API_VERSION).toBe('1.2.0')
   })
 
   it('is a quiet unavailable facade in ordinary DSH web', async () => {
@@ -22,6 +22,7 @@ describe('Desktop Client SDK v1', () => {
     expect(await client.getDockEntryState()).toEqual({ available: false, reason: 'unavailable' })
     expect(await client.dismissDockNudge('close')).toBe(false)
     expect(await client.openWorkspaceFile({ root: '/workspace', path: 'README.md' })).toEqual({ available: false, reason: 'unavailable' })
+    expect(await client.getLocalLanGatewayStatus()).toEqual({ available: false, reason: 'unavailable' })
     expect(client.subscribeRuntimeStatus(() => {})).not.toThrow()
   })
 
@@ -30,7 +31,7 @@ describe('Desktop Client SDK v1', () => {
     const onDeepLink = vi.fn()
     const bridge = {
       getInfo: vi.fn(async () => ({ appId: 'desktop', productName: 'Desktop', version: '2.7.0', platform: 'win32' })),
-      getContract: vi.fn(async () => ({ apiVersion: '1.4.0', surface: 'main', capabilities: ['notifications.show', 'workspace-files.open', 'extensions.open', 'updates.read'] })),
+      getContract: vi.fn(async () => ({ apiVersion: '1.5.0', surface: 'main', capabilities: ['notifications.show', 'workspace-files.open', 'extensions.open', 'updates.read', 'lan-gateway.manage'] })),
       getStatus: vi.fn(async () => ({
         state: 'ready',
         restartAttempt: 0,
@@ -45,6 +46,8 @@ describe('Desktop Client SDK v1', () => {
       openExtensionDock: vi.fn(async () => ({ opened: true })),
       helpAction: vi.fn(async () => true),
       openWorkspaceFile: vi.fn(async () => ({ opened: true })),
+      getLanGatewayStatus: vi.fn(async () => ({ state: 'stopped', enabled: false, port: 43126, availableAddresses: ['192.168.1.8'] })),
+      configureLanGateway: vi.fn(async request => ({ state: request.enabled ? 'running' : 'stopped', enabled: request.enabled, address: request.address, port: request.port, availableAddresses: ['192.168.1.8'], ...(request.enabled ? { url: `http://${request.address}:${String(request.port)}` } : {}) })),
     }
     const client = createDesktopClient({ globalObject: { dshDesktop: bridge } })
     expect(await client.getDesktopInfo()).toMatchObject({ version: '2.7.0' })
@@ -65,6 +68,10 @@ describe('Desktop Client SDK v1', () => {
     expect(await client.openDesktopSurface('updates')).toBe(true)
     expect(await client.openWorkspaceFile({ root: 'C:/work', path: 'src/main.ts' })).toEqual({ opened: true })
     expect(bridge.openWorkspaceFile).toHaveBeenCalledWith({ root: 'C:/work', path: 'src/main.ts' })
+    expect(await client.getLocalLanGatewayStatus()).toEqual({ state: 'stopped', enabled: false, port: 43126, availableAddresses: ['192.168.1.8'] })
+    expect(await client.configureLocalLanGateway({ enabled: true, address: '192.168.1.8', port: 43126 })).toEqual({
+      state: 'running', enabled: true, address: '192.168.1.8', port: 43126, availableAddresses: ['192.168.1.8'], url: 'http://192.168.1.8:43126',
+    })
     expect(bridge.openExtensionDock).toHaveBeenCalledTimes(1)
     expect(bridge.dismissDockNudge).toHaveBeenCalledWith('escape')
     expect('bridge' in client).toBe(false)

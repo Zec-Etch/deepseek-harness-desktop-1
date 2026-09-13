@@ -24,6 +24,13 @@ import {
 import { promptForDownloadDestination } from './download-destination.mjs'
 import { DockNudgeStore } from './dock-nudge-state.mjs'
 import { BoundedLogStore } from './log-store.mjs'
+import {
+  DESKTOP_LAN_GATEWAY_BASE_ENV,
+  DesktopLanGateway,
+  DesktopLanGatewayStore,
+  desktopLanGatewayBaseUrl,
+  validateDesktopLanGatewayBaseUrl,
+} from './local-lan-gateway.mjs'
 import { createDesktopIngress, registerDesktopProtocolClient } from './desktop-ingress.mjs'
 import { CommunityHomeMigration } from './community-home-migration.mjs'
 import { createRuntimePresentationGuard } from './runtime-presentation.mjs'
@@ -216,11 +223,13 @@ export function desktopRuntimeEnvironmentFor({
   qqBotCredentials,
   backgroundAutomation = false,
   fullUser = false,
+  lanGatewayBaseUrl,
 } = {}) {
   if (typeof fullUser !== 'boolean') {
     throw new TypeError('fullUser must be a boolean')
   }
   const normalizedCredentialEnvironment = validateLegacyCredentialEnvironment(credentialEnvironment)
+  const normalizedLanGatewayBaseUrl = validateDesktopLanGatewayBaseUrl(lanGatewayBaseUrl, { requireAvailable: false })
   if (proxyEnvironment === null || typeof proxyEnvironment !== 'object' || Array.isArray(proxyEnvironment)) {
     throw new TypeError('proxy environment must be an object')
   }
@@ -236,6 +245,9 @@ export function desktopRuntimeEnvironmentFor({
       ? { QQBOT_APPID: qqBotCredentials.appId, QQBOT_SECRET: qqBotCredentials.appSecret }
       : { QQBOT_APPID: '', QQBOT_SECRET: '' }),
     DSH_DESKTOP_BACKGROUND_AUTOMATION: backgroundAutomation ? '1' : '0',
+    // Always override ambient input. Only the Desktop-owned validated state
+    // can advertise an exact private LAN gateway to the Runtime plugin.
+    [DESKTOP_LAN_GATEWAY_BASE_ENV]: normalizedLanGatewayBaseUrl ?? '',
     // Do not inherit an ambient DSH_PERMISSION_MODE from the Desktop process.
     // The persistent primary Runtime receives full-user access only after its
     // Desktop-owned native authorization has been established.
@@ -703,6 +715,10 @@ export async function startElectronApp(metadata) {
   const desktopPreferencesPath = join(userData, 'desktop-preferences.json')
   const updateChannelPreferencesPath = join(userData, 'update-channel-preferences.json')
   const settingsWindowStatePath = join(userData, 'settings-window-state.json')
+  const lanGatewayStatePath = join(userData, 'lan-gateway-state.json')
+  const lanGatewayStore = new DesktopLanGatewayStore(lanGatewayStatePath)
+  const initialLanGatewayConfig = await lanGatewayStore.load()
+  let lanGateway
   let legacyCredentialEnvironment = Object.freeze({})
   try {
     const legacyCompatibility = await readLegacyCredentialCompatibility({
@@ -1255,6 +1271,7 @@ export async function startElectronApp(metadata) {
     qqBotCredentials,
     backgroundAutomation: true,
     fullUser: true,
+    lanGatewayBaseUrl: lanGateway?.baseUrl ?? desktopLanGatewayBaseUrl(initialLanGatewayConfig),
   })
   const projectRoot = runtimeWorkspace(app)
   const runtimeBin = await ensurePnpmCommandShim({
@@ -1573,6 +1590,17 @@ export async function startElectronApp(metadata) {
   runtimeProvider = new ActiveRuntimeProvider({
     providers: [fullRuntimeProvider, builtinsRuntimeProvider],
     activeProfileName: 'desktop',
+  })
+  lanGateway = new DesktopLanGateway({
+    store: lanGatewayStore,
+    initialConfig: initialLanGatewayConfig,
+    getProvider: () => runtimeProvider,
+    log: message => logStore.append(message),
+  })
+  await lanGateway.start()
+  const removeLanGatewayStatusListener = lanGateway.onStatus((status) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    try { mainWindow.webContents.send('desktop:lan-gateway-status', status) } catch {}
   })
   const runtimeProtocolLifecycle = await installDesktopRuntimeProtocol({
     protocol: mainWindow.webContents.session.protocol,
@@ -1933,6 +1961,36 @@ export async function startElectronApp(metadata) {
         : { reason: repairAvailabilityReason, canRetry: true }
     },
     retryRepair: () => repairRetry(),
+    getLanGatewayStatus: () => lanGateway.status,
+    configureLanGateway: async (request) => {
+      const enabling = request?.enabled === true && lanGateway.status.enabled !== true
+      if (enabling) {
+        const confirmation = await dialog.showMessageBox(mainWindow, {
+          type: 'warning',
+          title: '开启本地局域网访问',
+          message: '同一局域网内的设备将能访问移动端配对入口。',
+          detail: '桌面版只开放移动页面、配对接受、心跳和受设备授权的移动 API；完整 API、文件系统和桌面特权接口仍然拒绝。请只在可信网络中开启。',
+          buttons: ['开启局域网访问', '取消'],
+          defaultId: 1,
+          cancelId: 1,
+          noLink: true,
+        })
+        if (confirmation.response !== 0) return lanGateway.status
+      }
+      const before = lanGateway.status
+      const status = await lanGateway.configure(request)
+      const changed = before.enabled !== status.enabled
+        || before.address !== status.address
+        || before.port !== status.port
+      if (changed && (status.state === 'running' || status.enabled === false)) {
+        setImmediate(() => {
+          void runtimeProvider.recover().catch(error => logStore.append(
+            `[lan-gateway] Runtime reload failed: ${error instanceof Error ? error.name : 'unknown'}`,
+          ))
+        })
+      }
+      return status
+    },
     getUpdateChannel: () => updateController?.getChannel?.() ?? updateChannel,
     setUpdateChannel: persistUpdateChannel,
     confirmUpdateChannelChange: async ({ from, to }) => {
@@ -2641,6 +2699,7 @@ export async function startElectronApp(metadata) {
 
   const shutdownLifecycle = createDesktopShutdownLifecycle({
     prepareStop: async () => {
+      await lanGateway.stop()
       runtimeProtocolLifecycle.quiesce()
       await unregisterRuntimeStreamIpc.quiesce()
       await unregisterExtensionIpc.quiesce()
@@ -2670,6 +2729,10 @@ export async function startElectronApp(metadata) {
         () => trayLifecycle?.dispose(),
         () => pluginRecovery.dispose(),
         () => qqBotBinding.dispose(),
+        () => {
+          removeLanGatewayStatusListener()
+          return lanGateway.dispose()
+        },
         unregisterRuntimeStreamIpc,
       ]
       for (const dispose of disposers) {

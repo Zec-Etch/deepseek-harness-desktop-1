@@ -314,7 +314,10 @@ export function makeRoutes(deps: PairRoutesDeps): WebRoute[] {
       const workspaceQuery = workspaceId === undefined ? '' : `&workspace=${encodeURIComponent(workspaceId)}`
       writeJson(res, 200, {
         ok: true,
-        url: `${base}/?pair=${token}${workspaceQuery}`,
+        // Pair directly on the standalone mobile surface. This keeps a
+        // Desktop-owned LAN gateway narrow: it never needs to expose the
+        // full Harness renderer just to establish the device cookie.
+        url: `${base}/m?pair=${token}${workspaceQuery}`,
         token,
         expiresAt,
         // Every constructible base, so a multi-homed panel can switch the

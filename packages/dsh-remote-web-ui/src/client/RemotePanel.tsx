@@ -10,6 +10,7 @@ import {
   IconCloseOutline16, IconCopyOutline16, IconLinkOutline16, IconRefreshOutline16, IconStopFill16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import type { DesktopAvailability, LocalLanGatewayStatus } from '@linxin666/dsh-desktop-client'
 import type { PairingPhase } from '../pairing.ts'
 import { formatClock, type TunnelStatusFrame } from './pair-api.ts'
 import css from './remote.module.css'
@@ -52,6 +53,12 @@ export interface RemotePanelProps {
   onPickAddress(address: string): void
   /** Re-mint the QR against the configured public (tunneled) base. */
   onPickPublic(): void
+  lanGateway?: LocalLanGatewayStatus | DesktopAvailability
+  lanGatewayBusy?: boolean
+  selectedLanAddress?: string
+  onSelectLanAddress?(address: string): void
+  onEnableLan?(): void
+  onDisableLan?(): void
 }
 
 /** Badge text + tone per phase (ready states only). */
@@ -73,7 +80,24 @@ function statusOf(
  * @param props - copy, state, and actions.
  * @returns the panel element tree.
  */
-export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCopy, onPickAddress, onPickPublic }: RemotePanelProps) {
+export function RemotePanel({
+  t,
+  state,
+  copied,
+  onClose,
+  onStop,
+  onRefresh,
+  onCopy,
+  onPickAddress,
+  onPickPublic,
+  lanGateway,
+  lanGatewayBusy = false,
+  selectedLanAddress,
+  onSelectLanAddress = () => {},
+  onEnableLan = () => {},
+  onDisableLan = () => {},
+}: RemotePanelProps) {
+  const localGateway = lanGateway !== undefined && !('available' in lanGateway) ? lanGateway : undefined
   return (
     <div className={css.panel} role="dialog" aria-modal="true" aria-label={t('title')}>
       <div className={css.header}>
@@ -90,6 +114,24 @@ export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCo
         <div className={css.banner} role="alert">
           <p className={css.bannerTitle}>{t('status.lanRequired')}</p>
           <p className={css.bannerHint}>{t('status.lanRequiredHint')}</p>
+          {localGateway !== undefined && localGateway.availableAddresses.length > 0 ? (
+            <div className={css.lanSetup}>
+              <label className={css.lanSetupLabel} htmlFor="dsh-local-lan-address">{t('lan.address')}</label>
+              <select
+                id="dsh-local-lan-address"
+                className={css.lanSelect}
+                value={selectedLanAddress ?? localGateway.availableAddresses[0]}
+                disabled={lanGatewayBusy}
+                onChange={event => { onSelectLanAddress(event.target.value) }}
+              >
+                {localGateway.availableAddresses.map(address => <option key={address} value={address}>{address}</option>)}
+              </select>
+              <button type="button" className={css.action} disabled={lanGatewayBusy} onClick={onEnableLan}>
+                {t(lanGatewayBusy ? 'lan.enabling' : 'lan.enable')}
+              </button>
+              <p className={css.addressHint}>{t('lan.enableHint')}</p>
+            </div>
+          ) : localGateway !== undefined ? <p className={css.tunnelFailed}>{t('lan.noAddress')}</p> : null}
         </div>
       ) : state.kind === 'loopback-required' ? (
         <div className={css.banner} role="alert">
@@ -178,6 +220,11 @@ export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCo
               {copied ? <IconCopyOutline16 size={14} /> : <IconLinkOutline16 size={14} />}
               {copied ? t('action.copied') : t('action.copy')}
             </button>
+            {localGateway?.enabled === true && (
+              <button type="button" className={css.action} disabled={lanGatewayBusy} onClick={onDisableLan}>
+                {t(lanGatewayBusy ? 'lan.disabling' : 'lan.disable')}
+              </button>
+            )}
           </div>
         </>
       )}

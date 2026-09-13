@@ -149,6 +149,7 @@ const CORE_SUITES = [
       'test/runtime-startup-timing.test.mjs',
       'test/runtime-shutdown-control.test.mjs',
       'test/runtime-stream-drain.test.mjs',
+      'test/local-lan-gateway.test.mjs',
       'test/window-state.test.mjs',
       'test/window-chrome.test.mjs',
       'test/settings-window.test.mjs',
@@ -198,6 +199,11 @@ const PACKAGED_SUITES = [
   {
     name: 'Packaged Model Preferences Card',
     script: 'scripts/verify-packaged-model-preferences.mjs',
+    args: [],
+  },
+  {
+    name: 'Packaged Local LAN Gateway over Authenticated Pipe',
+    script: 'scripts/verify-packaged-local-lan-gateway.mjs',
     args: [],
   },
   {

@@ -9,9 +9,9 @@ import {
 } from '../src/desktop-contract.mjs'
 
 test('Desktop Contract v1 capability snapshots stay exact', () => {
-  assert.equal(DESKTOP_API_VERSION, '1.4.0')
+  assert.equal(DESKTOP_API_VERSION, '1.5.0')
   assert.deepEqual(desktopContractForSurface('main'), {
-    apiVersion: '1.4.0',
+    apiVersion: '1.5.0',
     surface: 'main',
     capabilities: [
       'runtime.read',
@@ -24,10 +24,11 @@ test('Desktop Contract v1 capability snapshots stay exact', () => {
       'notifications.show',
       'deep-links.subscribe',
       'workspace-files.open',
+      'lan-gateway.manage',
     ],
   })
   assert.deepEqual(desktopContractForSurface('extensions'), {
-    apiVersion: '1.4.0',
+    apiVersion: '1.5.0',
     surface: 'extensions',
     capabilities: [
       'runtime.read',
@@ -37,7 +38,7 @@ test('Desktop Contract v1 capability snapshots stay exact', () => {
     ],
   })
   assert.deepEqual(desktopContractForSurface('community'), {
-    apiVersion: '1.4.0',
+    apiVersion: '1.5.0',
     surface: 'community',
     capabilities: [],
   })

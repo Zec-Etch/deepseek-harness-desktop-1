@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-desktop",
-  "version": "4.0.0-rc.1",
+  "version": "4.0.0-rc.2",
   "private": true,
   "description": "Lossless desktop shell for DeepSeek Harness and the complete dsh-web-ui plugin collection",
   "author": "DeepSeek Harness Desktop contributors",
@@ -39,6 +39,7 @@
     "test:preset-deep-link:e2e": "node scripts/verify-preset-deep-link.mjs",
     "test:runtime-provider:e2e": "node scripts/verify-runtime-provider.mjs",
     "test:runtime-pipe:e2e": "node scripts/verify-runtime-pipe.mjs",
+    "test:local-lan-gateway:e2e": "node scripts/verify-packaged-local-lan-gateway.mjs",
     "test:proxy-routing:e2e": "node scripts/verify-proxy-routing.mjs",
     "test:plugin-proxy:e2e": "node scripts/verify-plugin-proxy-routing.mjs",
     "test:discovery-surfaces:e2e": "node scripts/verify-discovery-surfaces.mjs",

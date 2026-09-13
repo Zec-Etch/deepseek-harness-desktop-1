@@ -4,7 +4,7 @@
  * never exports the preload object, Electron, filesystems, or DSH internals.
  */
 
-export const DESKTOP_CLIENT_API_VERSION = '1.1.0'
+export const DESKTOP_CLIENT_API_VERSION = '1.2.0'
 
 export type DesktopSurface = 'extensions' | 'updates'
 export type DesktopAvailability = { available: false; reason: 'unavailable' }
@@ -56,6 +56,17 @@ export type DesktopNotificationRequest = {
 export type DesktopNotificationResult = { shown: boolean; reason?: string } | DesktopAvailability
 export type WorkspaceFileOpenRequest = { root: string; path: string }
 export type WorkspaceFileOpenResult = { opened: boolean; reason?: string } | DesktopAvailability
+export type LocalLanGatewayState = 'stopped' | 'starting' | 'running' | 'error'
+export type LocalLanGatewayStatus = {
+  state: LocalLanGatewayState
+  enabled: boolean
+  address?: string
+  port: number
+  availableAddresses: readonly string[]
+  url?: string
+  errorCode?: 'no-private-address' | 'address-unavailable' | 'port-in-use' | 'permission-denied' | 'start-failed'
+}
+export type LocalLanGatewayRequest = { enabled: boolean; address?: string; port?: number }
 
 export class DesktopClientError extends Error {
   readonly code: 'desktop-invalid-argument' | 'desktop-operation-failed'
@@ -82,6 +93,9 @@ type Bridge = {
   helpAction?: (action: 'updates') => Promise<unknown>
   openWorkspaceFile?: (request: WorkspaceFileOpenRequest) => Promise<unknown>
   requestPluginInstall?: (source: string) => Promise<unknown>
+  getLanGatewayStatus?: () => Promise<unknown>
+  configureLanGateway?: (request: LocalLanGatewayRequest) => Promise<unknown>
+  onLanGatewayStatus?: (listener: (value: unknown) => void) => Unsubscribe
 }
 
 export type PluginInstallRequestResult = { accepted: boolean } | DesktopAvailability
@@ -105,6 +119,9 @@ export type DesktopClient = Readonly<{
    * installed by this call.
    */
   requestPluginInstall: (request: { source: string }) => Promise<PluginInstallRequestResult>
+  getLocalLanGatewayStatus: () => Promise<LocalLanGatewayStatus | DesktopAvailability>
+  configureLocalLanGateway: (request: LocalLanGatewayRequest) => Promise<LocalLanGatewayStatus | DesktopAvailability>
+  subscribeLocalLanGatewayStatus: (handler: (status: LocalLanGatewayStatus) => void) => Unsubscribe
 }>
 
 function unavailable(): DesktopAvailability {
@@ -190,6 +207,52 @@ function normalizeStatus(value: unknown): RuntimeStatus | undefined {
     }
   }
   return Object.freeze(output)
+}
+
+function privateIpv4(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{1,3}(?:\.\d{1,3}){3}$/u.test(value)) return false
+  const parts = value.split('.').map(Number)
+  if (parts.some(part => !Number.isInteger(part) || part < 0 || part > 255) || parts.join('.') !== value) return false
+  const [a, b] = parts
+  return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254)
+}
+
+function normalizeLocalLanGatewayStatus(value: unknown): LocalLanGatewayStatus | undefined {
+  const record = asRecord(value)
+  if (!record || !['stopped', 'starting', 'running', 'error'].includes(String(record.state))
+    || typeof record.enabled !== 'boolean' || !Number.isInteger(record.port)
+    || Number(record.port) < 1024 || Number(record.port) > 65_535 || !Array.isArray(record.availableAddresses)) return undefined
+  const availableAddresses = [...new Set(record.availableAddresses.filter(privateIpv4))]
+  const address = privateIpv4(record.address) ? record.address : undefined
+  const state = record.state as LocalLanGatewayState
+  const url = state === 'running' && address !== undefined && record.url === `http://${address}:${String(record.port)}`
+    ? record.url
+    : undefined
+  const errorCodes = new Set(['no-private-address', 'address-unavailable', 'port-in-use', 'permission-denied', 'start-failed'])
+  return Object.freeze({
+    state,
+    enabled: record.enabled,
+    ...(address === undefined ? {} : { address }),
+    port: Number(record.port),
+    availableAddresses: Object.freeze(availableAddresses),
+    ...(url === undefined ? {} : { url }),
+    ...(errorCodes.has(String(record.errorCode)) ? { errorCode: record.errorCode as LocalLanGatewayStatus['errorCode'] } : {}),
+  })
+}
+
+function normalizeLocalLanGatewayRequest(value: LocalLanGatewayRequest): LocalLanGatewayRequest {
+  if (value === null || typeof value !== 'object' || Array.isArray(value) || typeof value.enabled !== 'boolean') {
+    throw new DesktopClientError('desktop-invalid-argument', 'LAN gateway request is invalid')
+  }
+  const address = value.address === undefined || value.address === '' ? undefined : value.address
+  if (address !== undefined && !privateIpv4(address)) {
+    throw new DesktopClientError('desktop-invalid-argument', 'LAN gateway address must be a private IPv4 literal')
+  }
+  const port = value.port === undefined ? undefined : Number(value.port)
+  if (port !== undefined && (!Number.isInteger(port) || port < 1024 || port > 65_535)) {
+    throw new DesktopClientError('desktop-invalid-argument', 'LAN gateway port is invalid')
+  }
+  return Object.freeze({ enabled: value.enabled, ...(address === undefined ? {} : { address }), ...(port === undefined ? {} : { port }) })
 }
 
 function requireNonEmptyString(value: unknown, label: string): string {
@@ -317,6 +380,24 @@ export function createDesktopClient({ globalObject = globalThis }: { globalObjec
       if (!result || typeof result.accepted !== 'boolean') return unavailable()
       return Object.freeze({ accepted: result.accepted })
     },
+    async getLocalLanGatewayStatus() {
+      if (typeof bridge?.getLanGatewayStatus !== 'function') return unavailable()
+      if (!await hasBridgeCapability('lan-gateway.manage')) return unavailable()
+      return normalizeLocalLanGatewayStatus(await bridge.getLanGatewayStatus()) ?? unavailable()
+    },
+    async configureLocalLanGateway(request) {
+      const normalizedRequest = normalizeLocalLanGatewayRequest(request)
+      if (typeof bridge?.configureLanGateway !== 'function') return unavailable()
+      if (!await hasBridgeCapability('lan-gateway.manage')) return unavailable()
+      return normalizeLocalLanGatewayStatus(await bridge.configureLanGateway(normalizedRequest)) ?? unavailable()
+    },
+    subscribeLocalLanGatewayStatus(handler) {
+      if (typeof handler !== 'function' || typeof bridge?.onLanGatewayStatus !== 'function') return () => {}
+      return bridge.onLanGatewayStatus((value) => {
+        const status = normalizeLocalLanGatewayStatus(value)
+        if (status !== undefined) handler(status)
+      })
+    },
   })
 }
 
@@ -334,6 +415,9 @@ export const getDockEntryState = defaultClient.getDockEntryState
 export const dismissDockNudge = defaultClient.dismissDockNudge
 export const openWorkspaceFile = defaultClient.openWorkspaceFile
 export const requestPluginInstall = defaultClient.requestPluginInstall
+export const getLocalLanGatewayStatus = defaultClient.getLocalLanGatewayStatus
+export const configureLocalLanGateway = defaultClient.configureLocalLanGateway
+export const subscribeLocalLanGatewayStatus = defaultClient.subscribeLocalLanGatewayStatus
 
 export function taskDeepLink(taskId: string): string {
   return `dsh://task/${requireSafeDeepLinkId(taskId, 'task id')}`

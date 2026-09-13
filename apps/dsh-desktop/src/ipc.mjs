@@ -15,6 +15,7 @@ import { openWorkspaceFile } from './workspace-files.mjs'
 import { normalizeValueModeProductEvent } from './value-mode-telemetry.mjs'
 import { normalizeFeatureEvent } from './feature-telemetry.mjs'
 import { normalizeWindowPalette } from './window-palette.mjs'
+import { DESKTOP_LAN_GATEWAY_STATES, isPrivateLanIpv4 } from './local-lan-gateway.mjs'
 
 // 'launch-builtins' was accepted here through 3.0.x. It had no implementation
 // and no caller, so it fell through to the exit branch below - sending it quit
@@ -389,6 +390,29 @@ export function publicRepairStatus(value) {
   })
 }
 
+/** Narrow clone-safe projection of the optional Desktop-owned LAN listener. */
+export function publicLanGatewayStatus(value) {
+  const state = DESKTOP_LAN_GATEWAY_STATES.includes(value?.state) ? value.state : 'stopped'
+  const port = Number.isInteger(value?.port) && value.port >= 1024 && value.port <= 65_535 ? value.port : 43126
+  const availableAddresses = Array.isArray(value?.availableAddresses)
+    ? [...new Set(value.availableAddresses.filter(isPrivateLanIpv4))].slice(0, 16)
+    : []
+  const address = isPrivateLanIpv4(value?.address) ? value.address : undefined
+  const validUrl = state === 'running' && address !== undefined && value?.url === `http://${address}:${String(port)}`
+    ? value.url
+    : undefined
+  const errorCodes = new Set(['no-private-address', 'address-unavailable', 'port-in-use', 'permission-denied', 'start-failed'])
+  return Object.freeze({
+    state,
+    enabled: value?.enabled === true,
+    ...(address === undefined ? {} : { address }),
+    port,
+    availableAddresses: Object.freeze(availableAddresses),
+    ...(validUrl === undefined ? {} : { url: validUrl }),
+    ...(errorCodes.has(value?.errorCode) ? { errorCode: value.errorCode } : {}),
+  })
+}
+
 /** A small, clone-safe projection of the persisted update channel policy. */
 export function publicUpdateChannel(value) {
   return Object.freeze({
@@ -428,6 +452,8 @@ export function registerDesktopIpc({
   getUpdateController,
   getRepairStatus = async () => undefined,
   retryRepair = async () => ({ accepted: false }),
+  getLanGatewayStatus = () => undefined,
+  configureLanGateway = async () => undefined,
   getUpdateChannel = () => 'stable',
   setUpdateChannel = async () => { throw new Error('update channel selection is unavailable') },
   confirmUpdateChannelChange = async () => true,
@@ -488,6 +514,8 @@ export function registerDesktopIpc({
     'desktop:update-status',
     'desktop:repair-status',
     'desktop:repair-retry',
+    'desktop:lan-gateway-status-get',
+    'desktop:lan-gateway-configure',
     'desktop:update-channel-get',
     'desktop:update-channel-set',
     'desktop:update-check',
@@ -645,6 +673,10 @@ export function registerDesktopIpc({
   handle('desktop:value-mode-event', main, (_event, _surface, rawEvent) => {
     const event = normalizeValueModeProductEvent(rawEvent)
     return recordValueModeEvent(event)
+  })
+  handle('desktop:lan-gateway-status-get', main, () => publicLanGatewayStatus(getLanGatewayStatus()))
+  handle('desktop:lan-gateway-configure', main, async (_event, _surface, request) => {
+    return publicLanGatewayStatus(await configureLanGateway(request))
   })
   handle('desktop:feature-event', main, (_event, _surface, rawEvent) => {
     return recordFeatureEvent(normalizeFeatureEvent(rawEvent))

@@ -328,6 +328,41 @@
   font-size: 13px;
 }
 
+.lanSetup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.lanSetupLabel {
+  grid-column: 1 / -1;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+}
+
+.lanSelect {
+  min-width: 0;
+  height: 34px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+}
+
+.lanSelect:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 1px;
+}
+
+.lanSetup .addressHint {
+  grid-column: 1 / -1;
+  margin-top: 0;
+}
+
 /* Failed-pair toast: fixed top-center diagnostic on the phone. */
 .notice {
   position: fixed;

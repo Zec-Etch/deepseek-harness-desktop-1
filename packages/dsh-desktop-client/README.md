@@ -11,6 +11,7 @@ English | [中文](README.zh.md)
 - Shows Desktop notifications and opens the Extensions or Updates surface when available.
 - Exposes the narrow `extensions.open` surface plus the bounded first-three-launch Dock hint state; it never grants extension management authority to the main page.
 - Opens a workspace-relative file through the Desktop validator and the platform default application.
+- Reads, configures, and subscribes to the opt-in local LAN gateway through the `lan-gateway.manage` capability.
 
 ## Install
 
@@ -25,10 +26,13 @@ No configuration or Desktop-only import is required.
 ```ts
 import {
   getDockEntryState,
+  getLocalLanGatewayStatus,
   hasCapability,
   openDesktopSurface,
   openWorkspaceFile,
   showNotification,
+  configureLocalLanGateway,
+  subscribeLocalLanGatewayStatus,
   subscribeDeepLinks,
   taskDeepLink,
 } from '@linxin666/dsh-desktop-client'
@@ -37,6 +41,18 @@ const dock = await getDockEntryState()
 if (dock.available) {
   await openDesktopSurface('extensions')
 }
+
+const gateway = await getLocalLanGatewayStatus()
+if (gateway.available && gateway.value?.addresses[0]) {
+  await configureLocalLanGateway({
+    enabled: true,
+    host: gateway.value.addresses[0].address,
+  })
+}
+
+const disposeGateway = subscribeLocalLanGatewayStatus((status) => {
+  console.info('Local LAN gateway', status)
+})
 
 if (await hasCapability('notifications.show')) {
   await showNotification({
@@ -59,7 +75,7 @@ dispose()
 
 ## Security model
 
-The SDK never exposes the preload object, Electron, arbitrary IPC, filesystem access, Shell access, plugin mutation, credentials, private keys, Tokens, or DSH runtime objects. Opening Extension Dock requires only `extensions.open`; install, update, removal, and trust operations remain unavailable to the main surface. The optional workspace-file helper accepts an explicitly supplied registered workspace root plus a relative path. Desktop resolves the root through its workspace registry, revalidates the final canonical file, and only then hands it to the operating system.
+The SDK never exposes the preload object, Electron, arbitrary IPC, filesystem access, Shell access, plugin mutation, credentials, private keys, Tokens, or DSH runtime objects. Opening Extension Dock requires only `extensions.open`; install, update, removal, and trust operations remain unavailable to the main surface. The optional workspace-file helper accepts an explicitly supplied registered workspace root plus a relative path. Desktop resolves the root through its workspace registry, revalidates the final canonical file, and only then hands it to the operating system. The LAN gateway is disabled by default, binds one selected private IPv4 address rather than all interfaces, and exposes only the mobile pairing and mobile API allowlist.
 
 ## Known limitations
 

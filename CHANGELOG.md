@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.0.0-rc.2
+
+- Added an explicit, fully local Desktop LAN gateway for phone access while keeping the official Runtime on the authenticated operating-system pipe. It binds one active private IPv4 address instead of `0.0.0.0`, exposes only the standalone mobile page, pair accept/heartbeat, and paired `/m/api`, and closes on disable or shutdown.
+- Added native first-enable confirmation, persistent address selection, renderer-safe Contract/SDK status, direct `/m` QR pairing, exact-interface packaged acceptance, and denial checks for full API, local-admin, and foreign-Origin requests.
+
 ## 3.5.0 - 2026-09-12
 
 中文：

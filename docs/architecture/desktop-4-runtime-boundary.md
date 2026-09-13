@@ -6,6 +6,8 @@ DeepSeek Harness Desktop 4 uses the official public `@deepseek-ai/*` npm package
 
 The default local topology has no TCP listener. Electron Main starts the official Host in a child process and connects through an authenticated operating-system pipe. The renderer uses the `dsh-runtime://app/` scheme and bounded Electron IPC; it never receives the pipe token. Remote Gateway remains a separate, explicit opt-in network surface with pairing and device-scoped authorization.
 
+Desktop can optionally create a local LAN gateway without changing the official Runtime listener. The user must approve a native warning before first enable. Electron Main binds one currently active private IPv4 address and a high port, never `0.0.0.0`, then forwards only `/m`, its bundle, pair accept/heartbeat, and paired `/m/api` traffic through `RuntimeProvider.fetch()` into the authenticated pipe. Full `/api`, local pairing administration, filesystem, Desktop IPC, and foreign-Origin requests are rejected. The selected address and enabled state persist locally; disabling or quitting closes active sockets and the listener.
+
 ## RuntimeProvider v2
 
 `DshRuntimeProvider` is the lifecycle and transport boundary. Its public operations cover probe, start, stop, recover, Fetch-compatible requests, observation streams, duplex streams, cancellation, and support evidence. `ActiveRuntimeProvider` fences operations by provider generation so a late response from a stopped or replaced Runtime cannot mutate the current UI.
@@ -30,7 +32,7 @@ Application rollback, plugin-environment rollback, data-format rollback, and res
 
 The Windows x64 native dependency contract is [native-dependency-inventory.json](./native-dependency-inventory.json). Production packaging verifies the actual unpacked dependency graph, native modules, bundled Git identity, exact Runtime graph, ASAR contents, updater metadata, checksums, and executable signature state.
 
-The 4.0.0-rc.1 candidate is intentionally not Stable. Its fixed Runtime graph uses the reviewed official 0.1.5-rc.2 family. An unsigned local installer is a test artifact and must be labeled unsigned; it is not evidence of publisher identity. Stable promotion remains blocked until the distribution package has a trusted signing and update-authenticity path and every Stable release gate has been rerun against that exact artifact.
+The 4.0.0-rc.2 candidate is intentionally not Stable. Its fixed Runtime graph uses the reviewed official 0.1.5-rc.2 family. An unsigned local installer is a test artifact and must be labeled unsigned; it is not evidence of publisher identity. Stable promotion remains blocked until the distribution package has a trusted signing and update-authenticity path and every Stable release gate has been rerun against that exact artifact.
 
 ## Acceptance evidence
 

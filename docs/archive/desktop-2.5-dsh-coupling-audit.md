@@ -1,10 +1,10 @@
 # Desktop 2.5 DSH coupling audit
 
-Authoritative Desktop version: 4.0.0-rc.1.
+Authoritative Desktop version: 4.0.0-rc.2.
 
 Stable DSH package version: 0.1.5-rc.2.
 
-Lockfile SHA-256: `83d3fcdb0fa783fcfefbad4f1c327884267cc64955d21b1ba4d6205a7403381c`.
+Lockfile SHA-256: `35ec70efa169b3ac467fb5abc39fa7932baf69c090cf8f9564e1c1823f546585`.
 
 Capability discovery is compatibility evidence only. Renderer surface identity, channel allowlists, and argument validation remain the authorization boundary.
 
@@ -595,6 +595,7 @@ Capability discovery is compatibility evidence only. Renderer surface identity, 
 | profile-home | apps/dsh-desktop/scripts/verify-native-plugin-pages.mjs | 30 | DSH_HOME |
 | profile-home | apps/dsh-desktop/scripts/verify-packaged-agent-work.mjs | 227 | DSH_HOME |
 | profile-home | apps/dsh-desktop/scripts/verify-packaged-image-drop.mjs | 410 | DSH_HOME |
+| profile-home | apps/dsh-desktop/scripts/verify-packaged-local-lan-gateway.mjs | 79 | DSH_HOME |
 | profile-home | apps/dsh-desktop/scripts/verify-packaged-model-preferences.mjs | 66 | DSH_HOME |
 | profile-home | apps/dsh-desktop/scripts/verify-packaged-orphaned-managed-link.mjs | 20 | profileDir |
 | profile-home | apps/dsh-desktop/scripts/verify-packaged-orphaned-managed-link.mjs | 21 | profileDir |
@@ -657,31 +658,31 @@ Capability discovery is compatibility evidence only. Renderer surface identity, 
 | profile-home | apps/dsh-desktop/src/automatic-repair-runner.mjs | 201 | profileDir |
 | profile-home | apps/dsh-desktop/src/automatic-repair-runner.mjs | 201 | profileDir |
 | profile-home | apps/dsh-desktop/src/conversation-import/ledger.mjs | 15 | DSH_HOME |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 95 | ensureDesktopProfile |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 96 | resolveDshCliPath |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 98 | resolveRuntimePackages |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 189 | runtimeHome |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 190 | DSH_HOME |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 613 | runtimeHome |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 614 | DSH_HOME |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1146 | profileDir |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1175 | resolveRuntimePackages |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1196 | ensureDesktopProfile |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1198 | profileDir |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1201 | profileDir |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1239 | ensureDesktopProfile |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1284 | resolveDshCliPath |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1369 | profileDir |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1404 | profileDir |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1405 | profileDir |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1411 | profileDir |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1459 | profileDir |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1464 | profileDir |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1656 | profileDir |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 2243 | ensureDesktopProfile |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 2275 | ensureDesktopProfile |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 2339 | profileDir |
-| profile-home | apps/dsh-desktop/src/electron-app.mjs | 2345 | profileDir |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 102 | ensureDesktopProfile |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 103 | resolveDshCliPath |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 105 | resolveRuntimePackages |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 196 | runtimeHome |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 197 | DSH_HOME |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 625 | runtimeHome |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 626 | DSH_HOME |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1162 | profileDir |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1191 | resolveRuntimePackages |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1212 | ensureDesktopProfile |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1214 | profileDir |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1217 | profileDir |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1255 | ensureDesktopProfile |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1301 | resolveDshCliPath |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1386 | profileDir |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1421 | profileDir |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1422 | profileDir |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1428 | profileDir |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1476 | profileDir |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1481 | profileDir |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 1684 | profileDir |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 2301 | ensureDesktopProfile |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 2333 | ensureDesktopProfile |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 2397 | profileDir |
+| profile-home | apps/dsh-desktop/src/electron-app.mjs | 2403 | profileDir |
 | profile-home | apps/dsh-desktop/src/extension-ipc.mjs | 74 | profileDir |
 | profile-home | apps/dsh-desktop/src/extension-ipc.mjs | 75 | profileDir |
 | profile-home | apps/dsh-desktop/src/extension-ipc.mjs | 76 | profileDir |
@@ -906,10 +907,10 @@ Capability discovery is compatibility evidence only. Renderer surface identity, 
 | profile-home | apps/dsh-desktop/src/runtime-graph-validator.mjs | 279 | profileDir |
 | profile-home | apps/dsh-desktop/src/runtime-integrity-audit.mjs | 22 | profileDir |
 | profile-home | apps/dsh-desktop/src/runtime-integrity-audit.mjs | 29 | profileDir |
-| profile-home | apps/dsh-desktop/src/runtime-launcher.mjs | 212 | DSH_HOME |
-| profile-home | apps/dsh-desktop/src/runtime-launcher.mjs | 213 | DSH_HOME |
-| profile-home | apps/dsh-desktop/src/runtime-launcher.mjs | 220 | profileDir |
-| profile-home | apps/dsh-desktop/src/runtime-launcher.mjs | 224 | profileDir |
+| profile-home | apps/dsh-desktop/src/runtime-launcher.mjs | 215 | DSH_HOME |
+| profile-home | apps/dsh-desktop/src/runtime-launcher.mjs | 216 | DSH_HOME |
+| profile-home | apps/dsh-desktop/src/runtime-launcher.mjs | 223 | profileDir |
+| profile-home | apps/dsh-desktop/src/runtime-launcher.mjs | 227 | profileDir |
 | profile-home | apps/dsh-desktop/src/runtime-provider.mjs | 224 | profileDir |
 | profile-home | apps/dsh-desktop/src/runtime-provider.mjs | 228 | profileDir |
 | profile-home | apps/dsh-desktop/src/runtime-provider.mjs | 229 | profileDir |
@@ -995,7 +996,7 @@ Capability discovery is compatibility evidence only. Renderer surface identity, 
 | profile-home | apps/dsh-desktop/test/isolated-linker-fixtures.test.mjs | 52 | profileDir |
 | profile-home | apps/dsh-desktop/test/isolated-linker-fixtures.test.mjs | 62 | profileDir |
 | profile-home | apps/dsh-desktop/test/legacy-credential-compat.test.mjs | 120 | DSH_HOME |
-| profile-home | apps/dsh-desktop/test/migration-runtime-environment.test.mjs | 43 | DSH_HOME |
+| profile-home | apps/dsh-desktop/test/migration-runtime-environment.test.mjs | 54 | DSH_HOME |
 | profile-home | apps/dsh-desktop/test/packaged-direct-start-matrix.test.mjs | 38 | profileDir |
 | profile-home | apps/dsh-desktop/test/packaged-direct-start-matrix.test.mjs | 97 | profileDir |
 | profile-home | apps/dsh-desktop/test/plugin-compatibility.test.mjs | 41 | profileDir |
@@ -1658,8 +1659,8 @@ Capability discovery is compatibility evidence only. Renderer surface identity, 
 | profile-home | packages/dsh-pet/src/persist.ts | 64 | DSH_HOME |
 | profile-home | packages/dsh-pet/src/persist.ts | 65 | DSH_HOME |
 | profile-home | packages/dsh-pet/src/service.ts | 52 | DSH_HOME |
-| profile-home | packages/dsh-remote-web-ui/src/index.ts | 357 | profileDir |
-| profile-home | packages/dsh-remote-web-ui/src/index.ts | 357 | profileDir |
+| profile-home | packages/dsh-remote-web-ui/src/index.ts | 361 | profileDir |
+| profile-home | packages/dsh-remote-web-ui/src/index.ts | 361 | profileDir |
 | profile-home | packages/dsh-remote-web-ui/src/tunnel.ts | 89 | DSH_HOME |
 | profile-home | packages/dsh-remote-web-ui/src/update.ts | 209 | profileDir |
 | profile-home | packages/dsh-remote-web-ui/src/update.ts | 237 | profileDir |
@@ -1761,12 +1762,13 @@ Capability discovery is compatibility evidence only. Renderer surface identity, 
 | profile-home | verify-3.3.0-source-paste-large.mjs | 68 | DSH_HOME |
 | runtime-lifecycle | apps/dsh-desktop/scripts/verify-history-host-performance.mjs | 117 | start |
 | runtime-lifecycle | apps/dsh-desktop/scripts/verify-runtime-pipe.mjs | 69 | start |
-| runtime-lifecycle | apps/dsh-desktop/src/electron-app.mjs | 1122 | recover |
-| runtime-lifecycle | apps/dsh-desktop/src/electron-app.mjs | 1658 | recover |
-| runtime-lifecycle | apps/dsh-desktop/src/electron-app.mjs | 2191 | stop |
-| runtime-lifecycle | apps/dsh-desktop/src/electron-app.mjs | 2193 | start |
-| runtime-lifecycle | apps/dsh-desktop/src/electron-app.mjs | 2649 | stop |
-| runtime-lifecycle | apps/dsh-desktop/src/electron-app.mjs | 2655 | start |
+| runtime-lifecycle | apps/dsh-desktop/src/electron-app.mjs | 1138 | recover |
+| runtime-lifecycle | apps/dsh-desktop/src/electron-app.mjs | 1686 | recover |
+| runtime-lifecycle | apps/dsh-desktop/src/electron-app.mjs | 1987 | recover |
+| runtime-lifecycle | apps/dsh-desktop/src/electron-app.mjs | 2249 | stop |
+| runtime-lifecycle | apps/dsh-desktop/src/electron-app.mjs | 2251 | start |
+| runtime-lifecycle | apps/dsh-desktop/src/electron-app.mjs | 2708 | stop |
+| runtime-lifecycle | apps/dsh-desktop/src/electron-app.mjs | 2714 | start |
 | runtime-lifecycle | apps/dsh-desktop/src/extension-ipc.mjs | 710 | stop |
 | runtime-lifecycle | apps/dsh-desktop/src/extension-ipc.mjs | 723 | start |
 | runtime-lifecycle | apps/dsh-desktop/src/extension-ipc.mjs | 764 | stop |

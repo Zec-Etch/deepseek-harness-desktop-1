@@ -18,8 +18,8 @@ import QRCode from 'qrcode'
 
 test('star prompt is accessible, animated, dependency-free, and honest about its action', () => {
   const script = createStarPromptSurfaceScript()
-  assert.equal(STAR_PROMPT_VERSION, '4.0.0-rc.1')
-  assert.match(script, /4\.0\.0-rc\.1 · 社区支持/u)
+  assert.equal(STAR_PROMPT_VERSION, '4.0.0-rc.2')
+  assert.match(script, /4\.0\.0-rc\.2 · 社区支持/u)
   assert.match(STAR_PROMPT_CSS, /dsh-star-prompt-burst/u)
   assert.match(STAR_PROMPT_CSS, /dsh-star-prompt-orbit/u)
   assert.match(STAR_PROMPT_CSS, /cubic-bezier\(0\.22, 1, 0\.36, 1\)/u)

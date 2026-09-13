@@ -3,7 +3,7 @@
  * Contract. This module deliberately knows only a narrow typed bridge; it
  * never exports the preload object, Electron, filesystems, or DSH internals.
  */
-export declare const DESKTOP_CLIENT_API_VERSION = "1.1.0";
+export declare const DESKTOP_CLIENT_API_VERSION = "1.2.0";
 export type DesktopSurface = 'extensions' | 'updates';
 export type DesktopAvailability = {
     available: false;
@@ -71,6 +71,21 @@ export type WorkspaceFileOpenResult = {
     opened: boolean;
     reason?: string;
 } | DesktopAvailability;
+export type LocalLanGatewayState = 'stopped' | 'starting' | 'running' | 'error';
+export type LocalLanGatewayStatus = {
+    state: LocalLanGatewayState;
+    enabled: boolean;
+    address?: string;
+    port: number;
+    availableAddresses: readonly string[];
+    url?: string;
+    errorCode?: 'no-private-address' | 'address-unavailable' | 'port-in-use' | 'permission-denied' | 'start-failed';
+};
+export type LocalLanGatewayRequest = {
+    enabled: boolean;
+    address?: string;
+    port?: number;
+};
 export declare class DesktopClientError extends Error {
     readonly code: 'desktop-invalid-argument' | 'desktop-operation-failed';
     constructor(code: DesktopClientError['code'], message: string);
@@ -100,6 +115,9 @@ export type DesktopClient = Readonly<{
     requestPluginInstall: (request: {
         source: string;
     }) => Promise<PluginInstallRequestResult>;
+    getLocalLanGatewayStatus: () => Promise<LocalLanGatewayStatus | DesktopAvailability>;
+    configureLocalLanGateway: (request: LocalLanGatewayRequest) => Promise<LocalLanGatewayStatus | DesktopAvailability>;
+    subscribeLocalLanGatewayStatus: (handler: (status: LocalLanGatewayStatus) => void) => Unsubscribe;
 }>;
 /** Create a public client around an optional typed Desktop bridge. */
 export declare function createDesktopClient({ globalObject }?: {
@@ -119,6 +137,9 @@ export declare const openWorkspaceFile: (request: WorkspaceFileOpenRequest) => P
 export declare const requestPluginInstall: (request: {
     source: string;
 }) => Promise<PluginInstallRequestResult>;
+export declare const getLocalLanGatewayStatus: () => Promise<LocalLanGatewayStatus | DesktopAvailability>;
+export declare const configureLocalLanGateway: (request: LocalLanGatewayRequest) => Promise<LocalLanGatewayStatus | DesktopAvailability>;
+export declare const subscribeLocalLanGatewayStatus: (handler: (status: LocalLanGatewayStatus) => void) => Unsubscribe;
 export declare function taskDeepLink(taskId: string): string;
 export declare function runDeepLink(runId: string): string;
 export {};

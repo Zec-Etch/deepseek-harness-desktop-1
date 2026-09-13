@@ -18,6 +18,7 @@ test('the primary Runtime receives the requested automation and permission polic
     QQBOT_APPID: 'desktop-app',
     QQBOT_SECRET: 'desktop-secret',
     DSH_DESKTOP_BACKGROUND_AUTOMATION: '1',
+    DSH_DESKTOP_LAN_GATEWAY_BASE: '',
     DSH_PERMISSION_MODE: 'danger-full-access',
     DSH_DESKTOP_PRODUCT_METRICS_BRIDGE: '1',
   })
@@ -29,6 +30,7 @@ test('the primary Runtime receives the requested automation and permission polic
     QQBOT_APPID: '',
     QQBOT_SECRET: '',
     DSH_DESKTOP_BACKGROUND_AUTOMATION: '0',
+    DSH_DESKTOP_LAN_GATEWAY_BASE: '',
     DSH_PERMISSION_MODE: 'workspace-write',
     DSH_DESKTOP_PRODUCT_METRICS_BRIDGE: '1',
   })
@@ -36,6 +38,15 @@ test('the primary Runtime receives the requested automation and permission polic
 
 test('permission mode rejects non-boolean fullUser values', () => {
   assert.throws(() => desktopRuntimeEnvironmentFor({ fullUser: 'yes' }), /must be a boolean/u)
+})
+
+test('LAN gateway environment accepts only a bounded private HTTP origin and clears ambient input by default', () => {
+  assert.equal(desktopRuntimeEnvironmentFor({
+    lanGatewayBaseUrl: 'http://192.168.1.8:43126',
+  }).DSH_DESKTOP_LAN_GATEWAY_BASE, 'http://192.168.1.8:43126')
+  for (const value of ['http://0.0.0.0:43126', 'http://127.0.0.1:43126', 'https://192.168.1.8:43126']) {
+    assert.throws(() => desktopRuntimeEnvironmentFor({ lanGatewayBaseUrl: value }), /LAN gateway base URL/u)
+  }
 })
 
 test('credential compatibility environment rejects runtime controls and non-string values', () => {

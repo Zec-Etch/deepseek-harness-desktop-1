@@ -23,7 +23,7 @@ import { isTrustedApiRequest, makeRoutes } from './routes.ts'
 import { makeMobileRoutes } from './mobile-routes.ts'
 import { makeMobileApiRoutes } from './mobile-api.ts'
 import { createMobileGatewayProxy } from './mobile-gateway.ts'
-import { lanIPv4Addresses } from './lan.ts'
+import { desktopLanGatewayBase, lanIPv4Addresses } from './lan.ts'
 import { TunnelManager, type TunnelInfo } from './tunnel.ts'
 import {
   checkUpdates,
@@ -277,9 +277,13 @@ export function apply(ctx: Context, config?: Config): void {
   // sampling stance. The QR can only advertise addresses the fence accepts;
   // every interface gets its own base URL so a multi-homed machine can pick
   // the network the phone can actually reach.
-  const lanBases = ctx.webServer.host === '0.0.0.0'
+  const officialLanBases = ctx.webServer.host === '0.0.0.0'
     ? lanIPv4Addresses().map(address => ({ address, base: `http://${address}:${String(ctx.webServer.port)}` }))
     : []
+  const desktopLanBase = desktopLanGatewayBase()
+  const lanBases = desktopLanBase === undefined
+    ? officialLanBases
+    : [desktopLanBase, ...officialLanBases.filter(entry => entry.address !== desktopLanBase.address)]
   service.setLanBases(lanBases)
   const lanAddresses = lanBases.map(entry => entry.address)
 

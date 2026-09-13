@@ -13,11 +13,14 @@ import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { IWorkspaces } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { PairingPhase } from '../pairing.ts'
+import { createDesktopClient, type DesktopAvailability, type LocalLanGatewayStatus } from '@linxin666/dsh-desktop-client'
 import { RemotePanel, type PanelState } from './RemotePanel.tsx'
 import { copyText, issuePair, stopPair, type IssueResponse, type PairStateFrame, type TunnelStatusFrame } from './pair-api.ts'
 import { PhoneIcon } from './PhoneIcon.tsx'
 import { UpdateEntry } from './UpdateEntry.tsx'
 import css from './remote.module.css'
+
+const desktopClient = createDesktopClient()
 
 /** Entry props: the sidebar column state + the standard locale seat. */
 export interface RemoteEntryServices {
@@ -75,6 +78,9 @@ export function RemoteEntry({ wide, sessions, workspaces, useWorkspaces, t }: Re
   const [open, setOpen] = useState(false)
   const [state, setState] = useState<PanelState>({ kind: 'lan-required' })
   const [copied, setCopied] = useState(false)
+  const [lanGateway, setLanGateway] = useState<LocalLanGatewayStatus | DesktopAvailability | undefined>(undefined)
+  const [lanGatewayBusy, setLanGatewayBusy] = useState(false)
+  const [selectedLanAddress, setSelectedLanAddress] = useState<string | undefined>(undefined)
   const eventSource = useRef<EventSource | undefined>(undefined)
 
   // The current workspace (the recent-workspace projection the shell's New
@@ -140,7 +146,9 @@ export function RemoteEntry({ wide, sessions, workspaces, useWorkspaces, t }: Re
 
   const openPanel = useCallback(async (): Promise<void> => {
     setOpen(true)
-    const next = await mint()
+    const [next, gateway] = await Promise.all([mint(), desktopClient.getLocalLanGatewayStatus()])
+    setLanGateway(gateway)
+    if (!('available' in gateway)) setSelectedLanAddress(gateway.address ?? gateway.availableAddresses[0])
     setState(next)
     // Live status: the desktop panel mirrors the pairing service state. The
     // stream only makes sense in the ready state — on a failure banner the
@@ -183,6 +191,11 @@ export function RemoteEntry({ wide, sessions, workspaces, useWorkspaces, t }: Re
   // Unmount safety: never leave the stream open.
   useEffect(() => closeEventSource, [closeEventSource])
 
+  useEffect(() => desktopClient.subscribeLocalLanGatewayStatus((status) => {
+    setLanGateway(status)
+    setSelectedLanAddress(current => current ?? status.address ?? status.availableAddresses[0])
+  }), [])
+
   const handleStop = useCallback(() => {
     // A failed stop request is harmless: the optimistic phase flip below
     // keeps the UI honest, and the status stream confirms the stopped phase.
@@ -214,6 +227,27 @@ export function RemoteEntry({ wide, sessions, workspaces, useWorkspaces, t }: Re
     })
   }, [state])
 
+  const handleEnableLan = useCallback(() => {
+    if (lanGateway === undefined || 'available' in lanGateway || selectedLanAddress === undefined) return
+    setLanGatewayBusy(true)
+    void desktopClient.configureLocalLanGateway({
+      enabled: true,
+      address: selectedLanAddress,
+      port: lanGateway.port,
+    }).then(setLanGateway).finally(() => { setLanGatewayBusy(false) })
+  }, [lanGateway, selectedLanAddress])
+
+  const handleDisableLan = useCallback(() => {
+    if (lanGateway === undefined || 'available' in lanGateway) return
+    setLanGatewayBusy(true)
+    void desktopClient.configureLocalLanGateway({ enabled: false, port: lanGateway.port })
+      .then((status) => {
+        setLanGateway(status)
+        closePanel()
+      })
+      .finally(() => { setLanGatewayBusy(false) })
+  }, [closePanel, lanGateway])
+
   return (
     <>
       <div className={css.entryRow} data-rail={wide ? undefined : 'rail'}>
@@ -233,6 +267,12 @@ export function RemoteEntry({ wide, sessions, workspaces, useWorkspaces, t }: Re
             onCopy={handleCopy}
             onPickAddress={handlePickAddress}
             onPickPublic={handlePickPublic}
+            lanGateway={lanGateway}
+            lanGatewayBusy={lanGatewayBusy}
+            selectedLanAddress={selectedLanAddress}
+            onSelectLanAddress={setSelectedLanAddress}
+            onEnableLan={handleEnableLan}
+            onDisableLan={handleDisableLan}
           />
         </div>
       ), document.body)}

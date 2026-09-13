@@ -123,7 +123,7 @@ describe('RemoteEntry', () => {
   it('shows the lan-required banner instead of a QR when the bind is loopback-only', async () => {
     mount({ ok: false, code: 'lan-required' })
     fireEvent.click(screen.getByRole('button', { name: 'Mobile remote control' }))
-    await waitFor(() => expect(screen.getByText('No reachable phone address is configured; enable autoTunnel or set a public address')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('No reachable phone address is configured')).toBeTruthy())
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull()
     expect(document.querySelector('[data-testid="remote-qr"]')).toBeNull()
   })

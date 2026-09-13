@@ -1306,6 +1306,9 @@ importers:
       '@deepseek-ai/dsh-home-paths':
         specifier: 0.1.5-rc.2
         version: 0.1.5-rc.2(@deepseek-ai/cordis@4.0.2)
+      '@linxin666/dsh-desktop-client':
+        specifier: workspace:*
+        version: link:../dsh-desktop-client
       '@ningbainb/dsh-user-scope':
         specifier: workspace:*
         version: link:../dsh-user-scope
