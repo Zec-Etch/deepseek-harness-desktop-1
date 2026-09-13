@@ -176,6 +176,7 @@ export function createDesktopWindowFactory({
   appIcon,
   windowChromeIconDataUrl,
   mainPreload,
+  runtimePreload,
   extensionPreload,
   extensionsPath,
   handoffPath,
@@ -286,7 +287,7 @@ export function createDesktopWindowFactory({
     browserWindow.once('closed', () => mainWindow?.removeListener('closed', closeWithMain))
     if (WebContentsView) {
       setWindowChromeTheme(browserWindow, chromeTheme)
-      dockSettings = createDockSettingsView({ WebContentsView, window: browserWindow, mainWindow, getRuntimeOrigin, dialog, openExternal: url => shell.openExternal(url) })
+      dockSettings = createDockSettingsView({ WebContentsView, window: browserWindow, mainWindow, getRuntimeOrigin, dialog, runtimePreload, openExternal: url => shell.openExternal(url) })
       browserWindow.once('closed', () => { dockSettings = undefined })
     }
     installWindowMotion(browserWindow, active => {

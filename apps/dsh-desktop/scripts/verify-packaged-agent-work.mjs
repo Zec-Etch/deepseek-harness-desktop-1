@@ -235,7 +235,7 @@ try {
   const page = await app.firstWindow()
   const rendererErrors = []
   page.on('pageerror', error => rendererErrors.push(error.message))
-  await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: 120_000 })
+  await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 120_000 })
   await page.waitForSelector('style[data-plugin="@linxin666/dsh-web-ui-all"]', { state: 'attached', timeout: 120_000 })
   await dismissStartup(page)
 

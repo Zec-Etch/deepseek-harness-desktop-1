@@ -15,12 +15,14 @@ const packagedExecutable = process.env.DSH_DESKTOP_E2E_EXECUTABLE
 const screenshotArgument = process.argv.find(argument => argument.toLowerCase().endsWith('.png'))
 const screenshot = screenshotArgument ? resolve(screenshotArgument) : undefined
 const temporary = await mkdtemp(resolve(tmpdir(), 'dsh-particle-theme-e2e-'))
+const runtimeFetchGate = resolve(temporary, 'runtime-fetch-gate.txt')
 const runtimeReadyTimeoutMs = packagedExecutable || process.env.CI ? 120_000 : 90_000
 let electronApp
 const pendingHttp = new Map()
 
 try {
   await mkdir(resolve(temporary, 'user-data'), { recursive: true })
+  await writeFile(runtimeFetchGate, 'open')
   await seedPrimaryRuntimePermissionForTest({ userData: resolve(temporary, 'user-data') })
   // Welcome and Star flows have independent gates. Seed their completed state
   // so delayed onboarding cannot race the page-profile assertions here.
@@ -38,11 +40,12 @@ try {
       DSH_AGENTS_HOME: resolve(temporary, 'agents-home'),
       DSH_DESKTOP_DISABLE_UPDATES: '1',
       DSH_DESKTOP_VERIFY_UPDATER: '0',
+      DSH_DESKTOP_E2E_RUNTIME_FETCH_GATE: runtimeFetchGate,
     },
   })
   electronApp.context().on('request', request => {
     const url = new URL(request.url())
-    if (url.hostname !== '127.0.0.1' || !url.pathname.startsWith('/api/')) return
+    if (url.protocol !== 'dsh-runtime:' || url.hostname !== 'app' || !url.pathname.startsWith('/api/')) return
     if (pendingHttp.size < 128) pendingHttp.set(request, { path: url.pathname.slice(0, 160), method: request.method(), started: Date.now() })
   })
   electronApp.context().on('response', response => {
@@ -51,21 +54,21 @@ try {
   })
   electronApp.context().on('requestfinished', request => pendingHttp.delete(request))
   electronApp.context().on('requestfailed', request => pendingHttp.delete(request))
-  assert.equal(await electronApp.evaluate(({ app }) => app.commandLine.getSwitchValue('ignore-connections-limit')), '127.0.0.1',
-    'Only the loopback Runtime may bypass the HTTP connection cap')
+  assert.equal(await electronApp.evaluate(({ app }) => app.commandLine.getSwitchValue('ignore-connections-limit')), '',
+    'the pipe Runtime must not retain an HTTP connection-limit bypass')
   await useChineseFixtureLocale(electronApp)
   let page = await electronApp.firstWindow()
   const rendererErrors = []
   const rendererConsole = []
   try {
     const deadline = Date.now() + runtimeReadyTimeoutMs
-    while (!/^http:\/\/127\.0\.0\.1:/u.test(page.url())) {
-      const runtime = electronApp.windows().find(candidate => /^http:\/\/127\.0\.0\.1:/u.test(candidate.url()))
+    while (!page.url().startsWith('dsh-runtime://app/')) {
+      const runtime = electronApp.windows().find(candidate => candidate.url().startsWith('dsh-runtime://app/'))
       if (runtime) { page = runtime; break }
       if (Date.now() >= deadline) throw new Error('particle Runtime window did not appear')
       await new Promise(resolveWait => setTimeout(resolveWait, 100))
     }
-    await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: runtimeReadyTimeoutMs })
+    await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: runtimeReadyTimeoutMs })
   } catch (error) {
     const runtimeLog = await readFile(resolve(temporary, 'user-data', 'logs', 'runtime.log'), 'utf8').catch(() => '')
     console.error(`runtime did not become ready; recent log:\n${runtimeLog.slice(-6_000) || '(no runtime log)'}`)
@@ -241,29 +244,27 @@ try {
 
   // Real browser requests: a stalled decorative read must not accumulate on
   // every tick, nor block unrelated settings reads across Runtime views.
-  let releasePetReads
-  const petReadHold = new Promise(resolveHold => { releasePetReads = resolveHold })
   const petReadCounts = [0, 0]
   const petPages = [page, dockPage]
-  const petHandlers = petPages.map((_petPage, index) => async route => {
-    petReadCounts[index] += 1
-    await petReadHold
-    await route.continue().catch(() => {}) // The timeout/disposal may already have cancelled it.
+  const petHandlers = petPages.map((_petPage, index) => request => {
+    const url = new URL(request.url())
+    if (url.protocol === 'dsh-runtime:' && url.hostname === 'app' && url.pathname === '/api/pet/state') petReadCounts[index] += 1
   })
   try {
     for (let index = 0; index < petPages.length; index += 1) {
       await petPages[index].locator('[data-dsh-pet-root]').waitFor({ state: 'attached' })
-      await petPages[index].route('**/api/pet/state', petHandlers[index])
+      petPages[index].on('request', petHandlers[index])
     }
+    await writeFile(runtimeFetchGate, 'stall-pet')
     await page.waitForTimeout(6500)
     assert.deepEqual(petReadCounts, [1, 1], 'Each visible Runtime view must keep one stalled pet read, not one per tick')
     assert.equal(await readParticleEnabled(), true, 'Settings remain readable while pet reads are held')
     const recovered = page.waitForResponse(response => new URL(response.url()).pathname === '/api/pet/state' && response.ok(), { timeout: 10_000 })
-    releasePetReads()
+    await writeFile(runtimeFetchGate, 'open')
     await recovered
   } finally {
-    releasePetReads()
-    for (let index = 0; index < petPages.length; index += 1) await petPages[index].unroute('**/api/pet/state', petHandlers[index])
+    await writeFile(runtimeFetchGate, 'open')
+    for (let index = 0; index < petPages.length; index += 1) petPages[index].off('request', petHandlers[index])
   }
   console.log(`verified stalled pet reads per Runtime view ${JSON.stringify(petReadCounts)} and recovery`)
 

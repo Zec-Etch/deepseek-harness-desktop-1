@@ -19,13 +19,14 @@ const runtimeReadyTimeoutMs = packagedExecutable || process.env.CI ? 120_000 : 6
 const temporary = await realpath(await mkdtemp(resolve(tmpdir(), 'dsh-directory-picker-e2e-')))
 const dshHome = resolve(temporary, 'dsh-home')
 const userData = resolve(temporary, 'user-data')
+const runtimeFetchGate = resolve(temporary, 'runtime-fetch-gate.txt')
 let electronApp
 const processOutput = []
 
 async function waitForRuntimeWindow(application, timeoutMs) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    const page = application.windows().find((candidate) => /^http:\/\/127\.0\.0\.1:/u.test(candidate.url()))
+    const page = application.windows().find((candidate) => candidate.url().startsWith('dsh-runtime://app/'))
     if (page !== undefined) return page
     await new Promise((resolveWait) => setTimeout(resolveWait, 100))
   }
@@ -35,6 +36,7 @@ async function waitForRuntimeWindow(application, timeoutMs) {
 try {
   await mkdir(dshHome, { recursive: true })
   await mkdir(userData, { recursive: true })
+  await writeFile(runtimeFetchGate, 'open')
   await seedPrimaryRuntimePermissionForTest({ userData })
   await writeFile(
     resolve(dshHome, 'settings.yaml'),
@@ -55,6 +57,7 @@ try {
       DSH_DESKTOP_VERIFY_UPDATER: '0',
       DSH_HOME: dshHome,
       DSH_AGENTS_HOME: resolve(temporary, 'agents-home'),
+      DSH_DESKTOP_E2E_RUNTIME_FETCH_GATE: runtimeFetchGate,
     },
   })
   await useChineseFixtureLocale(electronApp)
@@ -79,7 +82,7 @@ try {
   const rendererEvents = []
   if (process.argv.includes('--native-layout')) {
     await electronApp.evaluate(({ BrowserWindow }) => {
-      const window = BrowserWindow.getAllWindows().find(candidate => /^http:\/\/127\.0\.0\.1:/u.test(candidate.webContents.getURL()))
+      const window = BrowserWindow.getAllWindows().find(candidate => candidate.webContents.getURL().startsWith('dsh-runtime://app/'))
       if (!window) throw new Error('native-layout fixture runtime window is missing')
       window.setSize(1024, 768)
     })
@@ -177,7 +180,7 @@ try {
     else document.body.setAttribute('data-ds-dark-theme', value)
   }, darkBefore)
   await electronApp.evaluate(({ BrowserWindow }) => {
-    const window = BrowserWindow.getAllWindows().find(item => item.webContents.getURL().startsWith('http://127.0.0.1:'))
+    const window = BrowserWindow.getAllWindows().find(item => item.webContents.getURL().startsWith('dsh-runtime://app/'))
     window.webContents.setZoomFactor(1.25)
   })
   const fits = await dialog.evaluate(element => {
@@ -186,7 +189,7 @@ try {
   })
   assert.equal(fits, true, 'project dialog fits at 125 percent zoom')
   await electronApp.evaluate(({ BrowserWindow }) => {
-    const window = BrowserWindow.getAllWindows().find(item => item.webContents.getURL().startsWith('http://127.0.0.1:'))
+    const window = BrowserWindow.getAllWindows().find(item => item.webContents.getURL().startsWith('dsh-runtime://app/'))
     window.webContents.setZoomFactor(1)
   })
   await dialog.getByRole('button', { name: /^(创建项目|Create project)$/iu }).click()
@@ -225,13 +228,11 @@ try {
   const composer = page.locator('[data-composer-card] textarea, [data-composer-input][contenteditable="true"]').first()
   const draftText = () => composer.evaluate(element => element instanceof HTMLTextAreaElement ? element.value : element.innerText)
   const nativeUploadNames = []
-  let failNextUpload = false
-  await page.context().route('**/api/session/uploadFileBinary?**', async route => {
-    nativeUploadNames.push(new URL(route.request().url()).searchParams.get('name'))
-    if (failNextUpload) {
-      failNextUpload = false
-      await route.fulfill({ status: 503, body: 'isolated upload retry fixture' })
-    } else await route.continue()
+  page.on('request', request => {
+    const url = new URL(request.url())
+    if (url.protocol === 'dsh-runtime:' && url.hostname === 'app' && url.pathname === '/api/session/uploadFileBinary') {
+      nativeUploadNames.push(url.searchParams.get('name'))
+    }
   })
   await composer.fill('保留我的草稿')
   await page.evaluate(() => {
@@ -253,7 +254,7 @@ try {
   assert.equal(await page.getByRole('button', { name: '移除文件 sample.bin', exact: true }).count(), 0)
   assert.equal(await page.locator('[aria-label="待发送文件"]').count(), 1)
   assert.doesNotMatch(await draftText(), /sample\.bin/u)
-  failNextUpload = true
+  await writeFile(runtimeFetchGate, 'reject-next-upload')
   await page.evaluate(() => {
     const transfer = new DataTransfer()
     transfer.items.add(new File(['retry contents'], 'retry.txt', { type: 'text/plain' }))
@@ -450,7 +451,7 @@ try {
   const browserBootErrors = []
   browserPage.on('pageerror', error => browserBootErrors.push(error.message))
   browserPage.on('requestfailed', request => browserBootErrors.push(`${request.resourceType()}: ${request.failure()?.errorText}`))
-  await browserPage.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { waitUntil: 'domcontentloaded', timeout: runtimeReadyTimeoutMs })
+  await browserPage.waitForURL(/^dsh-runtime:\/\/app\//u, { waitUntil: 'domcontentloaded', timeout: runtimeReadyTimeoutMs })
   assert.equal(await browserPage.evaluate(() => typeof window.dshDesktop), 'undefined', 'browser fixture must not receive the desktop preload')
   try {
     // This separate renderer loads the complete plugin graph too. Apply the

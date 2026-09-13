@@ -89,7 +89,7 @@ try {
     })
     const page = await activeApplication.firstWindow()
     try {
-      await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: 180_000 })
+      await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 180_000 })
       await page.waitForSelector('style[data-plugin="@linxin666/dsh-client-ui-mode-switcher"]', {
         state: 'attached',
         timeout: 180_000,

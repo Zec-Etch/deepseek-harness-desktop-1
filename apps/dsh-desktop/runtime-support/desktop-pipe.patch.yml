@@ -1,0 +1,20 @@
+# Desktop local carrier overlay. The official carrier-neutral Connection,
+# Gateway, and Client Modules services remain active; only TCP Web ownership
+# is removed. Electron serves the same frontend and logical routes over its
+# authenticated private OS pipe.
+- id: web-startup
+  disabled: true
+
+- id: webserver
+  disabled: true
+
+- insert:
+    - id: desktop-pipe-webserver
+      name: '@linxin666/dsh-desktop-pipe-webserver'
+
+- id: web-runtime
+  disabled: true
+
+- id: connection
+  name: '@deepseek-ai/dsh-client-connection'
+  config: {}

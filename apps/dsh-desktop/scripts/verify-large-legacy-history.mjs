@@ -272,7 +272,7 @@ async function launch() {
   })
   page.setDefaultTimeout(10000)
   stage = 'runtime-url'
-  await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: 120000 })
+  await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 120000 })
   stage = 'window-chrome'
   await page.locator('#dsh-desktop-window-chrome').waitFor({ timeout: 120000 })
   if (blockFlowControl) await page.addStyleTag({ content: '[data-conversation-scroll] [data-chat-flow] { display: flow-root !important; }' })

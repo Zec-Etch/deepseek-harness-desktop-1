@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events'
 import { isAbsolute, join } from 'node:path'
 
 export const RUNTIME_PROVIDER_ID = 'dsh-cli-provider-v1'
+export const RUNTIME_PROVIDER_API_VERSION = 2
 
 export const RUNTIME_CAPABILITY_IDS = Object.freeze([
   'runtime.lifecycle',
@@ -10,6 +11,10 @@ export const RUNTIME_CAPABILITY_IDS = Object.freeze([
   'session.create',
   'session.observe',
   'host-service.register',
+  'transport.fetch',
+  'transport.stream',
+  'runtime.observe',
+  'support.evidence',
 ])
 
 /** 3.0 adds matrix states without removing the 2.x degraded/unsupported values. */
@@ -33,6 +38,8 @@ const OPTIONAL_METHODS = Object.freeze({
   'session.create': 'createSession',
   'session.observe': 'subscribeSession',
   'host-service.register': 'registerHostService',
+  'transport.fetch': 'fetch',
+  'transport.stream': 'openDuplex',
 })
 
 function clone(value) {
@@ -76,6 +83,8 @@ export class DshRuntimeProvider {
     createSession,
     subscribeSession,
     registerHostService,
+    fetch,
+    openDuplex,
   } = {}) {
     if (
       controller === null
@@ -105,7 +114,14 @@ export class DshRuntimeProvider {
     if (!RUNTIME_PROVIDER_SUPPORT_STATUSES.includes(supportStatus)) {
       throw invalidConfiguration('runtime provider support status is invalid')
     }
-    const optionals = { registerWorkspace, createSession, subscribeSession, registerHostService }
+    const optionals = {
+      registerWorkspace,
+      createSession,
+      subscribeSession,
+      registerHostService,
+      fetch: fetch ?? (typeof controller.fetch === 'function' ? controller.fetch.bind(controller) : undefined),
+      openDuplex: openDuplex ?? (typeof controller.openDuplex === 'function' ? controller.openDuplex.bind(controller) : undefined),
+    }
     for (const [name, implementation] of Object.entries(optionals)) {
       if (implementation !== undefined && typeof implementation !== 'function') {
         throw invalidConfiguration(`runtime provider ${name} must be a function when provided`)
@@ -140,12 +156,18 @@ export class DshRuntimeProvider {
 
   probe() {
     const capabilities = RUNTIME_CAPABILITY_IDS.map((id) => {
-      if (id === 'runtime.lifecycle' || id === 'profile.paths') return { id, status: 'available' }
+      if (
+        id === 'runtime.lifecycle'
+        || id === 'profile.paths'
+        || id === 'runtime.observe'
+        || id === 'support.evidence'
+      ) return { id, status: 'available' }
       const method = OPTIONAL_METHODS[id]
       return { id, status: typeof this.optionalImplementations[method] === 'function' ? 'available' : 'unsupported' }
     })
     return {
       providerId: RUNTIME_PROVIDER_ID,
+      apiVersion: RUNTIME_PROVIDER_API_VERSION,
       upstreamVersion: this.upstreamVersion,
       supportStatus: this.supportStatus,
       capabilities,
@@ -211,7 +233,7 @@ export class DshRuntimeProvider {
     }
   }
 
-  #invokeOptional(capability, operation, value) {
+  #invokeOptional(capability, operation, ...values) {
     const method = OPTIONAL_METHODS[capability]
     const implementation = this.optionalImplementations[method]
     if (typeof implementation !== 'function') {
@@ -221,7 +243,29 @@ export class DshRuntimeProvider {
         { capability, operation },
       ))
     }
-    return this.#invoke(capability, operation, () => implementation(value))
+    return this.#invoke(capability, operation, () => implementation(...values))
+  }
+
+  #invokeOptionalSync(capability, operation, ...values) {
+    const method = OPTIONAL_METHODS[capability]
+    const implementation = this.optionalImplementations[method]
+    if (typeof implementation !== 'function') {
+      throw new RuntimeProviderError(
+        RUNTIME_PROVIDER_ERROR_CODES.CAPABILITY_UNSUPPORTED,
+        `Runtime capability ${capability} is unsupported by ${RUNTIME_PROVIDER_ID}`,
+        { capability, operation },
+      )
+    }
+    try {
+      return implementation(...values)
+    } catch (error) {
+      if (error instanceof RuntimeProviderError) throw error
+      throw new RuntimeProviderError(
+        RUNTIME_PROVIDER_ERROR_CODES.OPERATION_FAILED,
+        `Runtime provider operation ${operation} failed`,
+        { capability, operation, cause: error },
+      )
+    }
   }
 
   registerWorkspace(specification) {
@@ -238,6 +282,21 @@ export class DshRuntimeProvider {
 
   registerHostService(specification) {
     return this.#invokeOptional('host-service.register', 'register-host-service', specification)
+  }
+
+  fetch(input, init) {
+    return this.#invokeOptional('transport.fetch', 'fetch', input, init)
+  }
+
+  openDuplex(endpoint, payload, signal) {
+    return this.#invokeOptionalSync('transport.stream', 'open-duplex', endpoint, payload, signal)
+  }
+
+  observe(listener) {
+    if (typeof listener !== 'function') throw invalidConfiguration('runtime observer must be a function')
+    this.on('status', listener)
+    listener(this.status)
+    return () => this.off('status', listener)
   }
 
   getSupportEvidence() {
@@ -319,6 +378,9 @@ export class ActiveRuntimeProvider extends EventEmitter {
   createSession(value) { return this.active.createSession(value) }
   subscribeSession(value) { return this.active.subscribeSession(value) }
   registerHostService(value) { return this.active.registerHostService(value) }
+  fetch(input, init) { return this.active.fetch(input, init) }
+  openDuplex(endpoint, payload, signal) { return this.active.openDuplex(endpoint, payload, signal) }
+  observe(listener) { return this.active.observe(listener) }
   probe() { return this.active.probe() }
   getSupportEvidence() { return this.active.getSupportEvidence() }
   getWorkspaceFileOpenToken() { return this.active.controller?.getWorkspaceFileOpenToken?.() }

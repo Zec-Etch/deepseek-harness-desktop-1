@@ -430,7 +430,7 @@ try {
     }
   })
   try {
-    await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: runtimeReadyTimeoutMs })
+    await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: runtimeReadyTimeoutMs })
     await page.waitForSelector('style[data-plugin="@linxin666/dsh-client-ui-aionui-panel"]', {
       state: 'attached',
       timeout: runtimeReadyTimeoutMs,

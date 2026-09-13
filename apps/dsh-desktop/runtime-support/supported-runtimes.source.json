@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "status": "known-good",
-  "verifiedAt": "2026-09-10",
+  "status": "supported",
+  "verifiedAt": "2026-09-13",
   "desktopRange": "current",
   "matrixArtifact": "apps/dsh-desktop/runtime-support/known-good.json",
   "knownIssues": []

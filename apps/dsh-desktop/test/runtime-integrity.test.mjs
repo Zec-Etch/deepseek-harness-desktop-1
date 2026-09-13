@@ -24,7 +24,11 @@ const machineIdPath = [
   'machine-id',
   'getMachineId.js',
 ].join('/')
-const DSH_1_1_5_SDK_VERSION = '0.1.5-rc.1'
+function assertExactDshDependency(manifest, packageName) {
+  const expectedVersion = manifest.dependencies['@deepseek-ai/dsh']
+  assert.match(expectedVersion, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u)
+  assert.equal(manifest.dependencies[packageName], expectedVersion)
+}
 
 test('runtime integrity includes the OpenTelemetry machine identifier reported missing in the field', () => {
   assert.ok(Object.isFrozen(CRITICAL_RUNTIME_FILES))
@@ -33,12 +37,12 @@ test('runtime integrity includes the OpenTelemetry machine identifier reported m
 
 test('desktop directly declares the telemetry package required during bootstrap', async () => {
   const manifest = JSON.parse(await readFile(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'))
-  assert.equal(manifest.dependencies['@deepseek-ai/dsh-session-telemetry-otel'], DSH_1_1_5_SDK_VERSION)
+  assertExactDshDependency(manifest, '@deepseek-ai/dsh-session-telemetry-otel')
 })
 
 test('desktop directly declares the directory-picker host imported by the browse implementation', async () => {
   const manifest = JSON.parse(await readFile(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'))
-  assert.equal(manifest.dependencies['@deepseek-ai/dsh-host-directory-picker'], DSH_1_1_5_SDK_VERSION)
+  assertExactDshDependency(manifest, '@deepseek-ai/dsh-host-directory-picker')
 })
 
 test('desktop directly declares the split DSH 1.1.5 client runtime peers', async () => {
@@ -63,7 +67,7 @@ test('desktop directly declares the split DSH 1.1.5 client runtime peers', async
     '@deepseek-ai/dsh-client-ui-workspace',
     '@deepseek-ai/dsh-typert-registry',
   ]) {
-    assert.equal(manifest.dependencies[packageName], DSH_1_1_5_SDK_VERSION)
+    assertExactDshDependency(manifest, packageName)
   }
 })
 
@@ -75,7 +79,7 @@ test('desktop directly pins every DSH 1.1.5 boot layer used by the packaged runt
     '@deepseek-ai/dsh-base',
     '@deepseek-ai/dsh-web-app',
   ]) {
-    assert.equal(manifest.dependencies[packageName], DSH_1_1_5_SDK_VERSION)
+    assertExactDshDependency(manifest, packageName)
   }
 })
 

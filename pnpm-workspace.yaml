@@ -42,12 +42,16 @@ peerDependencyRules:
 # It compares resolved versions rather than specifiers, so cases B and C stay
 # clean even when two importers declare different ranges.
 
-patchedDependencies: { '@deepseek-ai/dsh-client-store@0.1.5-rc.1': patches/@deepseek-ai__dsh-client-store@0.1.5-rc.1.patch, '@deepseek-ai/dsh-client-ui-primitives@0.1.5-rc.1': patches/@deepseek-ai__dsh-client-ui-primitives@0.1.5-rc.1.patch, '@deepseek-ai/dsh-llm-pi-ai@0.1.5-rc.1': patches/@deepseek-ai__dsh-llm-pi-ai@0.1.5-rc.1.patch, '@deepseek-ai/dsh-subprocess-local@0.1.5-rc.1': patches/@deepseek-ai__dsh-subprocess-local@0.1.5-rc.1.patch, '@linxin666/dsh-chat-recovery@0.2.5': patches/@linxin666__dsh-chat-recovery@0.2.5.patch, '@linxin666/dsh-client-ui-model-capabilities@0.3.20': patches/@linxin666__dsh-client-ui-model-capabilities@0.3.20.patch, '@linxin666/dsh-client-ui-skin-center@0.2.5': patches/@linxin666__dsh-client-ui-skin-center@0.2.5.patch, '@linxin666/dsh-liangshen@0.2.5': patches/@linxin666__dsh-liangshen@0.2.5.patch, '@linxin666/dsh-pet@0.2.5': patches/@linxin666__dsh-pet@0.2.5.patch, '@linxin666/dsh-web-ui-all@0.2.5': patches/@linxin666__dsh-web-ui-all@0.2.5.patch, 'dsh-better-sidebar@0.14.0': patches/dsh-better-sidebar@0.14.0.patch }
+patchedDependencies: { '@linxin666/dsh-chat-recovery@0.2.5': patches/@linxin666__dsh-chat-recovery@0.2.5.patch, '@linxin666/dsh-client-ui-model-capabilities@0.3.20': patches/@linxin666__dsh-client-ui-model-capabilities@0.3.20.patch, '@linxin666/dsh-client-ui-skin-center@0.2.5': patches/@linxin666__dsh-client-ui-skin-center@0.2.5.patch, '@linxin666/dsh-liangshen@0.2.5': patches/@linxin666__dsh-liangshen@0.2.5.patch, '@linxin666/dsh-pet@0.2.5': patches/@linxin666__dsh-pet@0.2.5.patch, '@linxin666/dsh-web-ui-all@0.2.5': patches/@linxin666__dsh-web-ui-all@0.2.5.patch, 'dsh-better-sidebar@0.14.0': patches/dsh-better-sidebar@0.14.0.patch }
 
 # Desktop pins the published aggregate at 0.2.5, while selected dependencies
 # use reviewed workspace builds for Desktop-owned fixes and security
 # boundaries.
 overrides:
+  # DSH projection contracts expose Zod types across package boundaries. Keep
+  # the compatible ^4.4.3 range on one reviewed identity instead of allowing a
+  # later registry publish to split plugin and Runtime type identities.
+  'zod@^4.4.3': '4.5.4'
   '@linxin666/dsh-web-ui-all>@linxin666/dsh-client-ui-plugin-manager': '0.3.20'
   '@linxin666/dsh-web-ui-all>@linxin666/dsh-client-ui-skill-explorer': '0.3.20'
   '@linxin666/dsh-web-ui-all>@linxin666/dsh-desktop-launcher': '0.3.13'
@@ -67,7 +71,32 @@ packageExtensions:
     dependencies:
       immer: '^10.1.1'
       zustand: '~4.4.7'
+  '@deepseek-ai/dsh-client-store@0.1.5-rc.2':
+    dependencies:
+      immer: '^10.1.1'
+      zustand: '~4.4.7'
   '@deepseek-ai/dsh-client-ui-primitives@0.1.5-rc.1':
+    dependencies:
+      '@shikijs/langs': '^4.3.1'
+      anser: '^2.3.5'
+      clsx: '^2.0.0'
+      katex: '^0.16.47'
+      mdast-util-from-markdown: '^2.0.3'
+      mdast-util-gfm: '^3.1.0'
+      mdast-util-math: '^3.0.0'
+      micromark-core-commonmark: '^2.0.3'
+      micromark-extension-gfm: '^3.0.0'
+      micromark-extension-math: '^3.1.0'
+      micromark-factory-space: '^2.0.1'
+      micromark-util-character: '^2.1.1'
+      micromark-util-classify-character: '^2.0.1'
+      micromark-util-sanitize-uri: '^2.0.1'
+      micromark-util-symbol: '^2.0.1'
+      shiki: '^4.3.1'
+    peerDependencies:
+      react: '^18.2.0'
+      react-dom: '^18.2.0'
+  '@deepseek-ai/dsh-client-ui-primitives@0.1.5-rc.2':
     dependencies:
       '@shikijs/langs': '^4.3.1'
       anser: '^2.3.5'

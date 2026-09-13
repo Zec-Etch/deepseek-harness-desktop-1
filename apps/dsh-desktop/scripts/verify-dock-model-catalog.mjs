@@ -14,15 +14,15 @@ const temporary = await mkdtemp(join(tmpdir(), 'dsh-dock-catalog-'))
 const dshHome = join(temporary, 'dsh-home')
 const userData = join(temporary, 'user-data')
 const executable = process.env.DSH_DESKTOP_E2E_EXECUTABLE?.trim()
+const fetchGate = join(temporary, 'runtime-fetch-gate.txt')
 const timings = {}
 const errors = []
 let app
 let settings
-let blocked = false
-const held = []
 const isCatalog = request => /modelCatalog|model.catalog/i.test(request.url() + ' ' + (request.postData() ?? ''))
 try {
   await Promise.all([mkdir(dshHome), mkdir(userData)])
+  await writeFile(fetchGate, 'open')
   // Only synthetic provider credentials; configured models require no paid inference.
   await writeFile(join(dshHome, 'settings.yaml'), JSON.stringify({
     'llm-deepseek': { baseURL: 'http://127.0.0.1:9/official', apiKeyEnv: 'DOCK_CATALOG_TEST_KEY' },
@@ -31,10 +31,10 @@ try {
   await writeFile(join(userData, 'star-prompt-state.json'), JSON.stringify({ schemaVersion: 1, shownVersions: [STAR_PROMPT_VERSION] }))
   await seedPrimaryRuntimePermissionForTest({ userData })
   app = await electron.launch({ executablePath: executable || electronPath, args: executable ? [] : [join(appDir, 'src/main.mjs')], cwd: appDir,
-    env: { ...process.env, DSH_HOME: dshHome, DSH_DESKTOP_USER_DATA: userData, DSH_DESKTOP_DISABLE_UPDATES: '1', DSH_DESKTOP_DISABLE_PROTOCOL_REGISTRATION: '1', DOCK_CATALOG_TEST_KEY: 'synthetic-dock-key' } })
+    env: { ...process.env, DSH_HOME: dshHome, DSH_DESKTOP_USER_DATA: userData, DSH_DESKTOP_DISABLE_UPDATES: '1', DSH_DESKTOP_DISABLE_PROTOCOL_REGISTRATION: '1', DSH_DESKTOP_E2E_RUNTIME_FETCH_GATE: fetchGate, DOCK_CATALOG_TEST_KEY: 'synthetic-dock-key' } })
   await useChineseFixtureLocale(app)
   const main = await app.firstWindow()
-  await main.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: 120_000 })
+  await main.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 120_000 })
   let start = performance.now()
   const opened = await openDockSetting(app, main, 'value-mode')
   const dock = opened.dock
@@ -92,20 +92,14 @@ try {
   assert.ok((await app.evaluate(() => globalThis.dockCatalogVisibility)).every(value => value === true), 'warm settings do not flash a hidden page')
 
   // Hold only the native advisory catalog RPC, then verify bounded UI failure and retry.
-  await settings.route('**/*', async route => {
-    if (blocked && isCatalog(route.request())) { held.push(route); return }
-    await route.continue()
-  })
-  blocked = true
+  await writeFile(fetchGate, 'stall')
   await settings.getByRole('button', { name: /^更省/ }).click()
   await settings.waitForFunction(() => [...document.querySelectorAll('[data-value-mode-card] button')].some(button => button.textContent.startsWith('更省') && button.getAttribute('aria-pressed') === 'true'))
   await settings.getByRole('button', { name: /^更省/ }).getAttribute('aria-pressed').then(value => assert.equal(value, 'true'))
   await settings.getByRole('button', { name: '更换专家主控模型', exact: true }).click()
   await picker.getByRole('alert').filter({ hasText: '超时' }).waitFor({ timeout: 16_000 })
-  assert.ok(held.length > 0, 'the failure came from a deliberately stalled native request')
   assert.equal(await picker.getByText('加载已配置模型列表中...', { exact: true }).count(), 0, 'timeout settles the spinner')
-  blocked = false
-  await Promise.all(held.splice(0).map(route => route.abort()))
+  await writeFile(fetchGate, 'open')
   await picker.getByRole('button', { name: '重试', exact: true }).click()
   await relay.waitFor({ timeout: 15_000 })
   await picker.getByRole('button', { name: '关闭模型选择器', exact: true }).click()
@@ -125,8 +119,7 @@ try {
   }
   throw error
 } finally {
-  blocked = false
-  await Promise.all(held.splice(0).map(route => route.abort().catch(() => {})))
+  await writeFile(fetchGate, 'open').catch(() => {})
   await app?.close()
   await rm(temporary, { recursive: true, force: true })
 }

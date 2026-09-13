@@ -1,0 +1,28 @@
+{
+  "name": "@linxin666/dsh-desktop-pipe-webserver",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Desktop-only carrier adapter for verified WebRoute APIs without a TCP listener.",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-host-webserver": "0.1.5-rc.2"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/dsh-host-webserver": "0.1.5-rc.2"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "license": "Apache-2.0"
+}

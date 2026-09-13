@@ -76,7 +76,7 @@ export async function runPresetDeepLinkE2E({ appDir, executablePath, electronPat
     await assert.rejects(access(join(dshHome, 'settings.yaml')), /ENOENT/u)
     await assert.rejects(access(join(dshHome, 'task-templates.json')), /ENOENT/u)
 
-    const mainPage = await waitForWindow(app, (page) => /^http:\/\/127\.0\.0\.1:/u.test(page.url()), timeoutMs)
+    const mainPage = await waitForWindow(app, (page) => page.url().startsWith('dsh-runtime://app/'), timeoutMs)
     await mainPage.waitForSelector('style[data-plugin="@linxin666/dsh-client-ui-mode-switcher"]', {
       state: 'attached',
       timeout: timeoutMs,

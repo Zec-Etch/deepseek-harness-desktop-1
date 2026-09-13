@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "platformBaseline": "windows-x64",
+  "records": [
+    { "module": "node-pty", "capability": "terminal PTY", "process": "Electron main", "version": "1.2.0-beta.15", "abiPolicy": "Electron ABI rebuild or packaged prebuild verification", "acceptance": "test:terminal:e2e and process cleanup" },
+    { "module": "koffi", "capability": "Windows native integration", "process": "Electron main", "version": "3.1.4", "abiPolicy": "N-API package inventory for target platform", "acceptance": "pack:verify and system integration tests" },
+    { "module": "@deepseek-ai/node-addon-system", "capability": "official Host system operations", "process": "upstream Node Host", "version": "resolved by runtime lock", "abiPolicy": "exact platform package and Node ABI", "acceptance": "runtime graph and packaged Host smoke" },
+    { "module": "sharp", "capability": "build and visual fixtures", "process": "build/test only", "version": "0.35.3", "abiPolicy": "never required by production Runtime unless resolved as production dependency", "acceptance": "packaged dependency inventory" },
+    { "module": "ssh2", "capability": "SSH transport", "process": "Runtime Host", "version": "1.17.0", "abiPolicy": "pure JS plus optional crypto implementation inventory", "acceptance": "test:ssh:e2e" },
+    { "module": "bundled Git", "capability": "Git and worktree operations", "process": "controlled child", "version": "build/bundled-managed-git/manifest.json", "abiPolicy": "pinned archive digest and exact executable identity", "acceptance": "prepare:bundled-git and packaged worktree test" },
+    { "module": "pnpm", "capability": "plugin profile construction", "process": "trusted management child", "version": "11.22.0", "abiPolicy": "bundled Node plus exact pnpm entrypoint", "acceptance": "plugin transaction matrix and packaged profile rebuild" }
+  ]
+}

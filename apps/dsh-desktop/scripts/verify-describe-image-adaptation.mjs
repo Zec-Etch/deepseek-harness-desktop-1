@@ -164,7 +164,7 @@ try {
   await useChineseFixtureLocale(app)
   main = await app.firstWindow()
   main.on('pageerror', error => errors.push(error.message))
-  await main.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: 120000 })
+  await main.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 120000 })
   await main.waitForFunction(() => globalThis.__imageAdaptation?.hookInstalled() === true, undefined, { timeout: 60000 })
   stage = 'create-session'
   const created = await rpc('workspace/create', { path: workspace })

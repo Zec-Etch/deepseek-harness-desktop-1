@@ -767,6 +767,23 @@
         "declarative-palette-sync-and-reset"
       ],
       "e2eScript": "scripts/verify-native-plugin-pages.mjs"
+    },
+    {
+      "id": "runtime-provider-v2-pipe",
+      "name": "RuntimeProvider v2 private local carrier",
+      "uiSelector": "#root",
+      "features": [
+        "authenticated-private-os-pipe",
+        "generation-fenced-handshake",
+        "chunked-fetch-with-cancellation",
+        "gateway-stream-cancellation",
+        "no-http-ready-address",
+        "carrier-neutral-web-route-adapter-with-explicit-exit-condition",
+        "pipe-websocket-duplex-frame-and-close-lifecycle",
+        "independent-community-home-two-phase-health-commit",
+        "migration-source-retained-and-automation-suspended"
+      ],
+      "e2eScript": "scripts/verify-runtime-pipe.mjs"
     }
   ],
   "skinCatalog": [

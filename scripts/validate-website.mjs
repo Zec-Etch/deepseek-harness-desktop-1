@@ -220,7 +220,10 @@ export async function validateWebsite() {
     readFile(indexNowKeyPath, 'utf8'),
     readFile(desktopPackagePath, 'utf8'),
   ])
-  const version = JSON.parse(desktopPackage).version
+  const candidateVersion = JSON.parse(desktopPackage).version
+  const publishedVersion = /<html\b[^>]*\bdata-release-version=["'](\d+\.\d+\.\d+)["']/iu.exec(html)?.[1]
+  const version = candidateVersion.includes('-') ? publishedVersion : candidateVersion
+  if (version === undefined) throw new Error('prerelease builds require a stable data-release-version on the public website')
   const errors = [
     ...await collectWebsiteErrors(html, version),
     ...collectPrivacyErrors(privacy),

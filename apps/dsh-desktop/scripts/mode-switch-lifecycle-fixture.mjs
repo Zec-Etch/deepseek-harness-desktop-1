@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 
 // Runs against the real loaded client and an isolated durable conversation.
 // Only the first create response is fault-injected; successful mode selection
 // uses the real Host, workspace, preset composition and session persistence.
 export async function verifyModeSwitchLifecycle({ page, rpc, sessionId, workspaceId,
-  workspacePath, messageCount, logPath, openSeededSession }) {
+  workspacePath, messageCount, logPath, openSeededSession, runtimeFetchGate }) {
   async function roster() {
     const response = await page.evaluate(async rpcId => {
       const result = await fetch('/api/agentPresets/list', {
@@ -53,40 +53,39 @@ export async function verifyModeSwitchLifecycle({ page, rpc, sessionId, workspac
   }
 
   const failureMessage = 'mode-switch-create-failure-fixture'
-  let rejectedCreates = 0
   const requestPaths = []
   const noteRequest = request => {
-    if (request.method() === 'POST' && request.url().startsWith(new URL(page.url()).origin)) {
-      requestPaths.push(new URL(request.url()).pathname)
+    const url = new URL(request.url())
+    const pageUrl = new URL(page.url())
+    const ownedRuntime = (url.protocol === 'dsh-runtime:' && url.hostname === 'app') || url.origin === pageUrl.origin
+    if (request.method() === 'POST' && ownedRuntime) {
+      requestPaths.push(url.pathname)
       if (requestPaths.length > 12) requestPaths.shift()
     }
   }
-  const createRoute = '**/api/session/create'
-  const rejectCreate = async route => {
-    assert.equal(route.request().method(), 'POST')
-    const request = route.request().postDataJSON()
-    rejectedCreates += 1
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
-      type: 'server-response', rpcId: request.rpcId, method: request.method,
-      result: { ok: false, error: { code: 'gateway/internal', message: failureMessage, details: {} } },
-    }) })
-  }
-  await page.route(createRoute, rejectCreate)
+  assert.equal(typeof runtimeFetchGate, 'string')
+  await writeFile(runtimeFetchGate, 'reject-session-create')
   page.on('request', noteRequest)
   try {
+    const rejectedResponsePromise = page.waitForResponse(response => new URL(response.url()).pathname === '/api/session/create'
+      && response.request().method() === 'POST', { timeout: 30_000 })
     await selectTarget()
+    const rejectedResponse = await rejectedResponsePromise
+    const rejectedBody = await rejectedResponse.json()
+    assert.equal(rejectedBody.result?.ok, false)
+    assert.equal(rejectedBody.result?.error?.message, failureMessage)
     try {
       await page.waitForFunction(message => document.querySelector('[data-dsh-mode-switcher]')
         ?.getAttribute('title')?.includes(message), failureMessage)
     } catch (error) {
       console.error('mode-switch rejection diagnostic', JSON.stringify({
-        rejectedCreates, requestPaths, title: await switcher.getAttribute('title'),
+        requestPaths, title: await switcher.getAttribute('title'),
         renderedUsers: await page.locator('[data-chat-flow-kind="user"]').count(),
         enabled: await trigger.isEnabled(),
       }))
       throw error
     }
-    assert.equal(rejectedCreates, 1, 'one user choice must issue one create')
+    assert.equal(requestPaths.filter(path => path === '/api/session/create').length, 1, 'one user choice must issue one create')
     assert.equal(await trigger.isEnabled(), true, 'failure must permit retry')
     assert.equal(await page.locator('[data-chat-flow-kind="user"]').count(), messageCount,
       'failed mode creation must leave the original history on screen')
@@ -95,7 +94,7 @@ export async function verifyModeSwitchLifecycle({ page, rpc, sessionId, workspac
       before.map(item => item.id ?? item.sessionId).sort(), 'rejected create must not add sessions')
     assert.equal((await roster()).find(preset => preset.isDefault)?.id, originalDefault)
   } finally {
-    await page.unroute(createRoute, rejectCreate)
+    await writeFile(runtimeFetchGate, 'open')
     page.off('request', noteRequest)
   }
 

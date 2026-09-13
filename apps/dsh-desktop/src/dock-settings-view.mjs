@@ -1,4 +1,4 @@
-import { installNavigationPolicy } from './navigation-policy.mjs'
+import { classifyNavigation, installNavigationPolicy } from './navigation-policy.mjs'
 import { getWindowChromeTheme, getWindowPalette, WINDOW_CHROME_HEIGHT } from './window-chrome.mjs'
 import { publishWindowMotion } from './window-motion.mjs'
 import { assertDockSetting } from './dock-pages.mjs'
@@ -60,7 +60,7 @@ export async function saveDockSettingsDrafts({
 
 /** Lazy, unprivileged runtime view. It shares the local user's browser session,
  * but never receives the extension-management preload or an IPC surface grant. */
-export function createDockSettingsView({ WebContentsView, window, mainWindow, getRuntimeOrigin, dialog, openExternal = () => {}, closeCheckTimeoutMs = 1500, navigationTimeoutMs = 25000 }) {
+export function createDockSettingsView({ WebContentsView, window, mainWindow, getRuntimeOrigin, dialog, runtimePreload, openExternal = () => {}, closeCheckTimeoutMs = 1500, navigationTimeoutMs = 25000 }) {
   let view
   let selected = null
   let origin
@@ -139,6 +139,7 @@ export function createDockSettingsView({ WebContentsView, window, mainWindow, ge
     if (!documentReady || origin !== runtimeOrigin) view?.setVisible(false)
     if (!view) {
       view = new WebContentsView({ webPreferences: {
+        ...(runtimePreload ? { preload: runtimePreload } : {}),
         session: mainWindow.webContents.session,
         contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true,
       } })
@@ -147,7 +148,7 @@ export function createDockSettingsView({ WebContentsView, window, mainWindow, ge
       view.setBackgroundColor?.(theme === 'dark' ? '#0a141b' : '#ffffff')
       installNavigationPolicy({ webContents: view.webContents, getRuntimeOrigin, openExternal })
       view.webContents.on('will-redirect', (event, url) => {
-        if (new URL(url).origin !== getRuntimeOrigin()) event.preventDefault()
+        if (classifyNavigation(url, getRuntimeOrigin()) !== 'allow') event.preventDefault()
       })
       window.on('resize', layout)
     }

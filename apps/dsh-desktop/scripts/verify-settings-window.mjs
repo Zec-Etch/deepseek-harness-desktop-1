@@ -61,7 +61,7 @@ try {
   })
   page = await electronApp.firstWindow()
   page.on('pageerror', (error) => console.error(`renderer error: ${error.message}`))
-  await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: runtimeReadyTimeoutMs })
+  await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: runtimeReadyTimeoutMs })
   await page.waitForSelector('style[data-plugin="@linxin666/dsh-client-ui-mode-switcher"]', {
     state: 'attached',
     timeout: runtimeReadyTimeoutMs,
@@ -208,7 +208,7 @@ try {
   assertContained(state)
 
   await electronApp.evaluate(({ BrowserWindow }) => {
-    const window = BrowserWindow.getAllWindows().find((candidate) => candidate.webContents.getURL().startsWith('http://127.0.0.1:'))
+    const window = BrowserWindow.getAllWindows().find((candidate) => candidate.webContents.getURL().startsWith('dsh-runtime://app/'))
     window.setSize(760, 600)
   })
   await page.waitForFunction(() => {

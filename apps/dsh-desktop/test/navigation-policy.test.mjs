@@ -11,6 +11,9 @@ test('navigation policy keeps the renderer on the active DSH origin', () => {
   assert.equal(classifyNavigation('file:///C:/Windows/System32/calc.exe', runtimeOrigin), 'deny')
   assert.equal(classifyNavigation('javascript:alert(1)', runtimeOrigin), 'deny')
   assert.equal(classifyNavigation('not a url', runtimeOrigin), 'deny')
+  assert.equal(classifyNavigation('dsh-runtime://app/session/1', 'dsh-runtime://app'), 'allow')
+  assert.equal(classifyNavigation('dsh-runtime://other/session/1', 'dsh-runtime://app'), 'deny')
+  assert.equal(classifyNavigation('javascript:alert(1)', 'invalid-runtime-origin'), 'deny')
 })
 
 test('loopback Runtime navigation stays inside Electron and never opens the system browser', () => {

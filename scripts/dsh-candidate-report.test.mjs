@@ -5,6 +5,7 @@ import { createCandidateReport, renderCandidateReportMarkdown } from './dsh-cand
 import {
   collectWorkspaceDshPackages,
   createCandidateInstallPlan,
+  prepareCandidateWorkspaceText,
   validateCandidateVersion,
 } from './prepare-dsh-candidate.mjs'
 
@@ -116,6 +117,29 @@ test('Candidate Matrix plans every workspace DSH SDK package and exposes retired
     spec: '@deepseek-ai/cordis@4.0.2',
   }])
   assert.deepEqual(plan.unresolvedCompanionPackages, [])
+})
+
+test('Candidate preparation removes only DSH patches for other exact releases', () => {
+  const workspace = [
+    "patchedDependencies: { '@deepseek-ai/dsh-client-store@0.1.5-rc.1': patches/store.patch, '@deepseek-ai/dsh-llm-pi-ai@0.1.5-rc.2': patches/llm.patch, '@linxin666/dsh-pet@0.2.5': patches/pet.patch }",
+    'allowBuilds:',
+    '  esbuild: true',
+    '',
+  ].join('\n')
+  const result = prepareCandidateWorkspaceText(workspace, '0.1.5-rc.2')
+  assert.deepEqual(result.removedPatchSpecifiers, ['@deepseek-ai/dsh-client-store@0.1.5-rc.1'])
+  assert.doesNotMatch(result.text, /dsh-client-store/u)
+  assert.match(result.text, /dsh-llm-pi-ai@0\.1\.5-rc\.2/u)
+  assert.match(result.text, /@linxin666\/dsh-pet@0\.2\.5/u)
+  assert.match(result.text, /allowBuilds:\n  esbuild: true/u)
+})
+
+test('Candidate preparation leaves workspaces without patch declarations unchanged', () => {
+  const workspace = "packages:\n  - 'packages/*'\n"
+  assert.deepEqual(prepareCandidateWorkspaceText(workspace, '0.1.5-rc.2'), {
+    text: workspace,
+    removedPatchSpecifiers: [],
+  })
 })
 
 test('Candidate Matrix successful report is diagnostic and leaves stable inputs unchanged', () => {

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "policy": "desktop-first",
-  "runtimeVersion": "0.1.5-rc.1",
+  "runtimeVersion": "0.1.5-rc.2",
   "notes": [
     "The selection is the reviewed Desktop source and version, independent of the dated public latest snapshot.",
     "A 404 snapshot does not establish package privacy.",
@@ -513,6 +513,35 @@
         ],
         "desktopAcceptance": [
           "Open the existing Desktop surface and verify its saved configuration and primary action."
+        ],
+        "results": []
+      }
+    },
+    {
+      "name": "@linxin666/dsh-desktop-pipe-webserver",
+      "selection": {
+        "version": "0.1.0",
+        "source": "workspace",
+        "path": "packages/dsh-desktop-pipe-webserver"
+      },
+      "publicSnapshot": {
+        "status": "not-found",
+        "latest": null,
+        "checkedAt": "2026-09-13T00:00:00.000Z",
+        "url": "https://registry.npmjs.org/%40linxin666%2Fdsh-desktop-pipe-webserver"
+      },
+      "reason": "Desktop-owned temporary compatibility boundary for reviewed WebRoute and upgrade subsets over the authenticated private pipe; it creates no TCP listener and has a documented exit condition.",
+      "desktopContracts": [
+        "No local TCP listener for the default Runtime",
+        "Existing built-in JSON, asset, streaming and SSH terminal behavior"
+      ],
+      "validation": {
+        "automatedChecks": [
+          "packages/dsh-desktop-pipe-webserver/test/adapter.test.mjs",
+          "apps/dsh-desktop/scripts/verify-runtime-pipe.mjs"
+        ],
+        "desktopAcceptance": [
+          "Start the complete profile, use a community JSON route, load an asset, and complete an SSH WebSocket close handshake without an HTTP ready address."
         ],
         "results": []
       }

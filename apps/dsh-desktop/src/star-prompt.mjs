@@ -10,8 +10,8 @@ export function renderSponsorQr() {
 }
 
 // Bump the once-per-release claim key so the community prompt is shown again
-// after upgrading to the 3.5.0 release, while remaining idempotent thereafter.
-export const STAR_PROMPT_VERSION = '3.5.0'
+// for the 4.0 release candidate, while remaining idempotent thereafter.
+export const STAR_PROMPT_VERSION = '4.0.0-rc.1'
 const STAR_PROMPT_SURFACE_ID = 'dsh-desktop-star-prompt'
 
 function normalizeShownVersions(value) {
@@ -455,7 +455,7 @@ export function createStarPromptSurfaceScript({ forceVisible = false, showDelayM
     const api = window.dshDesktop;
     const options = ${options};
     const english = document.documentElement.lang.toLowerCase().startsWith('en');
-    const isHarnessPage = location.protocol === 'http:' || location.protocol === 'https:';
+    const isHarnessPage = location.protocol === 'dsh-runtime:' || location.protocol === 'http:' || location.protocol === 'https:';
     if (!options.forceVisible && (!isHarnessPage || typeof api?.claimStarPrompt !== 'function')) return false;
 
     const root = document.createElement('div');

@@ -84,7 +84,7 @@ async function launch() {
     errors.push(`console:${message.text()}`)
     record({ type: 'console', message: message.text(), location: message.location() })
   })
-  await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: 120_000 })
+  await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 120_000 })
   await page.waitForSelector('#dsh-desktop-window-chrome', { timeout: 120_000 })
   await dismissStartup(page)
   return { instance, page, errors, diagnostics, beginClose: () => { phase = 'closing-app' } }

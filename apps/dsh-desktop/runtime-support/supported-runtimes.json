@@ -9,10 +9,10 @@
   },
   "entries": [
     {
-      "status": "known-good",
-      "upstreamVersion": "0.1.5-rc.1",
+      "status": "supported",
+      "upstreamVersion": "0.1.5-rc.2",
       "providerId": "dsh-cli-provider-v1",
-      "desktopRange": "=3.5.0",
+      "desktopRange": "=4.0.0-rc.1",
       "capabilities": [
         {
           "id": "host-service.register",
@@ -27,6 +27,10 @@
           "status": "available"
         },
         {
+          "id": "runtime.observe",
+          "status": "available"
+        },
+        {
           "id": "session.create",
           "status": "unsupported"
         },
@@ -35,27 +39,39 @@
           "status": "unsupported"
         },
         {
+          "id": "support.evidence",
+          "status": "available"
+        },
+        {
+          "id": "transport.fetch",
+          "status": "available"
+        },
+        {
+          "id": "transport.stream",
+          "status": "available"
+        },
+        {
           "id": "workspace.register",
           "status": "unsupported"
         }
       ],
-      "verifiedAt": "2026-09-10",
+      "verifiedAt": "2026-09-13",
       "matrixArtifact": "apps/dsh-desktop/runtime-support/known-good.json",
       "knownIssues": [],
       "evidence": {
         "package": {
           "name": "@deepseek-ai/dsh",
-          "version": "0.1.5-rc.1",
-          "integrity": "sha512-rmNmzQCg3oIc1z8xH7izRSOuy1TNzq+/NILyfM+7e8DKOyV+yBtg47WEsqR2SiIe1ATec3L/rUa1YhIcfQ2XEg==",
+          "version": "0.1.5-rc.2",
+          "integrity": "sha512-8Xc8hCQHcIWRmTCVU/xZdp6/qMsWMeAd2ObChKDEsfhUPJFXx6H0lgeb1DxUMD86HZrrVN+1bCvn1ppjZ/fOxw==",
           "files": {
-            "package.json": "8da881a5aa7d371dc1244ebb7acb8dfa9ac5fafce50404b31185d89cf152763a",
+            "package.json": "0d9ea2f7a42e7bacf319abd57016e40d0351d07032c7eb709d7c54158300d4cb",
             "lib/bin.js": "0ff7f1d72c4e0cbe14001709c81e20a04b70464118a7f78568952988e28f2ac5"
           }
         },
         "peers": {},
         "lockfile": {
           "path": "pnpm-lock.yaml",
-          "sha256": "76a6ec6150028990815a2eddebca1af782f53ded0a5c1f095e59c6ddcee0ccb3"
+          "sha256": "9b67593bb8c34e66b80b259381ee5c8e6ed2ccfd62f28497926cbfe0600a4e8c"
         },
         "slots": [
           "conversation.composer.dock",

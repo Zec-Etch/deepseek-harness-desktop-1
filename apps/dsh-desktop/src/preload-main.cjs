@@ -57,6 +57,10 @@ const baseApi = {
   onDeepLink: createBufferedSubscription('desktop:deep-link', 'deep link'),
   onConversationImported: createSubscription('desktop:conversation-imported', 'conversation imported'),
   onConversationImportBatchProgress: createBufferedSubscription('desktop:conversation-import-batch-progress', 'conversation import batch progress', 128),
+  openRuntimeStream: (endpoint, payload) => ipcRenderer.invoke('desktop:runtime-stream-open', { endpoint, payload }),
+  writeRuntimeStream: (id, value) => ipcRenderer.invoke('desktop:runtime-stream-write', id, value),
+  cancelRuntimeStream: (id) => ipcRenderer.invoke('desktop:runtime-stream-cancel', id),
+  onRuntimeStream: createBufferedSubscription('desktop:runtime-stream-frame', 'runtime stream', 256),
 }
 
 const api = Object.freeze({

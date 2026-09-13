@@ -1,6 +1,6 @@
 {
   "name": "dsh-web-ui",
-  "version": "3.5.0",
+  "version": "4.0.0-rc.1",
   "private": true,
   "description": "DeepSeek Harness Web GUI 皮肤集合 + 主题库预览页（仿 Codex-Dream-Skin / DreamSkin.cc）。每个皮肤是符合官方标准（turtle-ui 式 setup）的独立可安装插件包。",
   "scripts": {
@@ -20,8 +20,8 @@
     "runtime-graph:check": "node scripts/runtime-graph-check.mjs",
     "dsh-imports:check": "node scripts/dsh-import-boundary.mjs --check",
     "dsh-audit:check": "node scripts/audit-dsh-coupling.mjs --check",
-    "runtime-support:write": "node scripts/generate-runtime-support.mjs --write",
-    "runtime-support:check": "node scripts/generate-runtime-support.mjs --check",
+    "runtime-support:write": "node scripts/generate-runtime-support.mjs --write --support-status supported",
+    "runtime-support:check": "node scripts/generate-runtime-support.mjs --check --support-status supported",
     "runtime-support-matrix:write": "node scripts/generate-runtime-support-matrix.mjs --write",
     "runtime-support-matrix:check": "node scripts/generate-runtime-support-matrix.mjs --check",
     "community-plugin-quality:write": "node scripts/generate-community-plugin-quality-report.mjs --write",
@@ -34,7 +34,7 @@
     "gallery:build": "node scripts/gallery-build",
     "gallery:capture": "node scripts/capture-previews",
     "deploy:gallery": "node scripts/deploy-gallery",
-    "docs:check": "node scripts/verify-docs.mjs",
+    "docs:check": "node scripts/verify-docs.mjs && node scripts/verify-architecture-inventories.mjs",
     "docs:list": "node scripts/verify-docs.mjs --list",
     "docs:write-pair": "node scripts/verify-docs.mjs --write",
     "sync-shared": "node scripts/sync-shared.mjs",

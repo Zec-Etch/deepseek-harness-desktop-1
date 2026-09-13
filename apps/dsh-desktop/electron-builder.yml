@@ -28,6 +28,8 @@ extraResources:
     to: runtime-support/supported-runtimes.json
   - from: runtime-support/known-good.json
     to: runtime-support/known-good.json
+  - from: runtime-support/desktop-pipe.patch.yml
+    to: runtime-support/desktop-pipe.patch.yml
 
 directories:
   output: dist

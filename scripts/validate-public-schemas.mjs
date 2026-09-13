@@ -12,6 +12,7 @@ export const REPOSITORY_ROOT = resolve(SCRIPT_DIRECTORY, '..')
 export const PUBLIC_SCHEMA_FILES = Object.freeze({
   desktopContract: 'docs/schemas/desktop-contract-v1.schema.json',
   runtimeProvider: 'docs/schemas/runtime-provider-v1.schema.json',
+  runtimeProviderV2: 'docs/schemas/runtime-provider-v2.schema.json',
   runtimeMatrix: 'docs/schemas/supported-runtime-matrix-v1.schema.json',
   patchRegistry: 'docs/schemas/compat-patch-registry-v1.schema.json',
   deepLink: 'docs/schemas/dsh-deep-link-v1.schema.json',
@@ -279,6 +280,18 @@ export function publicSchemaFixtures() {
       capabilities: [{ id: 'profile.paths', status: 'available' }],
       futureOptionalField: true,
     },
+    runtimeProviderV2: {
+      providerId: 'dsh-cli-provider-v1',
+      apiVersion: 2,
+      upstreamVersion: '0.1.5-rc.2',
+      supportStatus: 'supported',
+      capabilities: [
+        { id: 'runtime.lifecycle', status: 'available' },
+        { id: 'transport.fetch', status: 'available' },
+        { id: 'transport.stream', status: 'available' }
+      ],
+      futureOptionalField: true,
+    },
     runtimeMatrix: {
       schemaVersion: 1,
       derived: true,
@@ -485,6 +498,7 @@ export async function validatePublicSchemas({
   const fixtures = publicSchemaFixtures()
   assertSchemaValue('desktopContract', schemas.desktopContract, fixtures.desktopContract)
   assertSchemaValue('runtimeProvider', schemas.runtimeProvider, fixtures.runtimeProvider)
+  assertSchemaValue('runtimeProviderV2', schemas.runtimeProviderV2, fixtures.runtimeProviderV2)
   assertSchemaValue('runtimeMatrix', schemas.runtimeMatrix, fixtures.runtimeMatrix)
   for (const link of fixtures.deepLinks) assertSchemaValue('deepLink', schemas.deepLink, link)
   assertSchemaValue('preset', schemas.preset, fixtures.preset)

@@ -73,7 +73,7 @@ try {
   })
   page = await electronApp.firstWindow()
   page.on('pageerror', error => console.error(`renderer error: ${error.message}`))
-  await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: runtimeReadyTimeoutMs })
+  await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: runtimeReadyTimeoutMs })
   await page.waitForSelector('style[data-plugin="@linxin666/dsh-client-ui-web-ui-settings"]', {
     state: 'attached',
     timeout: runtimeReadyTimeoutMs,
@@ -191,7 +191,7 @@ try {
       state: 'visible',
       timeout: runtimeReadyTimeoutMs,
     })
-    assert.ok(page.url().startsWith('http://127.0.0.1:'), `market install left the main Runtime surface: ${page.url()}`)
+    assert.ok(page.url().startsWith('dsh-runtime://app/'), `market install left the main Runtime surface: ${page.url()}`)
     assert.equal(
       mainNavigations.some(url => url.startsWith('file:')),
       false,

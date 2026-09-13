@@ -24,7 +24,7 @@ let electronApp
 async function waitForRuntimeWindow(application, timeoutMs) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    const page = application.windows().find((candidate) => /^http:\/\/127\.0\.0\.1:/u.test(candidate.url()))
+    const page = application.windows().find((candidate) => /^dsh-runtime:\/\/app\//u.test(candidate.url()))
     if (page !== undefined) return page
     await new Promise((resolveWait) => setTimeout(resolveWait, 100))
   }
@@ -165,7 +165,7 @@ try {
         hitChrome: Boolean(hit?.closest('#dsh-desktop-window-chrome')),
       }
     }),
-    url: location.origin,
+    url: location.href,
   }))
   const requiredChromeEntries = [
     '工具 / Tools',
@@ -292,7 +292,7 @@ try {
   await extensionPage.getByRole('heading', { name: '拓展坞', exact: true }).waitFor({ state: 'visible' })
   const extensionSession = await electronApp.evaluate(({ BrowserWindow, session }, partition) => {
     const windows = BrowserWindow.getAllWindows()
-    const main = windows.find((window) => window.webContents.getURL().startsWith('http://127.0.0.1:'))
+    const main = windows.find((window) => window.webContents.getURL().startsWith('dsh-runtime://app/'))
     const secondary = windows.find((window) => window.webContents.getURL().includes('extensions.html'))
     return {
       distinct: Boolean(main && secondary && main.webContents.session !== secondary.webContents.session),
@@ -338,7 +338,7 @@ try {
   assert.equal(await communityPage.getByRole('button', { name: '工具 / Tools' }).count(), 0)
   const communitySession = await electronApp.evaluate(({ BrowserWindow, session }, partition) => {
     const windows = BrowserWindow.getAllWindows()
-    const main = windows.find((window) => window.webContents.getURL().startsWith('http://127.0.0.1:'))
+    const main = windows.find((window) => window.webContents.getURL().startsWith('dsh-runtime://app/'))
     const secondary = windows.find((window) => window.webContents.getURL().includes('community.html'))
     return {
       distinct: Boolean(main && secondary && main.webContents.session !== secondary.webContents.session),

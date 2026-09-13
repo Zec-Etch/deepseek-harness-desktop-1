@@ -29,7 +29,7 @@ try {
   })
   const page = await electronApp.firstWindow()
   try {
-    await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: runtimeReadyTimeoutMs })
+    await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: runtimeReadyTimeoutMs })
   } catch (error) {
     const runtimeLog = await readFile(resolve(temporary, 'user-data', 'logs', 'runtime.log'), 'utf8').catch(() => '')
     console.error(runtimeLog.slice(-4_000))

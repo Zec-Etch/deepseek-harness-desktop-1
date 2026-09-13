@@ -22,7 +22,7 @@ try {
   app = await electron.launch({ executablePath, args: packaged ? [] : [resolve(appDir, 'src/main.mjs')], cwd: appDir,
     env: { ...process.env, DSH_DESKTOP_USER_DATA: resolve(temporary, 'user-data'), DSH_HOME: resolve(temporary, 'dsh-home'), DSH_DESKTOP_VERIFY_UPDATER: '0', DSH_DESKTOP_OPEN_EXTENSIONS: '1' } })
   const main = await app.firstWindow()
-  await main.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: 120_000 })
+  await main.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 120_000 })
   let dock
   for (let attempt = 0; attempt < 120; attempt++) {
     dock = app.windows().find(page => page.url().includes('/extensions.html'))

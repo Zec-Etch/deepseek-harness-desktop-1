@@ -12,6 +12,7 @@ const SOURCE_EXTENSIONS = new Set(['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx']
 const IGNORED_SOURCE_PREFIXES = Object.freeze(['.patch-work/'])
 const CONTROLLED_PREFIXES = Object.freeze([
   'apps/dsh-desktop/src/runtime-provider.mjs',
+  'packages/dsh-desktop-pipe-webserver/src/',
   'packages/dsh-desktop-compat/src/',
   'packages/dsh-desktop-repair/src/',
   'packages/dsh-web-ui-settings/src/chatgpt-auth',

@@ -31,6 +31,10 @@ test('Known Good manifest derives exact runtime, integrity, capabilities, and pa
     'session.create',
     'session.observe',
     'host-service.register',
+    'transport.fetch',
+    'transport.stream',
+    'runtime.observe',
+    'support.evidence',
   ])
   assert.deepEqual(manifest.compatPatches.ids, [
     'cancellation-presentation',

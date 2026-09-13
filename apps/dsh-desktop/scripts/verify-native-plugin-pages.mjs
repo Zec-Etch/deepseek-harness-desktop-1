@@ -29,7 +29,7 @@ try {
     args: process.env.DSH_DESKTOP_E2E_EXECUTABLE ? [] : [resolve(appDir, 'src/main.mjs')], cwd: appDir,
     env: { ...process.env, DSH_DESKTOP_DISABLE_PROTOCOL_REGISTRATION: '1', DSH_DESKTOP_USER_DATA: userData, DSH_HOME: dshHome, DSH_DESKTOP_DISABLE_UPDATES: '1', NATIVE_PAGE_TEST_KEY: 'synthetic-native-key', DSH_DESKTOP_VERIFY_UPDATER: '0', DSH_DESKTOP_OPEN_EXTENSIONS: '1' } })
   const main = await app.firstWindow()
-  await main.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: 120_000 })
+  await main.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 120_000 })
   const errors = []
   main.on('pageerror', error => errors.push(error.message))
   for (const [id, text] of [['appearance', /皮肤|Skin/], ['models', /模型|Models/], ['usage', /用量|Usage/], ['sessions', /归档|Archive/]]) {
@@ -55,6 +55,7 @@ try {
         const payload = await (await fetch('/api/dsh-web-ui-settings/describe', { method: 'POST' })).json()
         return payload.value?.namespaces?.find(entry => entry.ns === 'llm-pi-ai')?.value?.providers?.['native-test']?.models?.[0]?.input?.includes('image') === true
       })
+      await settings.waitForTimeout(300)
       await capabilities.locator('[data-dsh-part="image-input"] input').uncheck()
       assert.equal(await capabilities.getAttribute('data-dock-dirty'), 'true')
       await capabilities.locator('[data-dsh-part="toggle"]').click()

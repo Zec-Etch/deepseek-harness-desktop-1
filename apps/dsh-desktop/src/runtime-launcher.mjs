@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs'
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { createRequire } from 'node:module'
 import { stringify } from 'yaml'
 
@@ -17,9 +17,17 @@ import {
 import { provideCmdline } from '@deepseek-ai/dsh-cmdline'
 import { installProxyFromEnvironment } from '@deepseek-ai/dsh-http-proxy'
 import { DSH_LAUNCH_ENVIRONMENT_KEY } from '@deepseek-ai/dsh-launch-environment'
+import {
+  createRuntimePipeServer,
+  RUNTIME_PIPE_ADDRESS_ENV,
+  RUNTIME_PIPE_GENERATION_ENV,
+  RUNTIME_PIPE_READY_LINE,
+  RUNTIME_PIPE_TOKEN_ENV,
+} from './runtime-pipe.mjs'
 import { consumeRuntimeShutdownControl, listenRuntimeShutdownControl } from './runtime-shutdown-control.mjs'
 import { createRuntimeEventStreamDrain } from './runtime-stream-drain.mjs'
 import { createRuntimeStartupTiming } from './runtime-startup-timing.mjs'
+import { transportBootstrapScript } from './runtime-renderer-bootstrap.mjs'
 
 const NAME = 'dsh-desktop'
 const PROFILE_ROOT_FILENAME = 'cordis.yml'
@@ -27,6 +35,98 @@ const PROFILE_ROOT_CONFIG = '# Electron-owned DSH profile root; composition is s
 const TELEMETRY_ROW_ID = 'session-telemetry-otel'
 const require = createRequire(import.meta.url)
 const defaultInstallAnchor = require.resolve('@deepseek-ai/dsh/package.json')
+
+const CONTENT_TYPES = Object.freeze({
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.ico': 'image/x-icon',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.map': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml; charset=utf-8',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+})
+
+function runtimePipeIdentityFromEnvironment(environment = process.env) {
+  const address = environment[RUNTIME_PIPE_ADDRESS_ENV]
+  if (address === undefined || address === '') return undefined
+  return {
+    address,
+    token: environment[RUNTIME_PIPE_TOKEN_ENV],
+    generation: environment[RUNTIME_PIPE_GENERATION_ENV],
+  }
+}
+
+function resolveFrontendDist() {
+  const webAppRequire = createRequire(require.resolve('@deepseek-ai/dsh-web-app/package.json'))
+  return join(dirname(webAppRequire.resolve('@deepseek-ai/dsh-web-frontend/package.json')), 'dist')
+}
+
+function safeFrontendPath(dist, pathname) {
+  let decoded
+  try { decoded = decodeURIComponent(pathname) } catch { return undefined }
+  const candidate = resolve(dist, `.${decoded}`)
+  const within = candidate === dist || (!relative(dist, candidate).startsWith(`..${sep}`) && relative(dist, candidate) !== '..')
+  return within ? candidate : undefined
+}
+
+function createDesktopPipeFetch(ctx) {
+  const api = ctx.connection.createSharedFetchHandler('/api')
+  const dist = resolveFrontendDist()
+  const indexPath = join(dist, 'index.html')
+  let sessionCookiePromise
+  const sessionCookie = () => {
+    sessionCookiePromise ??= (async () => {
+      const launchUrl = ctx.connection.authenticatedUrl(`http://${ctx.webServer.host}/`)
+      const response = await ctx.webServer.authorizeIndex(new Request(launchUrl))
+      const setCookie = response?.headers.get('set-cookie')
+      const cookie = setCookie?.split(';', 1)[0]
+      if (response?.status !== 303 || cookie === undefined || cookie === '') {
+        throw new Error('desktop pipe failed to establish the official browser session')
+      }
+      return cookie
+    })()
+    return sessionCookiePromise
+  }
+  return async (sourceRequest) => {
+    const headers = new Headers(sourceRequest.headers)
+    headers.set('cookie', await sessionCookie())
+    const request = new Request(sourceRequest, { headers })
+    const url = new URL(request.url)
+    const route = ctx.webServer.match(url.pathname)
+    if (route !== undefined && route.path !== '/api' && route.path !== '/plugins') return ctx.webServer.fetch(request)
+    if (url.pathname === '/api' || url.pathname.startsWith('/api/')) return api.fetch(request)
+    if (url.pathname === '/plugins' || url.pathname.startsWith('/plugins/')) return ctx.clientModules.fetchBundle(request)
+    if (route !== undefined) return ctx.webServer.fetch(request)
+    if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('method not allowed', { status: 405 })
+
+    const requested = url.pathname === '/' ? indexPath : safeFrontendPath(dist, url.pathname)
+    let body
+    let filePath = requested
+    try {
+      body = readFileSync(filePath)
+    } catch (error) {
+      if (error?.code !== 'ENOENT' || extname(url.pathname) !== '') return new Response('not found', { status: 404 })
+      filePath = indexPath
+      body = readFileSync(filePath)
+    }
+    if (filePath === indexPath) {
+      const authorizationResponse = await ctx.webServer.authorizeIndex(request)
+      if (authorizationResponse !== undefined) return authorizationResponse
+      const bootstrap = `<script>${transportBootstrapScript()}</script>`
+      body = Buffer.from(ctx.webServer.renderIndex(body.toString('utf8').replace('</head>', `${bootstrap}</head>`)))
+    }
+    return new Response(request.method === 'HEAD' ? null : body, {
+      status: 200,
+      headers: {
+        'content-type': CONTENT_TYPES[extname(filePath).toLowerCase()] ?? 'application/octet-stream',
+        'cache-control': filePath === indexPath ? 'no-store' : 'public, max-age=31536000, immutable',
+      },
+    })
+  }
+}
 
 function parseArguments(argv) {
   const result = { profile: undefined, patchFiles: [], args: [], dumpConfig: false, dshCliPath: undefined }
@@ -119,6 +219,8 @@ async function run() {
   markStartup('environment')
   const profileDir = join(dshHome, 'profiles', invocation.profile)
   const installAnchor = resolveInstallAnchor(invocation.dshCliPath)
+  const runtimeManifest = JSON.parse(readFileSync(installAnchor, 'utf8'))
+  const pipeIdentity = runtimePipeIdentityFromEnvironment()
   const profile = loadProfileDirectory(NAME, profileDir, installAnchor)
   await healProfilesModuleFallback({ installAnchor, profile, home: dshHome })
   const rootConfig = join(profile.dir, PROFILE_ROOT_FILENAME)
@@ -139,6 +241,7 @@ async function run() {
   }
 
   let ctx
+  let pipeServer
   const eventStreams = createRuntimeEventStreamDrain()
   let shuttingDown = false
   let forceTimer
@@ -151,9 +254,10 @@ async function run() {
     forceTimer = setTimeout(() => process.exit(code), 5_000)
     forceTimer.unref()
     try {
-      const drained = await eventStreams.drain(ctx?.get('webServer')?.port)
+      const drained = pipeIdentity === undefined ? await eventStreams.drain(ctx?.get('webServer')?.port) : 0
       process.stdout.write(`[desktop] completed ${drained} event streams before Runtime disposal\n`)
       eventStreams.dispose()
+      await pipeServer?.close()
       await ctx?.fiber.dispose()
       await disposeProxy()
       clearTimeout(forceTimer)
@@ -180,6 +284,24 @@ async function run() {
     })
   })
   markStartup('boot')
+
+  if (pipeIdentity !== undefined) {
+    if (ctx.get('webServer') === undefined || ctx.webServer.port !== 0 || typeof ctx.webServer.fetch !== 'function') {
+      throw new Error('desktop pipe mode requires the no-listener WebRoute adapter')
+    }
+    if (ctx.get('connection') === undefined || ctx.get('clientModules') === undefined || ctx.get('typertGateway') === undefined) {
+      throw new Error('desktop pipe mode requires connection, clientModules, and typertGateway services')
+    }
+    pipeServer = await createRuntimePipeServer({
+      identity: pipeIdentity,
+      runtimeVersion: runtimeManifest.version,
+      profile: invocation.profile,
+      fetch: createDesktopPipeFetch(ctx),
+      openStream: (endpoint, payload, signal) => ctx.typertGateway.wireStream.open(endpoint, payload, signal),
+      openDuplex: (endpoint, payload, input, signal) => ctx.webServer.openDuplex(endpoint, payload, input, signal),
+    })
+    process.stdout.write(`${RUNTIME_PIPE_READY_LINE}\n`)
+  }
 
   await listenRuntimeShutdownControl(shutdownControl, () => shutdown(0), {
     // Cleanup has completed and its acknowledgement has reached the pipe.

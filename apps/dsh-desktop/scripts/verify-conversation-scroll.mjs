@@ -28,6 +28,7 @@ const userData = join(temporary, 'user-data')
 const dshHome = join(temporary, 'dsh-home')
 const workspacePath = join(temporary, 'conversation-scroll-workspace')
 const profileDir = join(dshHome, 'profiles', 'desktop')
+const runtimeFetchGate = join(temporary, 'runtime-fetch-gate.txt')
 const runtimeReadyTimeoutMs = process.env.CI ? 180_000 : 120_000
 const messageCount = 20
 const nativeTurns = process.argv.includes('--native-turns')
@@ -103,6 +104,7 @@ async function launch() {
       DSH_DESKTOP_VERIFY_UPDATER: '0',
       DSH_HOME: dshHome,
       DSH_AGENTS_HOME: join(userData, 'agents'),
+      DSH_DESKTOP_E2E_RUNTIME_FETCH_GATE: runtimeFetchGate,
     },
   })
   activeApp = instance
@@ -123,7 +125,7 @@ async function launch() {
     }
   })
   try {
-    await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: runtimeReadyTimeoutMs })
+    await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: runtimeReadyTimeoutMs })
     await page.waitForSelector('style[data-plugin="@linxin666/dsh-web-ui-all"]', {
       state: 'attached',
       timeout: runtimeReadyTimeoutMs,
@@ -410,6 +412,7 @@ async function assertDarkReadability(page) {
 try {
   await mkdir(profileDir, { recursive: true })
   await mkdir(workspacePath, { recursive: true })
+  await writeFile(runtimeFetchGate, 'open')
   await writeFile(join(workspacePath, 'reference-only.pdf'), 'PDF path-reference sentinel; this file is not parsed by the UI.\n')
   await writeFile(join(profileDir, 'cordis.patch.yml'), [
     '- id: session-persistence-jsonl',
@@ -608,7 +611,7 @@ try {
   if (process.argv.includes('--mode-switch')) {
     const { verifyModeSwitchLifecycle } = await import('./mode-switch-lifecycle-fixture.mjs')
     await verifyModeSwitchLifecycle({ page: second.page, rpc, sessionId, workspaceId,
-      workspacePath, messageCount, logPath, openSeededSession })
+      workspacePath, messageCount, logPath, openSeededSession, runtimeFetchGate })
     await activeApp.close()
     activeApp = undefined
     assert.deepEqual(second.rendererErrors, [], 'mode switching must not introduce renderer exceptions')
@@ -640,5 +643,6 @@ try {
   throw error
 } finally {
   await activeApp?.close()
-  await rm(temporary, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 })
+  if (process.env.DSH_DESKTOP_KEEP_E2E_ARTIFACTS === '1') console.error(`conversation artifacts retained at ${temporary}`)
+  else await rm(temporary, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 })
 }

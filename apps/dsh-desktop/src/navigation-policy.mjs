@@ -1,4 +1,5 @@
 import { runBestEffort } from './best-effort-events.mjs'
+import { desktopRuntimeOrigin } from './runtime-origin.mjs'
 
 export function classifyNavigation(target, runtimeOrigin) {
   let url
@@ -7,7 +8,8 @@ export function classifyNavigation(target, runtimeOrigin) {
   } catch {
     return 'deny'
   }
-  if (runtimeOrigin && url.origin === runtimeOrigin) return 'allow'
+  const expectedOrigin = desktopRuntimeOrigin(runtimeOrigin)
+  if (expectedOrigin !== undefined && desktopRuntimeOrigin(url.href) === expectedOrigin) return 'allow'
   if (url.protocol === 'https:') return 'external'
   return 'deny'
 }

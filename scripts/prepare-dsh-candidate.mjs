@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
-import { readFile, readdir } from 'node:fs/promises'
+import { existsSync, readFileSync } from 'node:fs'
+import { readFile, readdir, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -11,6 +12,56 @@ export function validateCandidateVersion(value) {
     throw new TypeError('candidate DSH version must be exact')
   }
   return value
+}
+
+const PATCHED_DEPENDENCIES_LINE = /^(?<prefix>patchedDependencies:\s*\{)(?<entries>.*)(?<suffix>\}\s*)$/mu
+const PATCHED_DEPENDENCY_ENTRY = /\s*'(?<name>[^']+)'\s*:\s*(?<path>[^,}]+?)\s*(?:,|$)/gu
+
+function dshPatchVersion(specifier) {
+  if (!specifier.startsWith('@deepseek-ai/dsh')) return undefined
+  const separator = specifier.lastIndexOf('@')
+  if (separator <= '@deepseek-ai/'.length) return undefined
+  return specifier.slice(separator + 1)
+}
+
+/**
+ * Candidate worktrees must not apply compatibility patches authored for a
+ * different exact DSH release. Community-package patches stay untouched and
+ * the returned removal list becomes explicit Candidate evidence.
+ */
+export function prepareCandidateWorkspaceText(workspaceText, candidateVersion) {
+  const version = validateCandidateVersion(candidateVersion)
+  if (typeof workspaceText !== 'string') throw new TypeError('candidate workspace text is required')
+  const match = PATCHED_DEPENDENCIES_LINE.exec(workspaceText)
+  if (match?.groups === undefined) {
+    return { text: workspaceText, removedPatchSpecifiers: [] }
+  }
+
+  const entries = []
+  let consumed = 0
+  for (const entry of match.groups.entries.matchAll(PATCHED_DEPENDENCY_ENTRY)) {
+    const gap = match.groups.entries.slice(consumed, entry.index)
+    if (gap.trim().length > 0) throw new Error('candidate patchedDependencies uses an unsupported layout')
+    entries.push({ name: entry.groups.name, path: entry.groups.path.trim() })
+    consumed = entry.index + entry[0].length
+  }
+  if (match.groups.entries.slice(consumed).trim().length > 0) {
+    throw new Error('candidate patchedDependencies uses an unsupported layout')
+  }
+
+  const removedPatchSpecifiers = entries
+    .filter(({ name }) => {
+      const patchVersion = dshPatchVersion(name)
+      return patchVersion !== undefined && patchVersion !== version
+    })
+    .map(({ name }) => name)
+  const removed = new Set(removedPatchSpecifiers)
+  const retained = entries.filter(({ name }) => !removed.has(name))
+  const replacement = `${match.groups.prefix}${retained.length === 0 ? ' ' : ` ${retained.map(({ name, path }) => `'${name}': ${path}`).join(', ')} `}${match.groups.suffix}`
+  return {
+    text: workspaceText.slice(0, match.index) + replacement + workspaceText.slice(match.index + match[0].length),
+    removedPatchSpecifiers,
+  }
 }
 
 const DEPENDENCY_SECTIONS = Object.freeze(['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'])
@@ -195,7 +246,16 @@ function runPnpm(args, options) {
   if (typeof npmExecPath === 'string' && /(?:^|[\\/])pnpm(?:\.cjs|\.mjs|\.js)$/iu.test(npmExecPath)) {
     return run(process.execPath, [npmExecPath, ...args], options)
   }
-  return run(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', args, options)
+  if (process.platform === 'win32') {
+    const packageManager = JSON.parse(readFileSync(join(REPOSITORY_ROOT, 'package.json'), 'utf8')).packageManager
+    const version = /^pnpm@(\d+\.\d+\.\d+)$/u.exec(String(packageManager ?? ''))?.[1]
+    const bundled = version === undefined
+      ? undefined
+      : join(REPOSITORY_ROOT, 'node_modules', '.pnpm', `pnpm@${version}`, 'node_modules', 'pnpm', 'bin', 'pnpm.cjs')
+    if (bundled !== undefined && existsSync(bundled)) return run(process.execPath, [bundled, ...args], options)
+    throw new Error('pnpm CLI is unavailable; run candidate preparation through the repository pnpm version')
+  }
+  return run('pnpm', args, options)
 }
 
 async function viewJson(spec, field) {
@@ -236,6 +296,15 @@ async function main() {
       `candidate ${version} cannot reconcile workspace DSH dependencies: ${unavailable.join(', ')}; migrate or remove retired SDK entry points before installing the candidate`,
     )
   }
+  const workspacePath = join(REPOSITORY_ROOT, 'pnpm-workspace.yaml')
+  const candidateWorkspace = prepareCandidateWorkspaceText(
+    await readFile(workspacePath, 'utf8'),
+    version,
+  )
+  if (candidateWorkspace.removedPatchSpecifiers.length > 0) {
+    await writeFile(workspacePath, candidateWorkspace.text, 'utf8')
+  }
+  plan.candidatePatchOverridesRemoved = candidateWorkspace.removedPatchSpecifiers
   await runPnpm([
     ...pnpmPrefix,
     '--recursive',

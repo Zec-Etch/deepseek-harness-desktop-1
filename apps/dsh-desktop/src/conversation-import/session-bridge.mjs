@@ -9,24 +9,14 @@ import { basename, isAbsolute, resolve } from 'node:path'
 import { DESKTOP_WORKSPACE_FILE_OPEN_TOKEN_HEADER } from '@linxin666/dsh-desktop-compat/workspace-file-open-policy'
 import { computeTranscriptHash } from './schema.mjs'
 import { convertExternalEventsToDshEvents } from './transcript-protocol.mjs'
+import { desktopRuntimeOrigin } from '../runtime-origin.mjs'
 
 export const DESKTOP_CONVERSATION_IMPORT_PATH = '/desktop/conversation-import'
 
-const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]'])
 const DEFAULT_RUNTIME_TIMEOUT_MS = 120_000
 
 function runtimeOrigin(value) {
-  if (value && typeof value === 'object' && typeof value.url === 'string') value = value.url
-  if (typeof value !== 'string' || value.length === 0) return undefined
-  let parsed
-  try {
-    parsed = new URL(value)
-  } catch {
-    return undefined
-  }
-  if (parsed.protocol !== 'http:' || parsed.username || parsed.password || parsed.hash || parsed.search) return undefined
-  if (!LOOPBACK_HOSTS.has(parsed.hostname.toLowerCase())) return undefined
-  return parsed.origin
+  return desktopRuntimeOrigin(value, { loopbackOnly: true })
 }
 
 function errorMessage(value, fallback = 'conversation import failed') {

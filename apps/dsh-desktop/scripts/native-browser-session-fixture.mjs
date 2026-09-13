@@ -76,9 +76,14 @@ export async function verifyNativeBrowserSessionIsolation({ page, rpc, sessionId
     assert.equal(await readFile(logPath, 'utf8'), initialLog, 'native browser placement and navigation must not rewrite history')
     console.log('verified native browser session isolation, floating restore, independent close and unchanged history')
   } catch (error) {
+    const sessions = await rpc(page, 'session.list', {}).then(
+      value => value.items.map(item => ({ id: item.id ?? item.sessionId, title: item.title, displayTitle: item.displayTitle, blank: item.blank })),
+      diagnosticError => ({ error: diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError) }),
+    )
     console.error('native browser session diagnostic', JSON.stringify({
+      pageUrl: page.url(),
       rows: await page.getByRole('treeitem').evaluateAll(rows => rows.map(row => ({ text: row.textContent, selected: row.getAttribute('aria-selected') }))),
-      sessions: (await rpc(page, 'session.list', {})).items.map(item => ({ id: item.id ?? item.sessionId, title: item.title, displayTitle: item.displayTitle, blank: item.blank })),
+      sessions,
       browsers: await body.count(),
     }))
     throw error

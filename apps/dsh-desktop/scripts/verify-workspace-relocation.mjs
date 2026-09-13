@@ -72,7 +72,7 @@ async function launch() {
   const rendererErrors = []
   page.on('pageerror', error => rendererErrors.push(error.message))
   try {
-    await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: runtimeReadyTimeoutMs })
+    await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: runtimeReadyTimeoutMs })
     await page.waitForSelector('style[data-plugin="@linxin666/dsh-web-ui-all"]', {
       state: 'attached',
       timeout: runtimeReadyTimeoutMs,

@@ -69,6 +69,7 @@ test('current provider reports a stable capability snapshot without exposing hos
   const { provider } = createProvider()
   assert.deepEqual(provider.probe(), {
     providerId: 'dsh-cli-provider-v1',
+    apiVersion: 2,
     upstreamVersion: '0.1.0-rc.7',
     supportStatus: 'known-good',
     capabilities: [
@@ -78,6 +79,10 @@ test('current provider reports a stable capability snapshot without exposing hos
       { id: 'session.create', status: 'unsupported' },
       { id: 'session.observe', status: 'unsupported' },
       { id: 'host-service.register', status: 'unsupported' },
+      { id: 'transport.fetch', status: 'unsupported' },
+      { id: 'transport.stream', status: 'unsupported' },
+      { id: 'runtime.observe', status: 'available' },
+      { id: 'support.evidence', status: 'available' },
     ],
   })
   assert.deepEqual(RUNTIME_CAPABILITY_IDS, [
@@ -87,6 +92,10 @@ test('current provider reports a stable capability snapshot without exposing hos
     'session.create',
     'session.observe',
     'host-service.register',
+    'transport.fetch',
+    'transport.stream',
+    'runtime.observe',
+    'support.evidence',
   ])
   assert.equal('controller' in provider.probe(), false)
 })
@@ -129,6 +138,7 @@ test('optional provider methods have stable unavailable errors', async () => {
     ['createSession', 'session.create'],
     ['subscribeSession', 'session.observe'],
     ['registerHostService', 'host-service.register'],
+    ['fetch', 'transport.fetch'],
   ]) {
     await assert.rejects(
       provider[method]({}),
@@ -137,6 +147,12 @@ test('optional provider methods have stable unavailable errors', async () => {
         && error.capability === capability,
     )
   }
+  assert.throws(
+    () => provider.openDuplex('session/observe', {}, new AbortController().signal),
+    (error) => error instanceof RuntimeProviderError
+      && error.code === 'runtime-capability-unsupported'
+      && error.capability === 'transport.stream',
+  )
 })
 
 test('provided optional faces are capability-detected and invoked', async () => {
@@ -146,13 +162,17 @@ test('provided optional faces are capability-detected and invoked', async () => 
     createSession: async (value) => { calls.push(['create', value]); return 'session-id' },
     subscribeSession: async (value) => { calls.push(['observe', value]); return () => {} },
     registerHostService: async (value) => { calls.push(['host', value]); return true },
+    fetch: async (value) => { calls.push(['fetch', value]); return new Response('ok') },
+    openDuplex: (endpoint) => { calls.push(['stream', endpoint]); return (async function * () { yield 'ok' })() },
   })
   assert.equal(await provider.registerWorkspace({ path: 'safe' }), 'workspace-id')
   assert.equal(await provider.createSession({ workspaceId: 'workspace-id' }), 'session-id')
   assert.equal(typeof await provider.subscribeSession({ sessionId: 'session-id' }), 'function')
   assert.equal(await provider.registerHostService({ id: 'task-board' }), true)
+  assert.equal((await provider.fetch('http://dsh.internal/api/test')).status, 200)
+  assert.equal((await provider.openDuplex('session/observe', {}, new AbortController().signal).next()).value, 'ok')
   assert.equal(provider.probe().capabilities.every((item) => item.status === 'available'), true)
-  assert.equal(calls.length, 4)
+  assert.equal(calls.length, 6)
 })
 
 test('upstream failures are translated at the provider boundary', async () => {

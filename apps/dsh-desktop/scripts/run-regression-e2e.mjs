@@ -17,9 +17,9 @@
  *   node scripts/run-regression-e2e.mjs --full   # Full regression
  */
 
-import { existsSync, readFileSync } from 'node:fs'
-import { spawn } from 'node:child_process'
-import { dirname, resolve } from 'node:path'
+import { execFileSync, spawn } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { acceptedReleaseIssue } from './release-known-issues.mjs'
 
@@ -29,6 +29,10 @@ const SOURCE_ONLY = process.argv.includes('--source')
 const ACCEPT_KNOWN_DPI = process.argv.includes('--accept-known-dpi-position-3.4.0')
 const VERSION = JSON.parse(readFileSync(resolve(APP_DIR, 'package.json'), 'utf8')).version
 const acceptedIssues = []
+const receiptArgument = process.argv.find((argument) => argument.startsWith('--evidence='))
+const RECEIPT_PATH = receiptArgument
+  ? resolve(process.cwd(), receiptArgument.slice('--evidence='.length))
+  : (process.env.DSH_DESKTOP_E2E_RECEIPT ? resolve(process.env.DSH_DESKTOP_E2E_RECEIPT) : undefined)
 // QA uses isolated data and must also leave the host's link association intact.
 process.env.DSH_DESKTOP_DISABLE_PROTOCOL_REGISTRATION = '1'
 if (SOURCE_ONLY) delete process.env.DSH_DESKTOP_E2E_EXECUTABLE
@@ -262,21 +266,105 @@ function runSuite(suite) {
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
       if (code === 0) {
         console.log(`[PASS] ${suite.name} (${elapsed}s)`)
-        resolveRun()
+        resolveRun({
+          name: suite.name,
+          script: suite.script,
+          args: suite.args,
+          status: 'passed',
+          durationSeconds: Number(elapsed),
+        })
       } else {
         const issue = acceptedReleaseIssue({ version: VERSION, enabled: ACCEPT_KNOWN_DPI,
           script: suite.script, code, signal, output })
         if (issue) {
           acceptedIssues.push(issue)
           console.warn(`[ACCEPTED KNOWN ISSUE] ${issue}: test failed; maintainer explicitly deferred it for 3.4.0. No test was skipped.`)
-          resolveRun()
+          resolveRun({
+            name: suite.name,
+            script: suite.script,
+            args: suite.args,
+            status: 'accepted-known-issue',
+            durationSeconds: Number(elapsed),
+            issue,
+          })
           return
         }
         const reason = signal ? `signal ${signal}` : `exit code ${code}`
-        reject(new Error(`[FAIL] ${suite.name} failed with ${reason} (${elapsed}s)`))
+        const error = new Error(`[FAIL] ${suite.name} failed with ${reason} (${elapsed}s)`)
+        error.suiteResult = {
+          name: suite.name,
+          script: suite.script,
+          args: suite.args,
+          status: 'failed',
+          durationSeconds: Number(elapsed),
+          reason,
+        }
+        reject(error)
       }
     })
   })
+}
+
+function repositoryCommit() {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: resolve(APP_DIR, '../..'),
+      encoding: 'utf8',
+      windowsHide: true,
+    }).trim()
+  } catch {
+    return 'unavailable'
+  }
+}
+
+function releaseArtifactEvidence() {
+  const manifestPath = resolve(APP_DIR, 'dist', 'release-manifest.json')
+  if (!existsSync(manifestPath)) return undefined
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  const installer = manifest.files?.find((entry) => entry.file?.endsWith('.exe'))
+  if (!installer) return undefined
+  return {
+    releaseManifest: relative(APP_DIR, manifestPath).replaceAll('\\', '/'),
+    installer: {
+      file: installer.file,
+      size: installer.size,
+      sha256: installer.sha256,
+      signature: installer.signature,
+    },
+  }
+}
+
+function writeReceipt({ startedAt, finishedAt, status, suites, failure }) {
+  if (!RECEIPT_PATH) return
+  const executable = process.env.DSH_DESKTOP_E2E_EXECUTABLE
+    ? relative(APP_DIR, resolve(process.env.DSH_DESKTOP_E2E_EXECUTABLE)).replaceAll('\\', '/')
+    : undefined
+  const receipt = {
+    schemaVersion: 1,
+    kind: 'desktop-regression-e2e',
+    version: VERSION,
+    mode: IS_FULL ? 'full-release' : (SOURCE_ONLY ? 'source-core' : 'core'),
+    sourceCommit: repositoryCommit(),
+    startedAt: new Date(startedAt).toISOString(),
+    finishedAt: new Date(finishedAt).toISOString(),
+    durationSeconds: Number(((finishedAt - startedAt) / 1000).toFixed(1)),
+    status,
+    acceptedIssues: [...acceptedIssues],
+    executable,
+    ...releaseArtifactEvidence(),
+    suites,
+    ...(failure ? { failure } : {}),
+  }
+  mkdirSync(dirname(RECEIPT_PATH), { recursive: true })
+  const temporary = `${RECEIPT_PATH}.tmp-${process.pid}`
+  writeFileSync(temporary, `${JSON.stringify(receipt, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' })
+  try {
+    renameSync(temporary, RECEIPT_PATH)
+  } catch (error) {
+    rmSync(temporary, { force: true })
+    throw error
+  }
+  console.log(`Acceptance evidence: ${RECEIPT_PATH}`)
 }
 
 async function main() {
@@ -286,16 +374,25 @@ async function main() {
 
   console.log(`Starting Desktop Regression E2E Gate (${IS_FULL ? 'FULL RELEASE' : 'CORE PR'} mode, ${suitesToRun.length} suites)...`)
   const totalStart = Date.now()
+  const suiteResults = []
 
   for (let i = 0; i < suitesToRun.length; i++) {
     const suite = suitesToRun[i]
     console.log(`\nProgress: [${i + 1}/${suitesToRun.length}] ${suite.name}`)
     try {
-      await runSuite(suite)
+      suiteResults.push(await runSuite(suite))
       if (i + 1 < suitesToRun.length) {
         await new Promise((r) => setTimeout(r, 1200))
       }
     } catch (err) {
+      if (err?.suiteResult) suiteResults.push(err.suiteResult)
+      writeReceipt({
+        startedAt: totalStart,
+        finishedAt: Date.now(),
+        status: 'failed',
+        suites: suiteResults,
+        failure: err instanceof Error ? err.message : String(err),
+      })
       console.error(`\n------------------------------------------------------------`)
       console.error(` [REGRESSION E2E FAILURE] Regression gate blocked release/merge!`)
       console.error(` ${err.message}`)
@@ -305,6 +402,12 @@ async function main() {
   }
 
   const totalElapsed = ((Date.now() - totalStart) / 1000).toFixed(1)
+  writeReceipt({
+    startedAt: totalStart,
+    finishedAt: Date.now(),
+    status: acceptedIssues.length ? 'accepted-known-issue' : 'passed',
+    suites: suiteResults,
+  })
   console.log(`\n============================================================`)
   console.log(` [${acceptedIssues.length ? 'COMPLETED WITH ACCEPTED KNOWN ISSUE' : 'ALL PASSED'}] Unified Desktop Regression Gate (${suitesToRun.length} suites, ${totalElapsed}s)`)
   if (acceptedIssues.length) console.log(` Accepted issues: ${acceptedIssues.join(', ')}`)

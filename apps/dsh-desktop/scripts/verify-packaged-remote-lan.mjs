@@ -84,7 +84,7 @@ async function launch() {
     errors.push(`console:${message.text()}`)
   })
   try {
-    await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: 120_000 })
+    await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 120_000 })
   } catch (error) {
     const diagnostic = await page.evaluate(async () => ({
       url: location.href,

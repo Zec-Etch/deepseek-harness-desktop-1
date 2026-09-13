@@ -60,7 +60,7 @@ try {
       // The Dock window is intentionally created as soon as the shell is ready.
       // Reload its isolated capture page after the Runtime has published the
       // inventory service so this screenshot cannot freeze the early empty state.
-      await firstWindow.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: 120_000 })
+      await firstWindow.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 120_000 })
       await page.reload({ waitUntil: 'domcontentloaded' })
     }
   }
@@ -86,7 +86,7 @@ try {
     }
   }
   if (updateMode) {
-    await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: 60_000 })
+    await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 60_000 })
     await page.locator('#dsh-desktop-window-chrome').waitFor({ state: 'visible' })
     const continueButton = page.getByRole('button', { name: '继续', exact: true })
     if (await continueButton.isVisible().catch(() => false)) await continueButton.click()

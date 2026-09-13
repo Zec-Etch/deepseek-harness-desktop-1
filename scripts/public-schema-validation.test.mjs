@@ -13,7 +13,7 @@ test('public schema validation accepts current metadata and additive v1 fields',
   // Deliberately use the current UTC date so the regular script-test job is a
   // freshness gate for registered compatibility patches.
   const report = await validatePublicSchemas()
-  assert.equal(Object.keys(report.schemaIds).length, 7)
+  assert.equal(Object.keys(report.schemaIds).length, 8)
   assert.deepEqual(report.patchIds, [
     'queued-turn-continuation',
     'cancellation-presentation',

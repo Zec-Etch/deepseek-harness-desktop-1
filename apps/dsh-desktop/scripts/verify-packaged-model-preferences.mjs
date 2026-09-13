@@ -79,7 +79,7 @@ async function launch() {
     if (/style-src 'self'/u.test(message.text())) return
     errors.push(`console:${message.text()}`)
   })
-  await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: 120_000 })
+  await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 120_000 })
   await page.waitForSelector('#dsh-desktop-window-chrome', { timeout: 120_000 })
   await dismissStartup(page)
   return { instance, page, errors }

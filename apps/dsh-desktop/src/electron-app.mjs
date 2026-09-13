@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { dirname, join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { cp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises'
 
 import { applyWindowIcon, resolveAppIconPath } from './app-icon.mjs'
 import { resolveDesktopVersion } from './app-version.mjs'
@@ -25,6 +25,7 @@ import { promptForDownloadDestination } from './download-destination.mjs'
 import { DockNudgeStore } from './dock-nudge-state.mjs'
 import { BoundedLogStore } from './log-store.mjs'
 import { createDesktopIngress, registerDesktopProtocolClient } from './desktop-ingress.mjs'
+import { CommunityHomeMigration } from './community-home-migration.mjs'
 import { createRuntimePresentationGuard } from './runtime-presentation.mjs'
 import { createDesktopInstallPreparation } from './install-preparation.mjs'
 import { registerExtensionIpc } from './extension-ipc.mjs'
@@ -104,6 +105,7 @@ import { WebProfileMigrationService } from './profile-migration.mjs'
 import { PresetService } from './presets/preset-service.mjs'
 import { persistRuntimePort, selectPreferredRuntimePort } from './runtime-port.mjs'
 import { installRendererPermissions } from './renderer-permissions.mjs'
+import { desktopRuntimeOrigin } from './runtime-origin.mjs'
 import { installSettingsWindow } from './settings-window.mjs'
 import { exportStartupDiagnostics } from './startup-diagnostics.mjs'
 import { SettingsWindowStateStore } from './settings-window-state.mjs'
@@ -115,6 +117,11 @@ import { normalizeProductContext } from './telemetry-events.mjs'
 import { parseValueModeRuntimeTelemetryLine } from './value-mode-telemetry.mjs'
 import { DEFAULT_STARTUP_TIMEOUT_MS, DshRuntimeController, resolveDesktopRuntimeHost } from './runtime-controller.mjs'
 import { ActiveRuntimeProvider, DshRuntimeProvider, RUNTIME_PROVIDER_ID } from './runtime-provider.mjs'
+import {
+  installDesktopRuntimeProtocol,
+  registerDesktopRuntimeScheme,
+  registerDesktopRuntimeStreamIpc,
+} from './runtime-electron-transport.mjs'
 import { RepairIncidentStore } from './repair-incident-store.mjs'
 import { resolveRepairModelAvailability } from './repair-model-availability.mjs'
 import { RepairRuntimeController } from './repair-runtime-controller.mjs'
@@ -122,6 +129,7 @@ import { RepairTransactionManager } from './repair-transaction.mjs'
 import { createRegisteredRepairChecks, RepairVerifier } from './repair-verifier.mjs'
 import { StartupRepairCoordinator } from './startup-repair-coordinator.mjs'
 import { formatStartupActivity } from './startup-activity.mjs'
+import { openWorkspaceFile } from './workspace-files.mjs'
 import { assertRuntimeIntegrity, resolveRuntimeCriticalFiles } from './runtime-integrity.mjs'
 import {
   assessRuntimeSupport,
@@ -161,6 +169,7 @@ import {
 
 const SOURCE_DIR = dirname(fileURLToPath(import.meta.url))
 const MAIN_PRELOAD_PATH = join(SOURCE_DIR, 'preload-main.cjs')
+const RUNTIME_PRELOAD_PATH = join(SOURCE_DIR, 'preload-runtime.cjs')
 const EXTENSION_PRELOAD_PATH = join(SOURCE_DIR, 'preload-extension.cjs')
 const STARTUP_PATH = join(SOURCE_DIR, 'ui', 'startup.html')
 const EXTENSIONS_PATH = join(SOURCE_DIR, 'ui', 'extensions.html')
@@ -178,7 +187,7 @@ export function runtimeStatusNeedsStartupSurface(status, { extensionMaintenance 
 }
 
 function runtimeHome() {
-  return process.env.DSH_HOME || join(homedir(), '.dsh')
+  return process.env.DSH_HOME || join(homedir(), '.dsh-community')
 }
 
 function runtimeWorkspace(app) {
@@ -535,11 +544,8 @@ export async function startElectronApp(metadata) {
   const applicationStartedAt = performance.now()
   const bootId = randomUUID().replaceAll('-', '').slice(0, 16)
   const electron = await import('electron')
-  const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, safeStorage, screen, session: electronSession, shell, Tray, WebContentsView } = electron
-  // Runtime pages share an HTTP/1 origin. Long-lived event streams in the main
-  // window and auxiliary views must not exhaust Chromium's per-host pool and
-  // queue settings/file requests indefinitely. External hosts keep the default.
-  app.commandLine.appendSwitch('ignore-connections-limit', '127.0.0.1')
+  const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, protocol: electronProtocol, safeStorage, screen, session: electronSession, shell, Tray, WebContentsView } = electron
+  registerDesktopRuntimeScheme(electronProtocol)
   if (process.env.DSH_DESKTOP_USER_DATA) app.setPath('userData', process.env.DSH_DESKTOP_USER_DATA)
   const initialUpdateShutdownRequest = parseUpdateShutdownRequest(process.argv)
   const updateShutdownCoordinator = createUpdateShutdownCoordinator({
@@ -602,9 +608,36 @@ export async function startElectronApp(metadata) {
     manifestPath: join(SOURCE_DIR, '..', 'package.json'),
   })
   const userData = app.getPath('userData')
-  const dshHome = runtimeHome()
   const logsDirectory = join(userData, 'logs')
   const logStore = new BoundedLogStore({ directory: logsDirectory })
+  const dshHome = runtimeHome()
+  const communityHomeMigration = process.env.DSH_HOME
+    ? undefined
+    : new CommunityHomeMigration({
+      sourceHome: join(homedir(), '.dsh'),
+      targetHome: dshHome,
+      journalPath: join(userData, 'community-home-migration-v4.json'),
+      desktopVersion,
+    })
+  let communityHomeMigrationResult
+  if (communityHomeMigration !== undefined) {
+    try {
+      communityHomeMigrationResult = await communityHomeMigration.prepare()
+      await logStore.append(
+        `[migration] community-home state=${communityHomeMigrationResult.state}`
+        + ` classification=${communityHomeMigrationResult.classification}`
+        + ` migrated=${communityHomeMigrationResult.migrated === true}`
+        + ` manual=${communityHomeMigrationResult.manualRecoveryRequired === true}`,
+      )
+    } catch (error) {
+      communityHomeMigrationResult = Object.freeze({
+        state: 'PAUSED',
+        usable: false,
+        manualRecoveryRequired: true,
+      })
+      await logStore.append(`[migration] community-home preparation failed: ${error instanceof Error ? error.name : 'unknown'}`)
+    }
+  }
   const telemetryEndpoint = await resolveTelemetryEndpoint({
     isPackaged: app.isPackaged,
     resourcesPath: process.resourcesPath,
@@ -759,6 +792,7 @@ export async function startElectronApp(metadata) {
     appIcon,
     windowChromeIconDataUrl,
     mainPreload: MAIN_PRELOAD_PATH,
+    runtimePreload: RUNTIME_PRELOAD_PATH,
     extensionPreload: EXTENSION_PRELOAD_PATH,
     extensionsPath: EXTENSIONS_PATH,
     handoffPath: HANDOFF_PATH,
@@ -864,6 +898,12 @@ export async function startElectronApp(metadata) {
   })
   mainWindow.on('closed', () => { mainWindow = undefined })
   await showDirectStartupState('preparing')
+  if (communityHomeMigrationResult?.usable === false) {
+    await logStore.append('[migration] community-home target is not safe to use; Runtime startup blocked')
+    productMetrics.recordInstallationRepairRequired('runtime-integrity-failed')
+    await showDirectStartupState('installation-repair-required')
+    return
+  }
   const existingHomeAtLaunch = await hasExistingDesktopState({ userData, desktopProfileDir })
   const confirmManagedGitInstall = async () => {
     const parent = mainWindow ?? desktopWindowFactory.extensionWindow
@@ -1166,6 +1206,20 @@ export async function startElectronApp(metadata) {
         ? await migrateLegacyRuntimeIntegrity({ audit: auditFullProfileIntegrity, repair })
         : undefined
       const result = migration?.repairResult ?? await repair()
+      if (
+        mode === 'full'
+        && communityHomeMigration !== undefined
+        && typeof communityHomeMigrationResult?.transactionId === 'string'
+        && communityHomeMigrationResult.state !== 'COMMITTED'
+      ) {
+        const packageValidation = await communityHomeMigration.markPackagesValidated(
+          communityHomeMigrationResult.transactionId,
+        )
+        communityHomeMigrationResult = Object.freeze({
+          ...communityHomeMigrationResult,
+          state: packageValidation.state,
+        })
+      }
       if (migration?.repaired) {
         await logStore.append(
           `[plugins] repaired legacy Runtime dependency drift reason=${migration.before.reasonCode}`,
@@ -1212,6 +1266,7 @@ export async function startElectronApp(metadata) {
   const runtimeSupportDirectory = app.isPackaged
     ? join(process.resourcesPath, 'runtime-support')
     : join(SOURCE_DIR, '..', 'runtime-support')
+  const desktopPipeOverlay = join(runtimeSupportDirectory, 'desktop-pipe.patch.yml')
   const runtimeMatrixPath = join(runtimeSupportDirectory, 'supported-runtimes.json')
   const knownGoodRuntimePath = join(runtimeSupportDirectory, 'known-good.json')
   const developmentLockfilePath = join(SOURCE_DIR, '..', '..', '..', 'pnpm-lock.yaml')
@@ -1445,6 +1500,7 @@ export async function startElectronApp(metadata) {
   }
 
   const createPrimaryRuntimeController = (profileName) => {
+    const runtimeTransport = desktopRuntimeHost === undefined ? 'pipe' : 'http'
     const controller = new DshRuntimeController({
       cliPath: dshCliPath,
       cwd: projectRoot,
@@ -1456,7 +1512,11 @@ export async function startElectronApp(metadata) {
       autoRestart: false,
       startupTimeoutMs: DEFAULT_STARTUP_TIMEOUT_MS,
       pathEntries: runtimePathEntries,
-      patchFiles: [primaryFullUserOverlay],
+      patchFiles: [
+        primaryFullUserOverlay,
+        ...(runtimeTransport === 'pipe' ? [desktopPipeOverlay] : []),
+      ],
+      transport: runtimeTransport,
       preferredPort: preferredRuntimePort,
       onReadyPort: (port) => persistRuntimePort(runtimePortStatePath, port),
       environmentProvider: desktopRuntimeEnvironment,
@@ -1513,6 +1573,41 @@ export async function startElectronApp(metadata) {
   runtimeProvider = new ActiveRuntimeProvider({
     providers: [fullRuntimeProvider, builtinsRuntimeProvider],
     activeProfileName: 'desktop',
+  })
+  const runtimeProtocolLifecycle = await installDesktopRuntimeProtocol({
+    protocol: mainWindow.webContents.session.protocol,
+    getProvider: () => runtimeProvider,
+    beforeFetch: process.env.DSH_DESKTOP_E2E_RUNTIME_FETCH_GATE
+      ? async (request) => {
+          const pathname = new URL(request.url).pathname
+          let action = (await readFile(process.env.DSH_DESKTOP_E2E_RUNTIME_FETCH_GATE, 'utf8').catch(() => 'open')).trim()
+          while (pathname === '/api/session/modelCatalog' && action === 'stall') {
+            await new Promise(resolve => setTimeout(resolve, 50))
+            action = (await readFile(process.env.DSH_DESKTOP_E2E_RUNTIME_FETCH_GATE, 'utf8').catch(() => 'open')).trim()
+          }
+          while (pathname === '/api/pet/state' && action === 'stall-pet') {
+            await new Promise(resolve => setTimeout(resolve, 50))
+            action = (await readFile(process.env.DSH_DESKTOP_E2E_RUNTIME_FETCH_GATE, 'utf8').catch(() => 'open')).trim()
+          }
+          if (pathname === '/api/session/create' && action === 'reject-session-create') {
+            const payload = await request.clone().json()
+            return Response.json({
+              type: 'server-response',
+              rpcId: payload.rpcId,
+              method: payload.method,
+              result: { ok: false, error: { code: 'gateway/internal', message: 'mode-switch-create-failure-fixture', details: {} } },
+            })
+          }
+          if (pathname === '/api/session/uploadFileBinary' && action === 'reject-next-upload') {
+            await writeFile(process.env.DSH_DESKTOP_E2E_RUNTIME_FETCH_GATE, 'open')
+            return new Response('isolated upload retry fixture', { status: 503 })
+          }
+        }
+      : undefined,
+  })
+  const unregisterRuntimeStreamIpc = registerDesktopRuntimeStreamIpc({
+    ipcMain,
+    getProvider: () => runtimeProvider,
   })
   const presetService = new PresetService({
     dshHome,
@@ -1687,6 +1782,7 @@ export async function startElectronApp(metadata) {
     dshHome,
     currentWorkspaceDir: projectRoot,
     runtimeProvider,
+    fetchImpl: (input, init) => runtimeProvider.fetch(input, init),
     getRuntimeOrigin: () => runtimeProvider?.status?.url,
     getCapabilityToken: () => runtimeProvider?.getWorkspaceFileOpenToken?.(),
   })
@@ -1865,6 +1961,10 @@ export async function startElectronApp(metadata) {
     // This closes over Electron main's controller only. The opaque per-Host
     // capability never enters preload, the browser Contract, or status data.
     getWorkspaceFileOpenToken: () => runtimeProvider.getWorkspaceFileOpenToken(),
+    openWorkspaceTarget: (options) => openWorkspaceFile({
+      ...options,
+      fetchImpl: (input, init) => runtimeProvider.fetch(input, init),
+    }),
     getBackgroundStatus: () => ({
       enabled: isBackgroundAutomationEnabled(closeBehavior),
       closeBehavior,
@@ -2040,7 +2140,8 @@ export async function startElectronApp(metadata) {
     if (!mainWindow || mainWindow.isDestroyed()) return
     if (runtimeProvider.status.state !== 'ready' || runtimeProvider.status.url !== status.url) return
     void inspectCompatibilityAfterReady()
-    activeOrigin = new URL(status.url).origin
+    activeOrigin = desktopRuntimeOrigin(status.url)
+    if (activeOrigin === undefined) throw new Error('Runtime returned an unsupported Desktop origin')
 
     const maxAttempts = 5
     let lastError
@@ -2477,7 +2578,29 @@ export async function startElectronApp(metadata) {
         await showDirectStartupState(state)
       }
       if (state === 'rolling-back') await showDirectStartupState('repairing')
-      if (state === 'ready-full') await recordDirectStartupState(state)
+      if (state === 'ready-full') {
+        if (
+          communityHomeMigration !== undefined
+          && typeof communityHomeMigrationResult?.transactionId === 'string'
+          && communityHomeMigrationResult.state !== 'COMMITTED'
+        ) {
+          const committed = await communityHomeMigration.commitHealthy(communityHomeMigrationResult.transactionId)
+          communityHomeMigrationResult = Object.freeze({
+            ...communityHomeMigrationResult,
+            state: committed.state,
+          })
+          await logStore.append('[migration] community-home committed after full Runtime health verification')
+        }
+        await recordDirectStartupState(state)
+        if (communityHomeMigrationResult?.manualRecoveryRequired === true) {
+          await notificationService.show({
+            category: 'plugin-recovery',
+            id: 'plugin-recovery:community-home:v4',
+            title: '旧数据需要手动确认',
+            body: '检测到旧目录归属不明确。新版已使用独立数据目录启动，旧目录保持只读且未被修改。',
+          }).catch(() => {})
+        }
+      }
       if (state === 'ready-builtins') {
         const fallbackReason = builtinsRollbackFailed ? 'rollback-failed' : builtinsFallbackDetail
         await showDirectStartupState(state, { reason: fallbackReason })
@@ -2517,10 +2640,18 @@ export async function startElectronApp(metadata) {
   releaseStartupSurface()
 
   const shutdownLifecycle = createDesktopShutdownLifecycle({
-    prepareStop: () => unregisterExtensionIpc.quiesce(),
+    prepareStop: async () => {
+      runtimeProtocolLifecycle.quiesce()
+      await unregisterRuntimeStreamIpc.quiesce()
+      await unregisterExtensionIpc.quiesce()
+    },
     saveState: saveWindowState,
     stopRuntime: () => runtimeProvider.stop(),
-    resumeOperations: () => unregisterExtensionIpc.resume(),
+    resumeOperations: async () => {
+      runtimeProtocolLifecycle.resume()
+      unregisterRuntimeStreamIpc.resume()
+      await unregisterExtensionIpc.resume()
+    },
     startRuntime: () => runtimeProvider.start(),
     log: (message) => logStore.append(`[shutdown] ${message}`),
     disposeResources: async () => {
@@ -2539,6 +2670,7 @@ export async function startElectronApp(metadata) {
         () => trayLifecycle?.dispose(),
         () => pluginRecovery.dispose(),
         () => qqBotBinding.dispose(),
+        unregisterRuntimeStreamIpc,
       ]
       for (const dispose of disposers) {
         try {
@@ -2798,8 +2930,17 @@ export async function startElectronApp(metadata) {
     event.preventDefault()
     if (wasQuitting) return
     setQuitInProgress(true)
-    void shutdownLifecycle.shutdown()
-      .then(() => app.quit())
+    void (async () => {
+      await Promise.resolve(saveWindowState()).catch((error) => logStore.append(
+        `[shutdown] ${error instanceof Error ? error.message : String(error)}`,
+      ))
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed()) window.destroy()
+      }
+      await new Promise(resolve => setImmediate(resolve))
+      await shutdownLifecycle.shutdown()
+      app.quit()
+    })()
       .catch((error) => {
         appQuitStarted = false
         setQuitInProgress(false)

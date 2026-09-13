@@ -141,7 +141,14 @@ export async function createRuntimeSupportManifest(root = REPOSITORY_ROOT, { sup
       upstreamVersion: installedVersion,
       capabilities: RUNTIME_CAPABILITY_IDS.map((id) => ({
         id,
-        status: id === 'runtime.lifecycle' || id === 'profile.paths' ? 'available' : 'unsupported',
+        status: [
+          'runtime.lifecycle',
+          'profile.paths',
+          'transport.fetch',
+          'transport.stream',
+          'runtime.observe',
+          'support.evidence',
+        ].includes(id) ? 'available' : 'unsupported',
       })),
     },
     compatPatches: {
@@ -194,10 +201,12 @@ async function atomicWrite(path, content) {
 }
 
 export async function checkRuntimeSupport({ root = REPOSITORY_ROOT, outputPath = KNOWN_GOOD_PATH } = {}) {
-  const expected = renderRuntimeSupportManifest(await createRuntimeSupportManifest(root))
   const actual = await readFile(outputPath, 'utf8')
   const parsed = JSON.parse(actual)
   const stable = STABLE_RUNTIME_SUPPORT_STATUSES.includes(parsed?.supportStatus)
+  const expected = renderRuntimeSupportManifest(await createRuntimeSupportManifest(root, {
+    supportStatus: stable ? parsed.supportStatus : 'known-good',
+  }))
   return { current: actual === expected && stable, expected, actual }
 }
 

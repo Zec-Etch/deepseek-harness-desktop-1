@@ -3,6 +3,7 @@ import {
   isDesktopWorkspaceFileOpenToken,
   isSafeDesktopWorkspaceFileOpenPath,
 } from '@linxin666/dsh-desktop-compat/workspace-file-open-policy'
+import { desktopRuntimeEndpoint } from './runtime-origin.mjs'
 
 const MAX_ROOT_LENGTH = 32_767
 const MAX_RELATIVE_PATH_LENGTH = 4_096
@@ -14,15 +15,6 @@ export function isSafeWorkspaceFileOpenTarget(value) {
   // Do not accept file:, https:, or another URL scheme as a Shell target. A
   // local absolute path may be POSIX, a Windows drive path, or a UNC path.
   return normalized.startsWith('/') || /^[a-z]:\//iu.test(normalized)
-}
-
-function loopbackRuntimeOrigin(value) {
-  if (typeof value !== 'string' || value.length === 0) throw new Error('desktop runtime is not ready')
-  const url = new URL(value)
-  if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]', '::1'].includes(url.hostname)) {
-    throw new Error('desktop runtime origin is not loopback')
-  }
-  return url
 }
 
 /** Validate the only file reference that can cross the renderer-to-host boundary. */
@@ -74,12 +66,11 @@ export async function resolveWorkspaceFileOpenTarget({
   if (typeof fetchImpl !== 'function') throw new TypeError('workspace file fetch implementation is required')
   if (!Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30_000) throw new TypeError('workspace file timeout is invalid')
   const normalized = normalizeWorkspaceFileOpenRequest(request)
-  const origin = loopbackRuntimeOrigin(getRuntimeOrigin())
+  const endpoint = desktopRuntimeEndpoint('/desktop/workspace-file-open-target', getRuntimeOrigin(), { loopbackOnly: true })
   const capabilityToken = getWorkspaceFileOpenToken()
   if (!isDesktopWorkspaceFileOpenToken(capabilityToken)) {
     throw new Error('workspace file capability is unavailable')
   }
-  const endpoint = new URL('/desktop/workspace-file-open-target', origin)
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {

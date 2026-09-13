@@ -31,6 +31,19 @@ test('only sanitized clipboard writes from the active loopback runtime are allow
   }
 })
 
+test('pipe Runtime permissions compare the owned custom authority instead of the null URL origin', () => {
+  assert.equal(isAllowedRendererPermission({
+    permission: 'clipboard-sanitized-write',
+    requestingUrl: 'dsh-runtime://app/session/one',
+    activeOrigin: 'dsh-runtime://app',
+  }), true)
+  assert.equal(isAllowedRendererPermission({
+    permission: 'clipboard-sanitized-write',
+    requestingUrl: 'dsh-runtime://other/session/one',
+    activeOrigin: 'dsh-runtime://app',
+  }), false)
+})
+
 test('permission handlers read the current runtime origin and deny by default', () => {
   let checkHandler
   let requestHandler

@@ -16,12 +16,22 @@ import {
   classifyStartupFailure,
   createStartupPhaseRecorder,
 } from './startup-phase.mjs'
+import {
+  createRuntimePipeIdentity,
+  RuntimePipeClient,
+  RUNTIME_PIPE_ADDRESS_ENV,
+  RUNTIME_PIPE_GENERATION_ENV,
+  RUNTIME_PIPE_READY_LINE,
+  RUNTIME_PIPE_TOKEN_ENV,
+} from './runtime-pipe.mjs'
 
 const READY_LINE = /^dsh web:\s+(http:\/\/\S+)/u
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1'])
 export const DEFAULT_STARTUP_TIMEOUT_MS = 120_000
 export const DESKTOP_PROFILE_NAME = 'desktop'
 export const DESKTOP_REMOTE_HOST_ENV = 'DSH_DESKTOP_REMOTE_HOST'
+export const DESKTOP_RUNTIME_TRANSPORTS = Object.freeze(['http', 'pipe'])
+export const DESKTOP_PIPE_RUNTIME_URL = 'dsh-runtime://app/'
 const RUNTIME_HOSTS = new Set(['127.0.0.1', '0.0.0.0'])
 const STABLE_RUNTIME_RESET_MS = 60_000
 const WINDOWS_CONSOLE_PRELOAD_PATH = fileURLToPath(new URL('./windows-console-preload.cjs', import.meta.url))
@@ -89,6 +99,7 @@ function runtimeArguments(
   runtimeHost,
   patchFiles = [],
   dshCliPath,
+  transport,
 ) {
   return [
     '--expose-internals',
@@ -98,10 +109,12 @@ function runtimeArguments(
     '--profile',
     profileName,
     ...patchFiles.flatMap((path) => ['--patch', path]),
-    '--port',
-    String(preferredPort),
-    '--no-open',
-    ...(runtimeHost ? ['--host', runtimeHost] : []),
+    ...(transport === 'http' ? [
+      '--port',
+      String(preferredPort),
+      '--no-open',
+      ...(runtimeHost ? ['--host', runtimeHost] : []),
+    ] : []),
   ]
 }
 
@@ -148,6 +161,7 @@ export function createRuntimeInvocation({
   dshCliPath,
   platform = process.platform,
   systemRoot = process.env.SystemRoot,
+  transport = 'http',
 } = {}) {
   if (typeof executable !== 'string' || executable.length === 0) {
     throw new TypeError('runtime executable must be a non-empty path')
@@ -164,6 +178,10 @@ export function createRuntimeInvocation({
   const normalizedProfileName = validateRuntimeProfileName(profileName)
   const normalizedPatchFiles = validateRuntimePatchFiles(patchFiles)
   const normalizedRuntimeHost = runtimeHost === undefined ? undefined : validateRuntimeHost(runtimeHost)
+  if (!DESKTOP_RUNTIME_TRANSPORTS.includes(transport)) throw new TypeError('runtime transport is invalid')
+  if (transport === 'pipe' && normalizedRuntimeHost !== undefined) {
+    throw new TypeError('runtime pipe transport cannot expose a remote host')
+  }
   const args = runtimeArguments(
     cliPath,
     preferredPort,
@@ -172,6 +190,7 @@ export function createRuntimeInvocation({
     normalizedRuntimeHost,
     normalizedPatchFiles,
     dshCliPath,
+    transport,
   )
   if (platform !== 'win32') return { executable, args }
 
@@ -414,6 +433,7 @@ export class DshRuntimeController extends EventEmitter {
     preferredPort = 0,
     profileName = DESKTOP_PROFILE_NAME,
     runtimeHost,
+    transport = 'http',
     onReadyPort = () => {},
     environmentProvider = () => ({}),
     workspaceFileOpenTokenFactory = createWorkspaceFileOpenCapabilityToken,
@@ -446,6 +466,11 @@ export class DshRuntimeController extends EventEmitter {
     this.systemRoot = systemRoot
     this.profileName = validateRuntimeProfileName(profileName)
     this.runtimeHost = runtimeHost === undefined ? undefined : validateRuntimeHost(runtimeHost)
+    if (!DESKTOP_RUNTIME_TRANSPORTS.includes(transport)) throw new TypeError('runtime transport is invalid')
+    if (transport === 'pipe' && this.runtimeHost !== undefined) {
+      throw new TypeError('runtime pipe transport cannot expose a remote host')
+    }
+    this.transport = transport
     if (!Number.isInteger(preferredPort) || preferredPort < 0 || preferredPort > 65_535) {
       throw new TypeError('preferred runtime port must be an integer from 0 to 65535')
     }
@@ -474,6 +499,8 @@ export class DshRuntimeController extends EventEmitter {
     this.readySince = undefined
     this.manualStop = false
     this.workspaceFileOpenToken = undefined
+    this.pipeIdentity = undefined
+    this.pipeClient = undefined
     this.runtimeProcessPids = new WeakMap()
     this.stopResolver = undefined
     this.status = Object.freeze({ state: 'stopped', url: undefined, error: undefined })
@@ -566,6 +593,22 @@ export class DshRuntimeController extends EventEmitter {
     return this.startupPhases.history()
   }
 
+  fetch(input, init) {
+    if (this.status.state !== 'ready' || this.pipeClient === undefined) {
+      return Promise.reject(new Error('runtime pipe is not ready'))
+    }
+    return this.pipeClient.fetch(input, init)
+  }
+
+  openDuplex(endpoint, payload, signal) {
+    if (this.status.state !== 'ready' || this.pipeClient === undefined) {
+      throw new Error('runtime pipe is not ready')
+    }
+    return endpoint === 'websocket'
+      ? this.pipeClient.openDuplex(endpoint, payload, signal)
+      : this.pipeClient.openStream(endpoint, payload, signal)
+  }
+
   start({ preserveRestartAttempt = false } = {}) {
     if (this.stopPromise) {
       const stopping = this.stopPromise
@@ -595,6 +638,8 @@ export class DshRuntimeController extends EventEmitter {
     this.manualStop = false
     // A restart must never reuse an authority accepted by a previous Host.
     this.workspaceFileOpenToken = undefined
+    this.pipeIdentity = undefined
+    this.pipeClient = undefined
     this.startupPhases.reset()
     this.startupPhases.enter(STARTUP_PHASES.RUNTIME_RESOLVE)
     this.#setStatus('starting')
@@ -642,6 +687,19 @@ export class DshRuntimeController extends EventEmitter {
       ELECTRON_RUN_AS_NODE: '1',
       PATH: [...this.pathEntries, process.env.PATH].filter(Boolean).join(delimiter),
     }
+    if (this.transport === 'pipe') {
+      this.pipeIdentity = createRuntimePipeIdentity({ platform: this.platform })
+      this.pipeClient = new RuntimePipeClient(this.pipeIdentity)
+      environment[RUNTIME_PIPE_ADDRESS_ENV] = this.pipeIdentity.address
+      environment[RUNTIME_PIPE_TOKEN_ENV] = this.pipeIdentity.token
+      environment[RUNTIME_PIPE_GENERATION_ENV] = this.pipeIdentity.generation
+    } else {
+      this.pipeIdentity = undefined
+      this.pipeClient = undefined
+      delete environment[RUNTIME_PIPE_ADDRESS_ENV]
+      delete environment[RUNTIME_PIPE_TOKEN_ENV]
+      delete environment[RUNTIME_PIPE_GENERATION_ENV]
+    }
     let runtimeControlToken
     try {
       const launchPatchFiles = validateRuntimePatchFiles(this.patchFilesProvider() ?? [])
@@ -660,6 +718,7 @@ export class DshRuntimeController extends EventEmitter {
         profileName: this.profileName,
         patchFiles: launchPatchFiles,
         runtimeHost: this.runtimeHost,
+        transport: this.transport,
       })
       runtimeControlToken = invocation.runtimeControlToken
       this.startupPhases.complete(STARTUP_PHASES.RUNTIME_RESOLVE)
@@ -754,6 +813,25 @@ export class DshRuntimeController extends EventEmitter {
       )
     })
     if (stream !== 'stdout' || this.status.state !== 'starting') return
+    if (String(line).trim() === RUNTIME_PIPE_READY_LINE) {
+      try {
+        if (this.pipeClient === undefined) throw new Error('runtime pipe client is unavailable')
+        await this.pipeClient.probe()
+      } catch (error) {
+        if (this.status.state === 'starting') this.#failBeforeReady(error, redactionToken)
+        return
+      }
+      if (this.status.state !== 'starting') return
+      this.cancelSchedule(this.startupTimer)
+      this.startupTimer = undefined
+      this.#setStatus('ready', { url: DESKTOP_PIPE_RUNTIME_URL }, redactionToken)
+      this.readySince = this.now()
+      this.resolveReady?.(DESKTOP_PIPE_RUNTIME_URL)
+      this.resolveReady = undefined
+      this.rejectReady = undefined
+      this.readyPromise = undefined
+      return
+    }
     let url
     try {
       url = parseDshReadyUrl(line)
@@ -805,6 +883,8 @@ export class DshRuntimeController extends EventEmitter {
     this.rejectReady = undefined
     this.readyPromise = undefined
     this.workspaceFileOpenToken = undefined
+    this.pipeIdentity = undefined
+    this.pipeClient = undefined
     this.#terminateFailedStartupChild(redactionToken)
   }
 
@@ -907,6 +987,8 @@ export class DshRuntimeController extends EventEmitter {
     this.child = undefined
     this.runtimeProcessPids.delete(child)
     this.workspaceFileOpenToken = undefined
+    this.pipeIdentity = undefined
+    this.pipeClient = undefined
     this.#appendDiagnostic(`[process] exited code=${String(code)} signal=${String(signal)}`, redactionToken)
 
     if (previousState === 'starting' && this.rejectReady) {
@@ -973,6 +1055,8 @@ export class DshRuntimeController extends EventEmitter {
     this.manualStop = true
     const redactionToken = this.workspaceFileOpenToken
     this.workspaceFileOpenToken = undefined
+    this.pipeIdentity = undefined
+    this.pipeClient = undefined
     if (this.restartTimer !== undefined) {
       this.cancelSchedule(this.restartTimer)
       this.restartTimer = undefined
@@ -1022,6 +1106,8 @@ export class DshRuntimeController extends EventEmitter {
     // event handlers captured it separately for redaction of late output.
     const redactionToken = this.workspaceFileOpenToken
     this.workspaceFileOpenToken = undefined
+    this.pipeIdentity = undefined
+    this.pipeClient = undefined
     if (this.restartTimer !== undefined) {
       this.cancelSchedule(this.restartTimer)
       this.restartTimer = undefined

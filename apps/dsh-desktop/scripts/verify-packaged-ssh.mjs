@@ -68,7 +68,7 @@ async function launchDesktop() {
   const page = await application.firstWindow()
   page.on('pageerror', error => rendererErrors.push(error.message))
   try {
-    await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: runtimeReadyTimeoutMs })
+  await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: runtimeReadyTimeoutMs })
     await dismissStartup(page)
     await page.locator('[data-dsh-ssh-entry]').waitFor({ state: 'visible', timeout: runtimeReadyTimeoutMs })
   } catch (error) {

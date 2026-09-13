@@ -32,7 +32,7 @@ try {
       DSH_DESKTOP_DISABLE_UPDATES: '1', DSH_DESKTOP_DISABLE_PROTOCOL_REGISTRATION: '1',
       DSH_DESKTOP_OPEN_EXTENSIONS: '1' } })
   const main = await app.firstWindow()
-  await main.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: 120_000 })
+  await main.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 120_000 })
   for (let attempt = 0; attempt < 120; attempt++) {
     dock = app.windows().find(page => page.url().includes('/extensions.html'))
     if (dock) break

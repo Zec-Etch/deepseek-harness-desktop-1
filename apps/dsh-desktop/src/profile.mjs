@@ -138,6 +138,7 @@ export const WEB_UI_SETTINGS_NAMESPACES = Object.freeze([
 ].toSorted())
 
 export const BUILTIN_RUNTIME_PACKAGES = Object.freeze([
+  '@linxin666/dsh-desktop-pipe-webserver',
   '@linxin666/dsh-client-ui-model-capabilities',
   '@linxin666/dsh-usage',
   '@linxin666/dsh-session-archive',

@@ -59,6 +59,21 @@ test('Desktop resolves native opening only through the active loopback workspace
   assert.equal(calls[0].init.headers[DESKTOP_WORKSPACE_FILE_OPEN_TOKEN_HEADER], CAPABILITY_TOKEN)
 })
 
+test('Desktop resolves native opening through the authenticated pipe carrier', async () => {
+  const calls = []
+  const target = await resolveWorkspaceFileOpenTarget({
+    request: { root: 'C:\\work', path: 'README.md' },
+    getRuntimeOrigin: () => 'dsh-runtime://app',
+    getWorkspaceFileOpenToken: () => CAPABILITY_TOKEN,
+    fetchImpl: async (url, init) => {
+      calls.push({ url: String(url), init })
+      return new Response(JSON.stringify({ ok: true, value: { path: 'C:\\work\\README.md' } }), { status: 200 })
+    },
+  })
+  assert.equal(target, 'C:\\work\\README.md')
+  assert.equal(calls[0].url, 'dsh-runtime://app/desktop/workspace-file-open-target')
+})
+
 test('Desktop does not contact the Host without its private current-runtime capability', async () => {
   await assert.rejects(
     resolveWorkspaceFileOpenTarget({
@@ -109,6 +124,6 @@ test('non-loopback runtime origins cannot authorize external file opening', asyn
       getWorkspaceFileOpenToken: () => CAPABILITY_TOKEN,
       fetchImpl: async () => { throw new Error('must not fetch') },
     }),
-    /not loopback/u,
+    /not ready/u,
   )
 })

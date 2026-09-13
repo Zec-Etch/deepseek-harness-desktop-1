@@ -29,7 +29,9 @@ const server = createServer((req, res) => {
 })
 await new Promise(resolveListen => server.listen(0, '127.0.0.1', resolveListen))
 const baseURL = 'http://127.0.0.1:' + server.address().port
+
 let app
+const consoleMessages = []
 try {
   await Promise.all([mkdir(dshHome), mkdir(userData), mkdir(workspace)])
   // Synthetic credentials and a loopback-only provider: no real account or paid calls.
@@ -45,7 +47,8 @@ try {
   const page = await app.firstWindow()
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.waitForURL(/^http:\/\/127\.0\.0\.1:/u, { timeout: 120_000 })
+  page.on('console', message => consoleMessages.push(`${message.type()}: ${message.text()}`))
+  await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 120_000 })
   for (let index = 0; index < 12; index++) {
     const intro = page.getByRole('dialog').filter({ hasText: /内测声明|插件、技能和桌面核心功能在这里/u })
     const proceed = intro.getByRole('button', { name: /^(继续|Continue)$/u }).last()
@@ -71,16 +74,23 @@ try {
   await picker.getByRole('textbox').fill('Balance fixture')
   await picker.getByRole('button', { name: /^(创建项目|打开已有项目)$/u }).click()
   await picker.waitFor({ state: 'hidden' })
-  await page.getByRole('button', { name: '新建会话', exact: true }).last().click()
+  // The rc.2 shell keeps the root Hero sessionless. Use the official
+  // workspace-specific New Session action so the composer gets a live,
+  // session-scoped model seat without sending a paid prompt.
+  const group = page.getByRole('treeitem').filter({ hasText: 'Balance fixture' }).first()
+  await group.waitFor({ state: 'visible', timeout: 30_000 })
+  await group.hover()
+  await page.getByRole('button', { name: /Balance fixture.*新建会话/u }).click({ force: true })
   const amount = page.locator('[data-dsh-balance-amount]')
   const chooseModel = async name => {
-    await page.locator('[data-slot="conversation.input.model"] button').first().click()
+    const trigger = page.locator('[data-slot="conversation.input.model"] button').first()
+    await trigger.waitFor({ state: 'visible', timeout: 30_000 })
+    await trigger.click()
     const menu = page.getByRole('menu', { name: '模型选择器', exact: true })
     await menu.getByRole('menuitem', { name: /^模型/u }).click()
     await menu.getByRole('menuitemradio', { name }).first().click()
     await menu.waitFor({ state: 'hidden' })
   }
-  await page.waitForFunction(() => document.querySelector('[data-dsh-balance-amount]')?.textContent === '11.25 CNY')
   await chooseModel(/DeepSeek-V4-Flash/u)
   await page.waitForFunction(() => document.querySelector('[data-dsh-balance-amount]')?.textContent === '11.25 CNY')
   await chooseModel(/Balance Test Model/u)
@@ -94,11 +104,16 @@ try {
   console.log(JSON.stringify({ passed: true, mode: packagedExecutable ? 'packaged-electron' : 'development-electron', requests, displayed: await amount.textContent(), paidRequests: 0 }))
 } catch (error) {
   console.error('balance UI', await app?.firstWindow().then(page => page.evaluate(() => ({
+    url: location.href,
     amount: document.querySelector('[data-dsh-balance-amount]')?.textContent,
     title: document.querySelector('[data-dsh-balance-entry]')?.getAttribute('title'),
     model: document.querySelector('[data-slot="conversation.input.model"]')?.textContent,
+    slots: [...document.querySelectorAll('[data-slot]')].map(node => node.getAttribute('data-slot')).filter(Boolean),
+    treeitems: [...document.querySelectorAll('[role="treeitem"]')].map(node => ({ text: node.textContent?.trim(), selected: node.getAttribute('aria-selected'), expanded: node.getAttribute('aria-expanded') })),
+    buttons: [...document.querySelectorAll('button')].slice(-24).map(node => node.textContent?.trim()).filter(Boolean),
   }))).catch(() => undefined))
   console.error('fixture requests', JSON.stringify(requests))
+  console.error('renderer console', consoleMessages.slice(-40).join('\n'))
   const log = await readFile(join(userData, 'logs/runtime.log'), 'utf8').catch(() => '')
   console.error(log.split('\n').filter(line => /startup|error|Error|failed/.test(line)).slice(-20).join('\n'))
   throw error
