@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Desktop-only carrier adapter for verified WebRoute APIs without a TCP listener.",
-  "main": "src/index.mjs",
+  "main": "lib/index.mjs",
   "exports": {
-    ".": "./src/index.mjs",
+    ".": "./lib/index.mjs",
     "./package.json": "./package.json"
   },
   "peerDependencies": {
@@ -21,7 +21,7 @@
     "test": "node --test test/*.test.mjs"
   },
   "files": [
-    "src",
+    "lib",
     "README.md"
   ],
   "license": "Apache-2.0"

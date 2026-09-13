@@ -813,15 +813,6 @@
       "controlled": false
     },
     {
-      "path": "packages/dsh-desktop-pipe-webserver/src/index.mjs",
-      "kind": "static-import",
-      "specifier": "@deepseek-ai/dsh-host-webserver",
-      "line": 1,
-      "typeOnly": false,
-      "classification": "public-stable",
-      "controlled": true
-    },
-    {
       "path": "packages/dsh-desktop-repair/src/index.ts",
       "kind": "static-import",
       "specifier": "@deepseek-ai/dsh-agent",

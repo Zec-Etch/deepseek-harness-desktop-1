@@ -243,7 +243,7 @@
     },
     {
       "pluginId": "dsh-desktop-pipe-webserver",
-      "sourcePath": "packages/dsh-desktop-pipe-webserver/src/index.mjs",
+      "sourcePath": "packages/dsh-desktop-pipe-webserver/lib/index.mjs",
       "endpoint": "internal registered routes only",
       "method": "Fetch and explicit duplex",
       "requestSchema": "WHATWG Request or bounded base64 duplex chunks",

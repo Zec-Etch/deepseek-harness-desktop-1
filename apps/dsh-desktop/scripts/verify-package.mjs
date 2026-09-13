@@ -103,6 +103,17 @@ for (const packageName of requiredPackages) {
   }
 }
 
+// This Desktop-only adapter is a native ESM workspace package rather than a compiled
+// `lib/index.js` plugin. Assert its real entry point so a pruned empty directory cannot
+// satisfy the package-name inventory while making the packaged Runtime unbootable.
+await access(join(
+  unpackedModules,
+  '@linxin666',
+  'dsh-desktop-pipe-webserver',
+  'lib',
+  'index.mjs',
+))
+
 if (TARGET_PLATFORM.platform === 'win32' && TARGET_PLATFORM.arch === 'x64') {
   await access(join(
     unpackedModules,

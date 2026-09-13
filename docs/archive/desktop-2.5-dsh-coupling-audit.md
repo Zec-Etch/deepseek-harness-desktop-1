@@ -12,7 +12,7 @@ Capability discovery is compatibility evidence only. Renderer surface identity, 
 
 | Classification | Count |
 | --- | ---: |
-| public-stable | 288 |
+| public-stable | 287 |
 | public-experimental | 156 |
 | compatibility-patch | 35 |
 | private-high-risk | 0 |
@@ -110,7 +110,6 @@ Capability discovery is compatibility evidence only. Renderer surface identity, 
 | packages/dsh-desktop-compat/tests/tool-call-normalization.spec.ts | 1 | static-import | @deepseek-ai/dsh-llm | no | compatibility-patch | no |
 | packages/dsh-desktop-compat/tests/tool-call-normalization.spec.ts | 4 | static-import | @deepseek-ai/dsh-llm | yes | compatibility-patch | no |
 | packages/dsh-desktop-compat/tests/tool-call-normalization.spec.ts | 5 | static-import | @deepseek-ai/dsh-tools | no | compatibility-patch | no |
-| packages/dsh-desktop-pipe-webserver/src/index.mjs | 1 | static-import | @deepseek-ai/dsh-host-webserver | no | public-stable | yes |
 | packages/dsh-desktop-repair/src/index.ts | 3 | static-import | @deepseek-ai/dsh-agent | yes | public-stable | yes |
 | packages/dsh-desktop-repair/src/index.ts | 5 | static-import | @deepseek-ai/dsh-llm | no | public-stable | yes |
 | packages/dsh-desktop-repair/src/index.ts | 6 | static-import | @deepseek-ai/dsh-session | no | public-stable | yes |

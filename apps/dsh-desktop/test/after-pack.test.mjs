@@ -83,6 +83,10 @@ test('release pruner classifies only non-runtime package files', () => {
     classifyPrunableFile('@linxin666/dsh-client-ui-task-board/lib/client.js'),
     undefined,
   )
+  assert.equal(
+    classifyPrunableFile('@linxin666/dsh-desktop-pipe-webserver/lib/index.mjs'),
+    undefined,
+  )
 })
 
 test('release pruner removes classified files and preserves runtime entries', async () => {

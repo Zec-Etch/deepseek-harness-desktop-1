@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { Context } from '@deepseek-ai/cordis'
-import { apply, DesktopPipeWebServer } from '../src/index.mjs'
+import { apply, DesktopPipeWebServer } from '../lib/index.mjs'
 
 function server() {
   return new DesktopPipeWebServer(new Context())
