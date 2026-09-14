@@ -99,6 +99,7 @@ test('restored logical bounds do not accumulate native constructor DPI rounding 
     assert.deepEqual(JSON.parse(await readFile(statePath, 'utf8')), { ...intended, maximized: true })
     maximized = false
     window.emit('unmaximize')
+    bounds = { x: 17, y: 4, width: 724, height: 544 }
     await save()
     assert.deepEqual(JSON.parse(await readFile(statePath, 'utf8')), { ...intended, maximized: false })
     // Windows can restore before the debounced maximize write runs. The

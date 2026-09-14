@@ -67,6 +67,7 @@ export async function loadWindowStateForRestore(path, displays) {
 
 export function attachWindowStatePersistence(window, path, { restoredBounds, visibleBounds } = {}) {
   let timer
+  let restoreSettling = false
   let writeQueue = Promise.resolve()
   let latestWrite = writeQueue
   // A restored Windows frame can round outward at fractional DPI, and the
@@ -87,12 +88,13 @@ export function attachWindowStatePersistence(window, path, { restoredBounds, vis
     const bounds = { ...window.getNormalBounds() }
     const maximized = window.isMaximized()
     for (const [key, { automatic, requested }] of unchanged) {
-      if (maximized) {
+      if (maximized || restoreSettling) {
         automatic.add(bounds[key])
         bounds[key] = requested
       } else if (automatic.has(bounds[key])) bounds[key] = requested
       else unchanged.delete(key)
     }
+    if (!maximized) restoreSettling = false
     return `${JSON.stringify({ ...bounds, maximized }, null, 2)}\n`
   }
   const persist = (content) => {
@@ -120,10 +122,19 @@ export function attachWindowStatePersistence(window, path, { restoredBounds, vis
     }
     schedule()
   }
+  const scheduleUnmaximize = () => {
+    // Windows can publish a transient primary-display normal rectangle only
+    // after the unmaximize event, especially at fractional DPI. Preserve the
+    // restored logical rectangle through the first settled capture; any later
+    // explicit move or resize still replaces coordinates through the normal
+    // unchanged-map comparison.
+    restoreSettling = true
+    schedule()
+  }
   window.on('resize', schedule)
   window.on('move', schedule)
   window.on('maximize', scheduleMaximize)
-  window.on('unmaximize', schedule)
+  window.on('unmaximize', scheduleUnmaximize)
   window.on('close', () => {
     clearTimeout(timer)
     saveFromEvent()
