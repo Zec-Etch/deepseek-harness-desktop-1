@@ -5,6 +5,7 @@ import test from 'node:test'
 import {
   normalizeDesktopAction,
   normalizeDockDismissReason,
+  normalizeDesktopDockOpenOptions,
   normalizeHelpAction,
   normalizeToolAction,
   normalizeWindowChromeTheme,
@@ -368,6 +369,14 @@ test('desktop repair status degrades to unavailable when the incident store cann
   }
 })
 
+test('Extension Dock deep links accept only the collaboration page allowlist', () => {
+  assert.deepEqual(normalizeDesktopDockOpenOptions(undefined), {})
+  assert.deepEqual(normalizeDesktopDockOpenOptions({ setting: 'value-mode' }), { setting: 'value-mode' })
+  for (const value of [null, 'value-mode', { setting: 'plugins' }, { setting: 'value-mode', url: 'https://example.com' }]) {
+    assert.throws(() => normalizeDesktopDockOpenOptions(value), /Dock/u)
+  }
+})
+
 test('LAN gateway IPC is main-only and returns a bounded network projection', async () => {
   assert.deepEqual(publicLanGatewayStatus({
     state: 'running',
@@ -477,8 +486,8 @@ test('window action IPC returns a clone-safe acknowledgement instead of BrowserW
       observed.push(['dock-dismiss', reason])
       return true
     },
-    openExtensionDock: async () => {
-      observed.push(['dock-open'])
+    openExtensionDock: async (options) => {
+      observed.push(['dock-open', options])
       return true
     },
     setWindowChromeTheme: () => {},
@@ -505,7 +514,8 @@ test('window action IPC returns a clone-safe acknowledgement instead of BrowserW
   assert.deepEqual(await handlers.get('desktop:dock-nudge-dismiss')({ sender }, 'close'), {
     dismissed: true,
   })
-  assert.deepEqual(await handlers.get('desktop:dock-open')({ sender }), { opened: true })
+  assert.deepEqual(await handlers.get('desktop:dock-open')({ sender }, { setting: 'value-mode' }), { opened: true })
+  assert.deepEqual(observed.at(-1), ['dock-open', { setting: 'value-mode' }])
   await assert.rejects(
     handlers.get('desktop:dock-nudge-dismiss')({ sender }, 'other'),
     (error) => error.code === DESKTOP_ERROR_CODES.INVALID_ARGUMENT,
@@ -541,7 +551,7 @@ test('window action IPC returns a clone-safe acknowledgement instead of BrowserW
   assert.deepEqual(observed, [
     ['dock-impression'],
     ['dock-dismiss', 'close'],
-    ['dock-open'],
+    ['dock-open', { setting: 'value-mode' }],
     ['settings'],
     ['updates'],
   ])

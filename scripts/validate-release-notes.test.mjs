@@ -51,6 +51,10 @@ test('accepts a complete bilingual release body for the package version', () => 
   assert.deepEqual(collectReleaseNoteErrors(bilingualNotes(), '0.1.3'), [])
 })
 
+test('accepts release notes for an exact prerelease package version', () => {
+  assert.deepEqual(collectReleaseNoteErrors(bilingualNotes('4.0.0-rc.3'), '4.0.0-rc.3'), [])
+})
+
 test('rejects stale versions and placeholder tokens', () => {
   const errors = collectReleaseNoteErrors(`${bilingualNotes('0.1.2')}\nTBD`, '0.1.3')
   assert.ok(errors.some((error) => error.includes('0.1.3')))

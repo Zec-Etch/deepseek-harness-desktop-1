@@ -10,6 +10,7 @@ import {
   assertDarwinPackHost,
   electronBuilderArgs,
   electronBuilderCommand,
+  electronBuilderPublishChannel,
   packEnvironment,
   packMac,
   parsePackMacArguments,
@@ -32,12 +33,14 @@ test('pack:mac arguments default to a signed-off unsigned arm64 mac build', () =
   assert.deepEqual(parsePackMacArguments(['--dir']), { dir: true })
   assert.deepEqual(
     electronBuilderArgs([]),
-    ['--mac', '--arm64', '--publish', 'never'],
+    ['--mac', '--arm64', '--publish', 'never', '--config.publish.channel=beta'],
   )
   assert.deepEqual(
     electronBuilderArgs(['--dir']),
-    ['--mac', '--arm64', '--publish', 'never', '--dir'],
+    ['--mac', '--arm64', '--publish', 'never', '--config.publish.channel=beta', '--dir'],
   )
+  assert.equal(electronBuilderPublishChannel('stable'), 'latest')
+  assert.equal(electronBuilderPublishChannel('beta'), 'beta')
   assert.equal(packEnvironment({ PATH: '/bin' }).CSC_IDENTITY_AUTO_DISCOVERY, 'false')
   assert.match(packEnvironment({ PATH: '/bin' }).npm_config_user_agent, /pnpm/u)
   assert.equal(
@@ -67,6 +70,7 @@ test('pack:mac never prepares MinGit or asserts Windows signing', async () => {
   await packMac({
     argv: ['--dir'],
     platform: 'darwin',
+    releaseChannel: 'stable',
     prepare: async () => { calls.push('prepare') },
     runCommand: async (command, args, env) => {
       calls.push({ command, args, env })
@@ -74,7 +78,8 @@ test('pack:mac never prepares MinGit or asserts Windows signing', async () => {
   })
   assert.equal(calls[0], 'prepare')
   assert.equal(calls[1].command, electronBuilderCommand())
-  assert.deepEqual(calls[1].args, electronBuilderArgs(['--dir']))
+  assert.deepEqual(calls[1].args, electronBuilderArgs(['--dir'], 'stable'))
+  assert.equal(calls[1].args.includes('--config.publish.channel=latest'), true)
   assert.equal(calls[1].env.CSC_IDENTITY_AUTO_DISCOVERY, 'false')
   await assert.rejects(packMac({ platform: 'linux', prepare: async () => {} }), /only runs on macOS/u)
 })

@@ -8,6 +8,42 @@ export function releaseFilters(params) {
   return { days: Number(days), version }
 }
 
+function countEvents(rows, event, outcome, detail) {
+  return rows
+    .filter(row => row.event === event
+      && (outcome === undefined || row.outcome === outcome)
+      && (detail === undefined || row.detail === detail))
+    .reduce((sum, row) => sum + Number(row.count ?? 0), 0)
+}
+
+function operationSummary(rows, event, details) {
+  return Object.fromEntries(details.map((detail) => {
+    const succeeded = countEvents(rows, event, 'succeeded', detail)
+    const failed = countEvents(rows, event, 'failed', detail)
+    const cancelled = countEvents(rows, event, 'cancelled', detail)
+    const completed = succeeded + failed
+    return [detail, {
+      succeeded,
+      failed,
+      cancelled,
+      successRate: completed === 0 ? null : succeeded / completed,
+    }]
+  }))
+}
+
+export function releaseFeatureHealth(rows) {
+  return {
+    definition: 'Success / (success + failure); cancellations are reported separately and excluded. Counts are hourly sampling-weighted observations, not distinct installations.',
+    runtimeTransport: {
+      pipeReady: countEvents(rows, 'runtime_start_result', 'ready', 'pipe'),
+      httpReady: countEvents(rows, 'runtime_start_result', 'ready', 'http'),
+      legacyReady: countEvents(rows, 'runtime_start_result', 'ready', 'none'),
+    },
+    agentTeam: operationSummary(rows, 'feature_agent_team', ['enable', 'disable']),
+    localLan: operationSummary(rows, 'feature_local_lan', ['enable', 'disable', 'reconfigure']),
+  }
+}
+
 export async function releaseSummary(db, filters, now = new Date()) {
   const end = now.toISOString().slice(0, 10)
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - filters.days + 1)).toISOString().slice(0, 10)
@@ -29,6 +65,6 @@ export async function releaseSummary(db, filters, now = new Date()) {
     activeInstances: Number(active.results?.[0]?.instances ?? 0),
     measurement: { counts: 'hourly-weighted-aggregate', missingInstances: 'aggregate-only events do not retain per-installation observations' },
     startup: { ready, failed, denominator: ready + failed, successRate: ready + failed ? ready / (ready + failed) : null },
-    versions: versions.results ?? [], events: rows,
+    versions: versions.results ?? [], events: rows, features: releaseFeatureHealth(rows),
   }
 }

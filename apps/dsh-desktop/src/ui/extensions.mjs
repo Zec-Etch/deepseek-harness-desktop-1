@@ -19,6 +19,8 @@ if (themeQuery === 'dark' || themeQuery === 'light') {
 }
 
 const pluginList = document.querySelector('#plugin-list')
+const legacyPluginRestore = document.querySelector('#legacy-plugin-restore')
+const legacyPluginRestoreList = document.querySelector('#legacy-plugin-restore-list')
 const pluginSearch = document.querySelector('#plugin-search')
 const pluginDetail = document.querySelector('#plugin-detail')
 const pluginInstallSubmit = document.querySelector('#plugin-install-submit')
@@ -126,7 +128,7 @@ function formatFileSize(bytes) {
 function setOperationBusy(busy) {
   document.body.dataset.busy = String(busy)
   document.body.setAttribute('aria-busy', String(busy))
-  for (const button of document.querySelectorAll('[data-mutation-control], [data-update-plugin], [data-remove-plugin], [data-toggle-plugin], [data-install-market-plugin]')) button.disabled = busy
+  for (const button of document.querySelectorAll('[data-mutation-control], [data-update-plugin], [data-remove-plugin], [data-toggle-plugin], [data-install-market-plugin], [data-restore-legacy-git]')) button.disabled = busy
   marketReloadButton.disabled = busy || Boolean(marketRefreshPromise)
   checkPluginUpdatesButton.disabled = busy || Boolean(pluginUpdatePromise)
   refreshButton.disabled = busy || Boolean(refreshAllPromise)
@@ -349,6 +351,16 @@ function pluginDetailMarkup(plugin) {
 }
 
 const NATIVE_PLUGINS = [
+  {
+    id: 'agent-team',
+    name: 'Agent Team（实验）',
+    packageName: '@deepseek-ai/dsh-experimental-agent-team-profile',
+    category: 'ai',
+    categoryLabel: 'AI 核心',
+    description: '官方实验性多 Agent 协作运行层，提供成员调度、持久消息和共享任务板；默认关闭。',
+    features: ['成员协作', '共享任务板', '显式启用'],
+    icon: 'sparkles',
+  },
   {
     id: 'value-mode',
     name: '性价比模式 (Value Mode)',
@@ -653,7 +665,15 @@ function marketDescription(plugin) {
 }
 
 function marketPluginMarkup(plugin) {
-  const sourceBadge = plugin.sourceKind === 'npm' ? 'NPM' : 'GIT'
+  const sourceBadge = plugin.sourceKind === 'npm' ? 'Registry' : 'Git'
+  const verificationLabels = {
+    registry: 'Registry 校验',
+    required: '实验性，安装前验证',
+    passed: '已通过验证',
+    incompatible: '与 4.0 不兼容',
+    failed: '验证失败',
+  }
+  const verificationBadge = `<span class="badge${['incompatible', 'failed'].includes(plugin.verification) ? ' inactive' : ''}">${escapeHtml(verificationLabels[plugin.verification] ?? '待验证')}</span>`
   const deprecatedBadge = plugin.deprecated ? '<span class="badge inactive">已弃用</span>' : ''
   const presentation = communityMarketInstallPresentation({
     installed: plugin.installed,
@@ -668,7 +688,28 @@ function marketPluginMarkup(plugin) {
   const downloads = Number.isSafeInteger(plugin.downloads) ? compactNumber.format(plugin.downloads) : '--'
   const stars = Number.isSafeInteger(plugin.stars) ? compactNumber.format(plugin.stars) : '--'
   const author = plugin.owner ? `by ${plugin.owner}` : '社区作者'
-  return `<article class="market-card"><div class="market-card-head"><div class="market-card-title"><h3 title="${escapeHtml(plugin.name)}">${escapeHtml(plugin.displayName)}</h3><p>${escapeHtml(author)}</p></div><div class="name-row"><span class="badge">${sourceBadge}</span>${deprecatedBadge}</div></div><p class="description">${escapeHtml(marketDescription(plugin))}</p><div class="market-source" title="${escapeHtml(plugin.installSpec)}">${escapeHtml(plugin.installSpec)}</div>${operationState}<div class="market-card-foot"><div class="market-stats"><span>DL ${escapeHtml(downloads)}</span><span>STAR ${escapeHtml(stars)}</span><span>${escapeHtml(plugin.category)}</span></div>${action}</div></article>`
+  const failure = plugin.failureCategory ? `<p class="market-operation-state error" role="status">失败分类：${escapeHtml(plugin.failureCategory)}</p>` : ''
+  return `<article class="market-card"><div class="market-card-head"><div class="market-card-title"><h3 title="${escapeHtml(plugin.name)}">${escapeHtml(plugin.displayName)}</h3><p>${escapeHtml(author)}</p></div><div class="name-row"><span class="badge">${sourceBadge}</span>${verificationBadge}${deprecatedBadge}</div></div><p class="description">${escapeHtml(marketDescription(plugin))}</p><div class="market-source" title="${escapeHtml(plugin.installSpec)}">${escapeHtml(plugin.installSpec)}</div>${operationState}${failure}<div class="market-card-foot"><div class="market-stats"><span>DL ${escapeHtml(downloads)}</span><span>STAR ${escapeHtml(stars)}</span><span>${escapeHtml(plugin.category)}</span></div>${action}</div></article>`
+}
+
+function renderLegacyPluginRestore(state) {
+  const plugins = Array.isArray(state?.plugins)
+    ? state.plugins.filter((plugin) => plugin.status !== 'installed')
+    : []
+  legacyPluginRestore.hidden = plugins.length === 0
+  legacyPluginRestoreList.innerHTML = plugins.map((plugin) => {
+    const status = {
+      pending: '等待自动恢复',
+      installing: '正在恢复',
+      failed: '恢复失败',
+      'awaiting-confirmation': '等待确认',
+    }[plugin.status] ?? plugin.status
+    const action = plugin.sourceKind === 'git' && ['awaiting-confirmation', 'failed'].includes(plugin.status)
+      ? `<button type="button" class="item-action update" data-restore-legacy-git="${escapeHtml(plugin.id)}">确认并恢复</button>`
+      : ''
+    const detail = plugin.error ? `<p class="recovery-time">${escapeHtml(plugin.error)}</p>` : ''
+    return `<article class="item"><div><div class="name-row"><span class="name">${escapeHtml(plugin.name)}</span><span class="badge">${plugin.sourceKind === 'npm' ? 'Registry' : 'Git'}</span><span class="badge inactive">${escapeHtml(status)}</span></div><p class="description">原状态：${plugin.enabled ? '已启用' : '已停用'}${plugin.failureCategory ? `；${escapeHtml(plugin.failureCategory)}` : ''}</p>${detail}</div><div class="item-actions">${action}</div></article>`
+  }).join('')
 }
 
 function syncMarketPaginationState() {
@@ -800,6 +841,8 @@ function showPluginFailure(error, fallback = '插件安装失败') {
     return showPluginDialog({
       ...presentation,
       details,
+      confirmLabel: '知道了',
+      cancelHidden: true,
     })
   }
   notify(fallback, true, {
@@ -933,6 +976,7 @@ async function refresh() {
     pluginCount.textContent = inventory.plugins.length
     skillCount.textContent = inventory.skills.length
     renderQqBot(inventory.qqbot)
+    renderLegacyPluginRestore(inventory.legacyPluginRestore)
     installedMarketReferences = new Set(inventory.plugins.flatMap((plugin) => [plugin.name, plugin.requested].filter(Boolean)))
     communityPluginList.innerHTML = inventory.communityPlugins?.length
       ? inventory.communityPlugins.map(communityPluginMarkup).join('')
@@ -1298,6 +1342,12 @@ document.querySelectorAll('.native-chip').forEach((chip) => {
 })
 
 const removeNavigationListener = window.dshDesktop.onExtensionNavigate((payload) => {
+  if (payload?.setting === 'value-mode') {
+    const tab = tabs.find((item) => item.dataset.tab === 'dock-settings')
+    if (tab) activateTab(tab)
+    document.querySelector('[data-setting="value-mode"]')?.click()
+    return
+  }
   const tab = tabs.find((item) => item.dataset.tab === payload?.tab)
   if (tab) activateTab(tab)
 })
@@ -1327,9 +1377,25 @@ async function confirmUnknownCompatibility(details) {
   })
 }
 
+async function confirmIncompatibleCompatibility(details) {
+  const presentation = compatibilityDialogPresentation('incompatible')
+  return showPluginDialog({
+    ...presentation,
+    details,
+  })
+}
+
 function isUnknownCompatibilityError(error) {
   const message = normalizedErrorMessage(error)
   return error?.code === 'PLUGIN_COMPATIBILITY_CONFIRMATION_REQUIRED' || message.includes('无法确认兼容性')
+}
+
+function isIncompatibleCompatibilityError(error) {
+  const message = normalizedErrorMessage(error)
+  return error?.code === 'PLUGIN_INCOMPATIBLE'
+    || message.includes('此插件暂不兼容')
+    || message.includes('这个插件与当前版本不兼容')
+    || message.includes('这个插件尚未适配当前版本')
 }
 
 async function installPluginWithAdmission(spec, { fullAccess = false, button = pluginInstallSubmit } = {}) {
@@ -1347,12 +1413,19 @@ async function installPluginWithAdmission(spec, { fullAccess = false, button = p
   }, 5_000)
   try {
     try {
-      return await window.dshDesktop.installPlugin(spec, false, fullAccess)
+      return await window.dshDesktop.installPlugin(spec, false, fullAccess, false)
     } catch (error) {
-      if (!isUnknownCompatibilityError(error)) throw error
-      const approved = await confirmUnknownCompatibility(normalizedErrorMessage(error))
-      if (!approved) return undefined
-      return window.dshDesktop.installPlugin(spec, true, fullAccess)
+      if (isUnknownCompatibilityError(error)) {
+        const approved = await confirmUnknownCompatibility(normalizedErrorMessage(error))
+        if (!approved) return undefined
+        return window.dshDesktop.installPlugin(spec, true, fullAccess, false)
+      }
+      if (isIncompatibleCompatibilityError(error)) {
+        const approved = await confirmIncompatibleCompatibility(normalizedErrorMessage(error))
+        if (!approved) return undefined
+        return window.dshDesktop.installPlugin(spec, true, fullAccess, true)
+      }
+      throw error
     }
   } finally {
     clearTimeout(preparingTimer)
@@ -1390,6 +1463,7 @@ document.querySelector('#plugin-form').addEventListener('submit', async (event) 
     }
   })
 })
+
 window.addEventListener('beforeunload', () => {
   removeQqBotEventListener()
   removeProgressListener()
@@ -1560,7 +1634,20 @@ marketList.addEventListener('click', async (event) => {
     renderMarket()
     marketResultState.textContent = `正在安装 ${plugin?.displayName ?? '插件'}，首次构建可能需要一些时间`
     try {
-      const result = await window.dshDesktop.installMarketPlugin(pluginId)
+      let result
+      try {
+        result = await window.dshDesktop.installMarketPlugin(pluginId, false)
+      } catch (error) {
+        if (!isIncompatibleCompatibilityError(error)) throw error
+        const approved = await confirmIncompatibleCompatibility(normalizedErrorMessage(error))
+        if (!approved) {
+          marketInstallPhases.delete(pluginId)
+          renderMarket()
+          marketResultState.textContent = '已取消风险安装，原插件环境没有改变'
+          return
+        }
+        result = await window.dshDesktop.installMarketPlugin(pluginId, true)
+      }
       marketInstallPhases.delete(pluginId)
       installedMarketReferences.add(pluginId)
       if (plugin) {
@@ -1576,8 +1663,24 @@ marketList.addEventListener('click', async (event) => {
       if (message.includes('was not approved')) marketInstallPhases.delete(pluginId)
       else marketInstallPhases.set(pluginId, 'error')
       renderMarket()
+      await refreshMarket().catch(() => {})
       if (message.includes('was not approved')) notify('已取消安装')
       else notify(message, true)
+    }
+  })
+})
+
+legacyPluginRestoreList.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-restore-legacy-git]')
+  if (!button) return
+  await extensionOperations.run(async () => {
+    try {
+      const result = await window.dshDesktop.restoreLegacyGitPlugin(button.dataset.restoreLegacyGit)
+      notify(`${result.name} 已恢复`)
+      await refresh()
+    } catch (error) {
+      notify(error instanceof Error ? error.message : String(error), true)
+      await refresh()
     }
   })
 })

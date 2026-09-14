@@ -99,6 +99,11 @@ test('creates exact fixed-shape events and rejects content-like fields', () => {
     detail: 'settings',
     bucket: 'none',
   })
+  assert.equal(createProductEvent(context, ACTORS, 'surface_opened', {
+    outcome: 'opened',
+    detail: 'conversation-import',
+    bucket: 'none',
+  }).detail, 'conversation-import')
   assert.throws(() => createProductEvent(context, ACTORS, 'surface_opened', {
     outcome: 'opened',
     detail: 'settings',

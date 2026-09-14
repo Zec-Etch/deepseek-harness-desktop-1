@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0a0a0a">
-    <meta name="description" content="DeepSeek Harness Desktop 3.5.0：插件先隔离验证、失败自动恢复的开源 Windows AI 编程工作台。">
-    <meta name="keywords" content="DeepSeek Harness Desktop 3.5.0,DSH 1.1.5,插件隔离,插件事务,自动恢复,文件拖拽,模式选择器,Value Mode,Claude Code 项目导入,Codex 项目导入,Windows AI 编程客户端,开源 AI 编程助手">
+    <meta name="description" content="DeepSeek Harness Desktop 4.0 发布预览，当前稳定版 3.5.0：抢先融合公开的官方 DSH Runtime、Web UI 与 Desktop 能力边界。">
+    <meta name="keywords" content="DeepSeek Harness Desktop 4.0,DeepSeek Harness Desktop 3.5.0,DSH 0.1.5-rc.2,官方 Desktop 能力,Agent Team,模型协作,Skills,插件恢复,历史会话,Windows AI 编程客户端,开源 AI 编程助手">
     <meta name="author" content="DeepSeek Harness Desktop Community">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="googlebot" content="index, follow, max-image-preview:large">
@@ -13,19 +13,19 @@
     <meta name="bingbot" content="index, follow, max-image-preview:large">
     <link rel="canonical" href="https://ningbainb.github.io/deepseek-harness-desktop/">
     <link rel="sitemap" type="application/xml" href="https://ningbainb.github.io/deepseek-harness-desktop/sitemap.xml">
-    <meta property="og:title" content="DeepSeek Harness Desktop 3.5.0：插件更自由，Desktop 更稳定">
-    <meta property="og:description" content="拓展坞 AI 设置、项目文件夹选择、模型按需读取文件与可查看的记忆活动；保留性价比模式、用量看板和 Claude Code / Codex 项目导入。">
+    <meta property="og:title" content="DeepSeek Harness Desktop 4.0 预览：官方尚未发布，社区版已完成桌面融合">
+    <meta property="og:description" content="融合公开的官方 DSH Runtime、Web UI 与 Desktop 能力边界，新增模型协作入口、Agent Team、统一 Skills、插件恢复与历史会话保护。当前稳定版为 3.5.0。">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://ningbainb.github.io/deepseek-harness-desktop/">
     <meta property="og:site_name" content="DeepSeek Harness Desktop">
     <meta property="og:locale" content="zh_CN">
-    <meta property="og:image" content="https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-extension-dock.webp">
-    <meta property="og:image:alt" content="DeepSeek Harness Desktop 3.5.0 拓展坞插件与设置界面">
+    <meta property="og:image" content="https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-4.0.0-collaboration.webp">
+    <meta property="og:image:alt" content="DeepSeek Harness Desktop 4.0 模型协作界面">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="DeepSeek Harness Desktop 3.5.0：插件更自由，Desktop 更稳定">
-    <meta name="twitter:description" content="拓展坞 AI 设置、项目文件夹选择、模型按需读取文件与可查看的记忆活动；保留性价比模式、用量看板和 Claude Code / Codex 项目导入。">
-    <meta name="twitter:image" content="https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-extension-dock.webp">
-    <title>DeepSeek Harness Desktop 3.5.0 - 安全插件平台与 DSH 1.1.5 桌面工作台</title>
+    <meta name="twitter:title" content="DeepSeek Harness Desktop 4.0 预览：官方尚未发布，社区版已完成桌面融合">
+    <meta name="twitter:description" content="融合公开的官方 DSH Runtime、Web UI 与 Desktop 能力边界，新增模型协作、统一 Skills 和可靠升级。当前稳定版为 3.5.0。">
+    <meta name="twitter:image" content="https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-4.0.0-collaboration.webp">
+    <title>DeepSeek Harness Desktop 4.0 发布预览 - 当前稳定版 3.5.0</title>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -35,7 +35,7 @@
             "@id": "https://ningbainb.github.io/deepseek-harness-desktop/#website",
             "url": "https://ningbainb.github.io/deepseek-harness-desktop/",
             "name": "DeepSeek Harness Desktop",
-            "description": "DeepSeek Harness Desktop 3.5.0：插件先隔离验证、失败自动恢复的开源 Windows AI 编程工作台。",
+            "description": "DeepSeek Harness Desktop 4.0 发布预览：融合公开的官方 DSH Runtime、Web UI 与 Desktop 能力边界；当前稳定版为 3.5.0。",
             "inLanguage": "zh-CN"
           },
           {
@@ -44,7 +44,7 @@
             "name": "DeepSeek Harness Desktop",
             "alternateName": "DeepSeek Harness 桌面版",
             "url": "https://ningbainb.github.io/deepseek-harness-desktop/",
-            "description": "DeepSeek Harness Desktop 3.5.0：插件先隔离验证、失败自动恢复的开源 Windows AI 编程工作台。",
+            "description": "DeepSeek Harness Desktop 3.5.0 是当前稳定版；4.0 社区候选已融合公开的官方 DSH Runtime、Web UI 与 Desktop 能力边界。",
             "applicationCategory": "DeveloperApplication",
             "applicationSubCategory": "AI coding assistant",
             "operatingSystem": "Windows 10, Windows 11",
@@ -55,14 +55,18 @@
             "releaseNotes": "https://github.com/ningbainb/deepseek-harness-desktop/releases/tag/desktop-v3.5.0",
             "codeRepository": "https://github.com/ningbainb/deepseek-harness-desktop",
             "license": "https://github.com/ningbainb/deepseek-harness-desktop/blob/main/LICENSE",
-            "dateModified": "2026-09-12",
-            "image": "https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-extension-dock.webp",
+            "dateModified": "2026-09-15",
+            "image": "https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-4.0.0-collaboration.webp",
             "screenshot": [
-              "https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-3.3.0-workspace.webp",
-              "https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-3.3.0-create-project.webp",
-              "https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-3.3.0-memory.webp"
+              "https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-4.0.0-collaboration.webp",
+              "https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-4.0.0-skills.webp",
+              "https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-4.0.0-bai-models.webp"
             ],
             "featureList": [
+              "公开官方 DSH Runtime、Web UI 与 Desktop 能力边界融合",
+              "Agent Team 与性价比模式统一模型协作页面",
+              "会话 Skills 与技能中心统一发现目录",
+              "3.5 插件恢复与历史会话兼容保护",
               "拓展坞分组 AI 设置与统一主题",
               "创建项目与工作区系统文件夹选择",
               "文件真实引用与模型按需读取",
@@ -101,8 +105,8 @@
               "availability": "https://schema.org/InStock"
             },
             "author": {
-              "@type": "Organization",
-              "name": "DeepSeek Harness Desktop Community",
+              "@type": "Person",
+              "name": "ningbai牛逼",
               "url": "https://github.com/ningbainb/deepseek-harness-desktop"
             }
           },
@@ -115,7 +119,7 @@
                 "name": "DeepSeek Harness Desktop 是什么？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "它是社区维护的开源 Windows 桌面发行版，在原版 Harness Web Surface 外增加原生应用生命周期、插件、主题、自动更新与移动远程能力。"
+                  "text": "它是社区维护的开源 Windows 桌面发行版，融合公开的官方 DSH Runtime、Web UI 与官方仓库 Desktop 能力边界，再提供独立的原生生命周期、插件、主题、自动更新与移动远程能力。"
                 }
               },
               {
@@ -171,7 +175,7 @@
                 "name": "DeepSeek Harness Desktop 是官方 DeepSeek 产品吗？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "不是。它是社区维护的开源桌面发行版，启动官方 @deepseek-ai/dsh 本地主机；DeepSeek Harness 与相关标识归各自权利人所有。"
+                  "text": "不是。它是社区维护的开源桌面发行版，使用公开的官方 @deepseek-ai/dsh Runtime 与 SDK，但拥有独立应用 ID、数据目录、协议和更新源；DeepSeek Harness 与相关标识归各自权利人所有。"
                 }
               },
               {
@@ -208,10 +212,10 @@
               },
               {
                 "@type": "Question",
-                "name": "升级到 3.5.0 会显示 Star 提示吗？",
+                "name": "4.0 现在可以作为稳定版下载吗？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "会。每个本机用户升级到 3.5.0 后显示一次，包括看过旧版本提示的用户。关闭后重启不重复，预览不改变记录；是否前往 GitHub 点 Star 由你决定，不影响继续使用。"
+                  "text": "暂时不可以。官网当前稳定下载仍指向 3.5.0；4.0.0-rc.3 已进入发布前候选与公开源码阶段，完成签名和正式 Release 后才会切换稳定下载。"
                 }
               }
             ]
@@ -226,7 +230,7 @@
       } catch {}
     </script>
     <link rel="icon" href="official-whale.svg" type="image/svg+xml">
-    <link rel="preload" as="image" href="assets/desktop-3.3.0-workspace.webp" type="image/webp" fetchpriority="high">
+    <link rel="preload" as="image" href="assets/desktop-4.0.0-collaboration.webp" type="image/webp" fetchpriority="high">
     <link rel="stylesheet" href="styles.css">
     <script src="script.js" type="module"></script>
   </head>
@@ -266,10 +270,10 @@
         <div class="hero-backdrop" aria-hidden="true"></div>
         <div class="container hero-inner">
           <div class="hero-copy reveal">
-            <p class="overline">DeepSeek Harness Desktop 社区版</p>
-            <h1>DeepSeek Harness<br>Desktop 3.5.0</h1>
-            <p class="hero-summary">项目、文件和 AI 设置更顺手：点击选择本地项目文件夹，把文件拖入会话交给模型按需研究；在拓展坞集中配置模型、性价比模式与个人偏好，查看记忆的匹配和确认状态。</p>
-            <p class="hero-summary">性价比模式、实时 Token 与费用看板、Claude Code / Codex 历史会话导入继续保留，原有 Harness 数据和插件直接延续。Windows 10/11 x64 一键安装，无需另配 Node.js。</p>
+            <p class="overline">Desktop 4.0 发布预览 · 社区版</p>
+            <h1>官方尚未发布 Desktop，<br>社区版已完成 4.0 融合<br><span class="hero-current">当前稳定版 3.5.0</span></h1>
+            <p class="hero-summary">公开的官方 DSH Runtime、Web UI 与官方仓库 Desktop 能力边界已经进入同一个 Windows 应用。会话、文件、工具、权限与模型仍由 DSH 提供，社区宿主负责生命周期、窗口、更新、隔离和扩展体验。</p>
+            <p class="hero-summary">4.0 新增模型协作入口、Agent Team、统一 Skills 与 bai 优先排序，并修复 3.5 覆盖升级后的插件、历史会话、宠物保存和本地插件重复安装问题。当前公开稳定版仍为 3.5.0。</p>
             <div class="hero-buttons">
               <a class="btn btn-primary download-link" data-download-source="hero" href="https://github.com/ningbainb/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-Setup-3.5.0-x64.exe">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 2h7v7H2V2Zm9 0h7v7h-7V2ZM2 11h7v7H2v-7Zm9 0h7v7h-7v-7Z"/></svg>
@@ -320,15 +324,15 @@
         <div class="container">
           <div class="center-heading reveal">
             <span class="eyebrow-chip">DESKTOP = HARNESS + NATIVE</span>
-            <h2><strong>DESKTOP</strong> 让 Harness 在桌面持续工作</h2>
-            <p>原版能力是核心，桌面体验是外壳。所有增强都通过独立 profile 与插件组合完成。</p>
+            <h2><strong>官方 DSH 是核心</strong>，社区 Desktop 负责落地</h2>
+            <p>官方公开 Runtime、Web UI 和 Desktop 边界持续跟进；社区宿主使用独立身份、数据目录与更新源，不冒充也不覆盖未来官方客户端。</p>
           </div>
 
           <div class="principle-grid">
             <article class="principle-card reveal">
               <svg class="principle-icon orbit-icon" viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="32" cy="32" rx="23" ry="9"/><ellipse cx="32" cy="32" rx="23" ry="9" transform="rotate(60 32 32)"/><ellipse cx="32" cy="32" rx="23" ry="9" transform="rotate(120 32 32)"/><circle cx="32" cy="32" r="3"/></svg>
-              <h3>完整 Web Surface</h3><span>ORIGINAL INTERFACE</span>
-              <p>不是缩水重写。会话、工具调用、模型选择、权限与插件界面保持完整。</p>
+              <h3>公开官方代码能力融合</h3><span>OFFICIAL DSH FOUNDATION</span>
+              <p>不是仿制界面。精确集成公开的官方 Runtime、Web UI 与拆分 SDK，并跟踪官方 Desktop 边界。</p>
             </article>
             <article class="principle-card reveal">
               <svg class="principle-icon" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="19"/><circle cx="32" cy="32" r="7"/><path d="M32 6v7M32 51v7M6 32h7M51 32h7M14 14l5 5M45 45l5 5M50 14l-5 5M19 45l-5 5"/></svg>
@@ -347,72 +351,72 @@
       <section class="latest-features" id="latest-features" aria-labelledby="latest-features-title">
         <div class="container">
           <div class="section-title reveal">
-            <span>v3.5.0 重点能力</span>
-            <h2 id="latest-features-title">DSH 1.1.5 新内核，原有工作流完整保留</h2>
+            <span>v4.0.0-rc.3 发布前预览</span>
+            <h2 id="latest-features-title">先保住升级数据，再把协作和 Skills 放到顺手的位置</h2>
           </div>
           <div class="latest-grid">
             <article class="latest-card reveal">
               <span class="latest-index">01</span>
-              <h3>拓展坞，设置集中管理</h3><p>模型接入、性价比模式、个人偏好和更多 AI 设置按侧栏分组。设置面板明暗一致、默认居中，拖动更新合并以减少卡顿。</p><small>DOCK SETTINGS</small>
+              <h3>官方 Desktop 能力，社区版先融合</h3><p>精确锁定公开的官方 DSH 0.1.5-rc.2 Runtime 与拆分 SDK，对照官方 Desktop 边界适配生命周期、窗口、协议和更新，同时保持社区应用身份独立。</p><small>OFFICIAL FOUNDATION, COMMUNITY DESKTOP</small>
             </article>
             <article class="latest-card reveal">
               <span class="latest-index">02</span>
-              <h3>选文件夹，就能创建项目</h3><p>创建项目与选择工作区使用统一弹窗，点击源文件夹区域打开系统选择器。选择已经连接的目录会打开原有工作区。</p><small>PROJECTS AND WORKSPACES</small>
+              <h3>3.5 插件升级不再丢</h3><p>旧 Profile 只读扫描，Registry 插件按精确版本事务恢复；Git 插件固定旧提交并等待确认。失败项保留可见，不阻断 Desktop 启动。</p><small>LEGACY PLUGIN RECOVERY</small>
             </article>
             <article class="latest-card reveal">
               <span class="latest-index">03</span>
-              <h3>拖入文件，由模型按需研究</h3><p>普通文件添加后显示附件卡片，发送时提供真实文件引用，不预先解析或自动转成 Markdown。图片走独立的压缩与视觉流程。</p><small>MODEL-DRIVEN FILE HANDOFF</small>
+              <h3>历史会话最多降级，不再整页失败</h3><p>旧统计 checkpoint 自动重建；异常 replace 范围采用可估算降级。统计插件不再因为一段坏投影阻断会话列表或历史正文。</p><small>NON-BLOCKING SESSION PROJECTION</small>
             </article>
             <article class="latest-card reveal">
               <span class="latest-index">04</span>
-              <h3>准备引用哪些记忆，看得见</h3><p>在个人偏好中查看已保存记忆、待确认建议和最近准备的记忆。建议经你确认才保存；开启引用后，相关内容随请求发给当前模型供应商。面板不代表模型已采纳。</p><small>VISIBLE MEMORY ACTIVITY</small>
+              <h3>模型协作从会话侧栏直达</h3><p>Agent Team 与性价比模式合并为一个模型协作页面，可独立开启或同时使用；重复点击只聚焦同一个拓展坞窗口。</p><small>ONE COLLABORATION ENTRY</small>
             </article>
             <article class="latest-card reveal">
               <span class="latest-index">05</span>
-              <h3>性价比模式，专家主控</h3>
-              <p>选择模式后立即出现配置引导：专家主控负责理解、拆解、派发、复核和汇总，副模型只完成被派发的局部任务。智能平衡是默认策略，配置完成并确认后才启用模式。</p>
-              <small>EXPERT CONTROLLER + WORKER MODEL</small>
+              <h3>Skills 目录与入口统一</h3>
+              <p>项目 Skills、用户 DSH Skills 与 Agents Skills 使用同一发现规则；会话菜单和技能中心展示一致的来源、作用域与可用状态。</p>
+              <small>ONE SKILL DISCOVERY CONTRACT</small>
             </article>
             <article class="latest-card reveal">
               <span class="latest-index">06</span>
-              <h3>策略可调，子代理有边界</h3>
-              <p>更省、智能平衡、更强三档策略按任务复杂度选择派发力度；子代理深度固定为 1，避免递归失控，主控统一收口质量与风险。</p>
-              <small>BOUNDED DELEGATION</small>
+              <h3>bai 在所有协作选择器统一置顶</h3>
+              <p>聊天模型、模型设置、主控模型和执行模型使用同一排序规则；用户手动置顶仍然最高优先，其余供应商顺序保持稳定。</p>
+              <small>CONSISTENT PROVIDER ORDER</small>
             </article>
             <article class="latest-card reveal">
               <span class="latest-index">07</span>
-              <h3>用量中心 + 滚动峰值</h3>
-              <p>把余额、Token、缓存节省、请求耗时和费用放在一屏；生成速度严格按有效流式增量统计，滚动 1 秒峰值不会被一次汇总事件放大。</p>
-              <small>TOKENS, COST, ROLLING PEAK</small>
+              <h3>插件自由度与稳定性分级</h3>
+              <p>Registry 插件正常验证安装；Git 插件标记实验性并分类提示网络、旧 SDK、缺失依赖、构建脚本与运行图冲突。高风险安装仍可由用户明确确认。</p>
+              <small>VALIDATE, EXPLAIN, THEN ACTIVATE</small>
             </article>
             <article class="latest-card reveal">
               <span class="latest-index">08</span>
-              <h3>导入预览，安全接续</h3>
-              <p>Claude Code / Codex 项目和会话先扫描、再预览、后确认；敏感字段统一脱敏，历史工具记录保留为不可执行上下文。</p>
-              <small>CLAUDE CODE + CODEX HANDOFF</small>
+              <h3>本地插件可重复安装</h3>
+              <p>本地 `.tgz` 每次安装都复制到独立 staging，激活结束后清理自己的临时文件，不会留下 ENOENT 或污染后续 NPM 安装。</p>
+              <small>REPEATABLE LOCAL INSTALL</small>
             </article>
             <article class="latest-card reveal">
               <span class="latest-index">09</span>
-              <h3>完整 Harness 工作台</h3>
-              <p>会话、工作区、文件、变更、技能、任务看板、SSH 和插件入口都在同一个桌面工作区里，原有 DSH 数据继续沿用。</p>
-              <small>ONE DESKTOP WORKSPACE</small>
+              <h3>桌面交互不再暗中启动终端</h3>
+              <p>底部面板只负责展开插件栏并恢复上次标签与高度；终端仅在用户点击标签、菜单或快捷键后启动，Windows 子进程继续隐藏黑框。</p>
+              <small>EXPLICIT DESKTOP ACTIONS</small>
             </article>
             <article class="latest-card reveal">
               <span class="latest-index">10</span>
-              <h3>DSH 1.1.5 与可靠启动</h3>
-              <p>内置 Runtime 和插件全面迁移到官方拆分 SDK；启动使用官方 CLI 安装锚点、可见阶段和可回滚修复。用户插件归档损坏会保留数据并回退可用内置插件，不再同时阻断两种启动模式。</p>
-              <small>DSH 1.1.5 + RESILIENT STARTUP</small>
+              <h3>宠物设置保存有明确终态</h3>
+              <p>保存遵循官方异步设置契约；成功重新读取快照，失败保留草稿和原因，无论结果如何都能退出“保存中”并重试。</p>
+              <small>RETRYABLE SETTINGS SAVE</small>
             </article>
             <article class="latest-card reveal">
               <span class="latest-index">11</span>
-              <h3>匿名数据埋点可审计</h3>
-              <p>正式包的看板明确展示 UTC DAU、滚动 WAU / MAU、前期对比、粘性与趋势；高频聚合不含实例标识，也不上传对话、记忆正文、文件内容、路径、模型名、Token 或密钥。</p>
+              <h3>埋点覆盖结果，不碰用户正文</h3>
+              <p>新增 Skills、Agent Team 与局域网访问的固定结果信号，并保留会话导入入口与插件操作的粗粒度事件；不上传对话、Prompt、记忆正文、文件内容、路径、模型名、Token 或密钥。</p>
               <small>PRIVACY-FIRST PRODUCT SIGNALS</small>
             </article>
             <article class="latest-card reveal">
               <span class="latest-index">12</span>
-              <h3>可验证发布与完整 Harness</h3>
-              <p>Windows x64 安装包提供 SHA-256 与 release manifest；同时保留会话、工具、Skills、任务看板、Git、SSH、移动远程、QQ Bot 和主题生态。</p>
+              <h3>普通版与标书版物理分离</h3>
+              <p>4.0 普通版在本仓库与普通版目录持续发布；标书版使用独立文件夹、独立分支和独立交付物，不会混入公开构建。</p>
               <small>VERIFIABLE RELEASE, COMPLETE SURFACE</small>
             </article>
           </div>
@@ -421,33 +425,33 @@
 
       <section class="features" id="features">
         <div class="container">
-          <div class="section-title reveal"><span>3.5.0 功能，3.3.0 实机界面参考</span><h2>从第一次选择到真正接手工作，每一步都有画面</h2></div>
+          <div class="section-title reveal"><span>4.0.0-rc.3 真实 Electron 验收截图</span><h2>协作、Skills 和模型接入，入口与结果都看得见</h2></div>
 
           <article class="feature-row reveal">
             <div class="feature-copy">
-              <div class="feature-title"><span class="play-icon">A</span><h3>创建项目：选择一个文件夹开始</h3></div>
-              <p>输入项目名称，点击源文件夹区域打开系统文件夹选择器，确认后创建项目。主页的“选择工作区”也使用统一弹窗，已连接的目录直接打开。</p>
-              <ul><li>项目名称与源文件夹集中确认</li><li>未选择文件夹时，创建按钮保持禁用</li><li>文件添加后由模型按需调用工具研究，格式支持取决于模型与可用工具</li></ul>
+              <div class="feature-title"><span class="play-icon">A</span><h3>模型协作：Agent Team 与性价比模式合并</h3></div>
+              <p>会话左侧栏一键进入模型协作。页面先展示 Agent Team 状态，再配置主控模型、执行模型与运行策略；两种协作能力可以独立或同时开启。</p>
+              <ul><li>只打开并聚焦一个拓展坞窗口</li><li>Agent Team 重启过程有状态反馈与失败回滚</li><li>主控负责规划和交付，执行模型接收派发任务</li></ul>
             </div>
-            <figure class="product-shot"><img src="assets/desktop-3.3.0-create-project.webp" width="1122" height="872" loading="lazy" decoding="async" alt="DeepSeek Harness Desktop 3.3.0 创建项目与文件夹选择"><figcaption>3.3.0 实机：尚未选择文件夹的创建项目弹窗</figcaption></figure>
+            <figure class="product-shot"><img src="assets/desktop-4.0.0-collaboration.webp" width="1918" height="1360" loading="lazy" decoding="async" alt="DeepSeek Harness Desktop 4.0 模型协作页面，包含 Agent Team、主控模型、执行模型与策略"><figcaption>4.0.0-rc.3 实机：模型协作统一页面</figcaption></figure>
           </article>
           <article class="feature-row feature-row-reverse reveal">
             <div class="feature-copy">
-              <div class="feature-title"><span class="play-icon">B</span><h3>个人偏好：知道 AI 准备引用哪些记忆</h3></div>
-              <p>从拓展坞打开个人偏好，切换到记忆。按作用域和关键词筛选已保存内容，查看待确认建议和最近准备的记忆；新增、编辑、删除都在同一处完成。</p>
-              <ul><li>记忆保存在本机并按用户与作用域隔离</li><li>开启“允许模型在请求中引用记忆”后按本轮输入检索</li><li>引用内容会发给当前模型供应商，归属不明时不引用</li></ul>
+              <div class="feature-title"><span class="play-icon">B</span><h3>Skills：会话入口与技能中心一致</h3></div>
+              <p>同一发现服务扫描项目、DSH 用户目录和 Agents 用户目录。会话输入框可以搜索并插入技能，技能中心展示相同的来源、作用域与启用状态。</p>
+              <ul><li>修复技能目录分裂造成的显示差异</li><li>兼容 DSH 4 富文本输入框</li><li>窄侧栏保留图标、悬浮提示与无障碍名称</li></ul>
             </div>
-            <figure class="product-shot"><img src="assets/desktop-3.3.0-memory.webp" width="1566" height="1296" loading="lazy" decoding="async" alt="DeepSeek Harness Desktop 3.3.0 个人偏好记忆设置，包含引用开关、筛选和待确认建议"><figcaption>3.3.0 实机：未启用引用、尚无记忆的初始状态</figcaption></figure>
+            <figure class="product-shot"><img src="assets/desktop-4.0.0-skills.webp" width="1280" height="800" loading="lazy" decoding="async" alt="DeepSeek Harness Desktop 4.0 会话输入框 Skills 搜索菜单与左侧技能中心入口"><figcaption>4.0.0-rc.3 实机：会话 Skills 与技能中心共用发现结果</figcaption></figure>
           </article>
 
 
           <article class="feature-row reveal">
             <div class="feature-copy">
-              <div class="feature-title"><span class="play-icon">1</span><h3>性价比模式：选择角色，立即开始协作</h3></div>
-              <p>右侧为 3.2.0 配置引导的历史实机参考；3.5.0 可在拓展坞继续设置：专家主控模型、副模型 / 子代理执行模型、运行策略三步集中确认。没有明确主控时才预选当前默认模型，配置完整后才写入并开启。</p>
-              <ul><li>01 专家主控模型：理解、拆解、复核、汇总</li><li>02 副模型：并行调查、局部实现和重复性工作</li><li>03 运行策略：更省 / 平衡 / 更强，未完成配置保持关闭</li></ul>
+              <div class="feature-title"><span class="play-icon">1</span><h3>bai 供应商：所有模型入口统一优先</h3></div>
+              <p>模型设置、会话模型以及协作页的主控与执行模型共用稳定排序。用户手动置顶仍然优先，bai 随后显示，不改变其他供应商的既有顺序。</p>
+              <ul><li>稳定 ID 识别，不依赖显示名称</li><li>bai 不可用时不显示空分组</li><li>登录、充值、Key 创建与手动接入路径集中展示</li></ul>
             </div>
-            <figure class="product-shot"><img src="assets/desktop-3.2.0-value-mode-setup.webp" width="1440" height="900" loading="lazy" decoding="async" alt="DeepSeek Harness Desktop 3.2.0 性价比模式三步配置引导，包含专家主控模型、副模型和运行策略"><figcaption>3.2.0 历史参考：三步配置引导，未完成配置时保持关闭</figcaption></figure>
+            <figure class="product-shot"><img src="assets/desktop-4.0.0-bai-models.webp" width="1566" height="1296" loading="lazy" decoding="async" alt="DeepSeek Harness Desktop 4.0 模型与能力页面，bai 供应商推荐卡片置顶"><figcaption>4.0.0-rc.3 实机：bai 供应商置顶与模型接入</figcaption></figure>
           </article>
 
           <article class="feature-row feature-row-reverse reveal">
@@ -561,10 +565,10 @@
           <div class="faq-grid">
             <article class="faq-card reveal"><h3>拖入文件后会自动解析成 Markdown 吗？</h3><p>不会。普通文件保存到当前工作区后显示附件卡片，发送时提供真实文件引用，由模型按需调用工具读取和研究；不自动把全文注入对话。文件可添加不代表所有格式都能被模型理解，图片使用独立的压缩与视觉流程。</p></article>
             <article class="faq-card reveal"><h3>记忆会自动保存或发送吗？</h3><p>模型建议需要你确认后才保存。开启记忆引用后，系统按本轮输入检索相关记忆，并将引用内容随请求发送给当前模型供应商；归属或作用域无法确认时不引用。可在拓展坞的个人偏好中查看和管理。</p></article>
-            <article class="faq-card reveal"><h3>升级到 3.5.0 会显示 Star 提示吗？</h3><p>会。每个本机用户升级到 3.5.0 后显示一次，包括看过旧版本提示的用户。关闭后重启不重复，预览不改变记录；是否前往 GitHub 点 Star 由你决定，不影响继续使用。</p></article>
+            <article class="faq-card reveal"><h3>4.0 现在可以作为稳定版下载吗？</h3><p>暂时不可以。官网当前稳定下载仍指向 3.5.0；4.0.0-rc.3 已进入发布前候选与公开源码阶段，完成签名和正式 Release 后才会切换稳定下载。</p></article>
             <article class="faq-card reveal">
               <h3>DeepSeek Harness Desktop 是什么？</h3>
-              <p>它是社区维护的开源 Windows 桌面发行版，在原版 Harness Web Surface 外增加原生应用生命周期、插件、主题、自动更新与移动远程能力。</p>
+              <p>它是社区维护的开源 Windows 桌面发行版，融合公开的官方 DSH Runtime、Web UI 与官方仓库 Desktop 能力边界，再提供独立的原生生命周期、插件、主题、自动更新与移动远程能力。</p>
             </article>
             <article class="faq-card reveal">
               <h3>安装时需要另外配置 Node.js 吗？</h3>
@@ -592,7 +596,7 @@
             </article>
             <article class="faq-card reveal">
               <h3>DeepSeek Harness Desktop 是官方 DeepSeek 产品吗？</h3>
-              <p>不是。它是社区维护的开源桌面发行版，启动官方 <code>@deepseek-ai/dsh</code> 本地主机；DeepSeek Harness 与相关标识归各自权利人所有。</p>
+              <p>不是。它是社区维护的开源桌面发行版，使用公开的官方 <code>@deepseek-ai/dsh</code> Runtime 与 SDK，但拥有独立应用 ID、数据目录、协议和更新源；DeepSeek Harness 与相关标识归各自权利人所有。</p>
             </article>
             <article class="faq-card reveal">
               <h3>桌面版能和官方 Web 端同时运行吗？</h3>
@@ -631,6 +635,6 @@
       </section>
     </main>
 
-    <footer><div class="container footer-inner"><div class="wordmark"><img class="whale" src="official-whale.svg" width="30" height="30" alt=""><span class="word-deepseek">deepseek</span><span class="brand-chip">Harness Desktop</span></div><p>社区维护的开源桌面发行版。DeepSeek Harness 与相关标识归其各自权利人所有。</p><div class="footer-links"><a href="privacy.html">隐私政策</a><a href="https://github.com/ningbainb/deepseek-harness-desktop/blob/main/LICENSE">BSD-3-Clause</a></div></div></footer>
+    <footer><div class="container footer-inner"><div class="wordmark"><img class="whale" src="official-whale.svg" width="30" height="30" alt=""><span class="word-deepseek">deepseek</span><span class="brand-chip">Harness Desktop</span></div><p>由 ningbai牛逼 维护的开源桌面发行版。DeepSeek Harness 与相关标识归其各自权利人所有。</p><div class="footer-links"><a href="privacy.html">隐私政策</a><a href="https://github.com/ningbainb/deepseek-harness-desktop/blob/main/LICENSE">BSD-3-Clause</a></div></div></footer>
   </body>
 </html>

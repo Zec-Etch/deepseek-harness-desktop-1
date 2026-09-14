@@ -2,6 +2,7 @@ const UI_STATUSES = new Set([
   'normal',
   'update-available',
   'update-incompatible',
+  'risk-running',
   'disabled',
   'needs-attention',
 ])
@@ -49,9 +50,9 @@ export function createPluginUIState(plugin, { incident } = {}) {
     statusLabel = '需要处理'
     attention = '插件未能正常启动'
   } else if (runtimeFailure) {
-    status = 'needs-attention'
-    statusLabel = '需要处理'
-    attention = '当前插件版本暂不支持新版 DeepSeek Harness。你的插件数据已经保留。'
+    status = 'risk-running'
+    statusLabel = '风险运行'
+    attention = '插件声明的兼容范围未覆盖当前版本，但当前仍保持启用。如出现异常可随时停用，插件数据会继续保留。'
   } else if (blockedUpdate) {
     status = 'update-incompatible'
     statusLabel = '新版本暂不兼容'

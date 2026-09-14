@@ -25,12 +25,24 @@ export const BUILTIN_BUNDLES = Object.freeze([
   '@linxin666/dsh-value-mode',
   'dsh-better-sidebar',
   '@linxin666/dsh-web-ui-all',
+  // The Desktop pins a newer Skill Center than the aggregate release. Mount
+  // it directly so the profile cannot silently keep only the dependency
+  // bytes while omitting its host routes and browser entry.
+  '@linxin666/dsh-client-ui-skill-explorer',
   '@linxin666/dsh-client-ui-model-capabilities',
   '@linxin666/dsh-usage',
   '@linxin666/dsh-session-archive',
   '@tencent-connect/dsh-qqbot',
   'reasoning-slider',
 ])
+
+export const AGENT_TEAM_PROFILE_BUNDLE = '@deepseek-ai/dsh-experimental-agent-team-profile'
+export const AGENT_TEAM_VERSION = '0.1.5-rc.2'
+export const AGENT_TEAM_RUNTIME_PACKAGES = Object.freeze([
+  '@deepseek-ai/dsh-experimental-agent-team',
+  AGENT_TEAM_PROFILE_BUNDLE,
+  '@deepseek-ai/dsh-experimental-tool-agent-team',
+].toSorted())
 
 export const DESKTOP_REPAIR_BUNDLE = '@linxin666/dsh-desktop-repair'
 
@@ -47,7 +59,6 @@ export const AGGREGATED_BUNDLES = Object.freeze([
   '@linxin666/dsh-desktop-launcher',
   '@linxin666/dsh-client-ui-plugin-manager',
   '@linxin666/dsh-client-ui-skin-center',
-  '@linxin666/dsh-client-ui-skill-explorer',
   '@linxin666/dsh-client-ui-task-board',
   '@linxin666/dsh-client-ui-web-ui-settings',
   '@linxin666/dsh-liangshen',
@@ -138,6 +149,7 @@ export const WEB_UI_SETTINGS_NAMESPACES = Object.freeze([
 ].toSorted())
 
 export const BUILTIN_RUNTIME_PACKAGES = Object.freeze([
+  ...AGENT_TEAM_RUNTIME_PACKAGES,
   '@linxin666/dsh-desktop-pipe-webserver',
   '@linxin666/dsh-client-ui-model-capabilities',
   '@linxin666/dsh-usage',
@@ -417,6 +429,11 @@ export function materializeFilesystemPath(path) {
   return path.replace(/([\\/])app\.asar([\\/])/u, '$1app.asar.unpacked$2')
 }
 
+export function isAgentTeamProfileEnabled(manifest) {
+  return Array.isArray(manifest?.dsh?.profile?.bundles)
+    && manifest.dsh.profile.bundles.includes(AGENT_TEAM_PROFILE_BUNDLE)
+}
+
 export function createDesktopProfileManifest(existing = {}) {
   const existingDsh = existing.dsh !== null && typeof existing.dsh === 'object' && !Array.isArray(existing.dsh)
     ? existing.dsh
@@ -427,12 +444,14 @@ export function createDesktopProfileManifest(existing = {}) {
     ? existingDsh.profile
     : {}
   const existingBundles = existingProfile.bundles
+  const agentTeamEnabled = isAgentTeamProfileEnabled(existing)
   const existingDependencies = existing.dependencies ?? {}
   const managedBundles = new Set([
     ...BUILTIN_BUNDLES,
     ...DEPENDENCY_ONLY_BUNDLES,
     ...AGGREGATED_BUNDLES,
     DESKTOP_REPAIR_BUNDLE,
+    AGENT_TEAM_PROFILE_BUNDLE,
   ])
   const seenBundles = new Set(BUILTIN_BUNDLES)
   const communityBundles = []
@@ -456,10 +475,49 @@ export function createDesktopProfileManifest(existing = {}) {
       ...existingDsh,
       profile: {
         ...existingProfile,
-        bundles: [...BUILTIN_BUNDLES, ...communityBundles],
+        bundles: [
+          ...BUILTIN_BUNDLES,
+          ...communityBundles,
+          ...(agentTeamEnabled ? [AGENT_TEAM_PROFILE_BUNDLE] : []),
+        ],
       },
     },
   }
+}
+
+export async function readAgentTeamProfileEnabled({ profileDir } = {}) {
+  if (typeof profileDir !== 'string' || profileDir.length === 0) {
+    throw new TypeError('profileDir must be a non-empty path')
+  }
+  const manifest = await readJsonIfPresent(join(profileDir, 'package.json'))
+  return isAgentTeamProfileEnabled(manifest)
+}
+
+export async function setAgentTeamProfileEnabled({ profileDir, enabled } = {}) {
+  if (typeof profileDir !== 'string' || profileDir.length === 0) {
+    throw new TypeError('profileDir must be a non-empty path')
+  }
+  if (typeof enabled !== 'boolean') throw new TypeError('Agent Team enabled state must be a boolean')
+  const manifestPath = join(profileDir, 'package.json')
+  const existing = await readJsonIfPresent(manifestPath) ?? createDesktopProfileManifest()
+  if (existing === null || typeof existing !== 'object' || Array.isArray(existing)) {
+    throw new TypeError('desktop profile manifest must be an object')
+  }
+  const dsh = existing.dsh !== null && typeof existing.dsh === 'object' && !Array.isArray(existing.dsh)
+    ? existing.dsh
+    : {}
+  const profile = dsh.profile !== null && typeof dsh.profile === 'object' && !Array.isArray(dsh.profile)
+    ? dsh.profile
+    : {}
+  const currentBundles = Array.isArray(profile.bundles) ? profile.bundles : []
+  const bundles = currentBundles.filter(name => name !== AGENT_TEAM_PROFILE_BUNDLE)
+  if (enabled) bundles.push(AGENT_TEAM_PROFILE_BUNDLE)
+  const next = {
+    ...existing,
+    dsh: { ...dsh, profile: { ...profile, bundles } },
+  }
+  const changed = await writeIfChanged(manifestPath, `${JSON.stringify(next, null, 2)}\n`)
+  return Object.freeze({ enabled, changed })
 }
 
 function errorChain(error) {

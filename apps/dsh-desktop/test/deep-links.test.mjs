@@ -20,6 +20,14 @@ test('deep links expose only fixed navigation routes and bounded safe identifier
   })
 })
 
+test('an explicitly accepted legacy scheme is canonicalized to the owned scheme', () => {
+  assert.deepEqual(
+    normalizeDeepLink('dsh://updates', 'dsh-community', ['dsh']),
+    { kind: 'updates', href: 'dsh-community://updates' },
+  )
+  assert.throws(() => normalizeDeepLink('dsh://updates', 'dsh-community'), /unsupported scheme/u)
+})
+
 test('deep links reject commands, arbitrary paths or URLs, dangerous queries, and malformed IDs', () => {
   for (const value of [
     'dsh://command/run',

@@ -1,6 +1,6 @@
 # The `liangshen` (梁神模式) agent preset: phase 1 exposes the builtin Minimal
 # preset's exact two tools (persistent `bash` plus `str_replace_editor`) and
-# the same one-line persona, with no runtime contexts and no injected pre-step
+# the same one-line persona, with only the sandbox policy context and no injected pre-step
 # messages, anchoring the Minimal trajectory; after a stabilized anchor the
 # wire switches to Code Mode (PTC) and the ordinary injections open. The
 # phase-1 surface matches the official "exact RL prompt and schemas" snapshot
@@ -45,7 +45,7 @@
 # Two-phase input bootstrap with the exact Minimal phase-1 tools. Before the
 # first durable tool/call event the model sees only persistent `bash` plus
 # `str_replace_editor`, only the `persona` prompt section, no runtime
-# contexts, and only direct user messages. `anchorGate` holds the promotion
+# context except sandbox policy, and only direct user messages. `anchorGate` holds the promotion
 # open until the first reasoning block is minimal-like (four-step fallback);
 # `promoteAfterFirstResponse` avoids a permanent two-tool session after a
 # tool-less first response, and releases an anchor-gated session once its

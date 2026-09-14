@@ -55,7 +55,7 @@ index 4ce92ac1d90ca1a667edc058996ddc9dd7504584..141c675e8b6413b1355a198fd95c4e6e
  
  安装聚合全家桶 `@linxin666/dsh-web-ui-all`（全部插件与皮肤一次到位），或单独安装本插件：
 diff --git a/lib/client.js b/lib/client.js
-index 1f1cf24408ba19f547e0948eb8569f036b903120..7ab411d4952373509bc3ea26a5a590b1b218a839 100644
+index 1f1cf24408ba19f547e0948eb8569f036b903120..c71b08334191f16e878deb75b4db0c8cb7d04c66 100644
 --- a/lib/client.js
 +++ b/lib/client.js
 @@ -4,9 +4,32 @@ window.__ModuleLoader__.load({
@@ -368,7 +368,40 @@ index 1f1cf24408ba19f547e0948eb8569f036b903120..7ab411d4952373509bc3ea26a5a590b1
  				this.listeners.add(() => {
  					store.set(project());
  				});
-@@ -2017,8 +2049,8 @@ window.__ModuleLoader__.load({
+@@ -1907,17 +1939,21 @@ window.__ModuleLoader__.load({
+ 				this.failedReason = void 0;
+ 				this.publish();
+ 				const landed = /* @__PURE__ */ new Set();
+-				const batch = this.batchedScope();
+-				if (batch !== void 0) {
+-					const result = await batch.mutate(plannedWrites);
+-					if (result.ok) {
+-						for (const field of result.fields) if (field.landed) landed.add(field.field);
+-					} else this.failedReason = result.message;
+-				} else for (const item of valid) if (await item.run()) landed.add(item.field);
+-				for (const [field, before] of pending) if (landed.has(field) && this.staged.get(field) === before) this.staged.delete(field);
+-				this.saving = false;
+-				this.failed = landed.size !== pending.size;
+-				this.publish();
++				try {
++					const batch = this.batchedScope();
++					if (batch !== void 0) {
++						await batch.mutate(plannedWrites);
++						const user = this.scope.getSnapshot().user;
++						for (const item of valid) if (this.specOf(item.field).secret || item.op.op === "unset" && (user === void 0 || !Object.hasOwn(user, item.field)) || item.op.op === "set" && user?.[item.field] === item.op.value) landed.add(item.field);
++					} else for (const item of valid) if (await item.run()) landed.add(item.field);
++				} catch (error) {
++					this.failedReason = error instanceof Error ? error.message : String(error);
++				} finally {
++					for (const [field, before] of pending) if (landed.has(field) && this.staged.get(field) === before) this.staged.delete(field);
++					this.saving = false;
++					this.failed = landed.size !== pending.size;
++					this.publish();
++				}
+ 			}
+ 			/** The scope's batch surface when it supports one; undefined conservatively otherwise. */
+ 			batchedScope() {
+@@ -2017,8 +2053,8 @@ window.__ModuleLoader__.load({
  			}
  		};
  		//#endregion
@@ -379,7 +412,7 @@ index 1f1cf24408ba19f547e0948eb8569f036b903120..7ab411d4952373509bc3ea26a5a590b1
  		const tagId = "@linxin666/dsh-pet/settings-section.module.css";
  		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
  			const tag = document.createElement("style");
-@@ -2028,21 +2060,93 @@ window.__ModuleLoader__.load({
+@@ -2028,21 +2064,93 @@ window.__ModuleLoader__.load({
  			document.head.appendChild(tag);
  		}
  		var settings_section_module_css_default = {
@@ -480,7 +513,7 @@ index 1f1cf24408ba19f547e0948eb8569f036b903120..7ab411d4952373509bc3ea26a5a590b1
  			if (!response.ok) throw new Error("pet diagnostics failed: " + response.status);
  			return (await response.json()).diagnostics ?? [];
  		}
-@@ -2053,8 +2157,11 @@ window.__ModuleLoader__.load({
+@@ -2053,8 +2161,11 @@ window.__ModuleLoader__.load({
  			petChoices = [];
  			petLabels = /* @__PURE__ */ new Map();
  			diagnostics = [];
@@ -493,7 +526,7 @@ index 1f1cf24408ba19f547e0948eb8569f036b903120..7ab411d4952373509bc3ea26a5a590b1
  			/** @param scope - the bound settings scope for the 'pet' namespace. */
  			constructor(scope) {
  				this.form = new CardForm(scope, [
-@@ -2067,35 +2174,24 @@ window.__ModuleLoader__.load({
+@@ -2067,35 +2178,24 @@ window.__ModuleLoader__.load({
  					choiceField("petId", this.petChoices)
  				]);
  				this.store = this.form.bind(() => this.projection());
@@ -542,7 +575,7 @@ index 1f1cf24408ba19f547e0948eb8569f036b903120..7ab411d4952373509bc3ea26a5a590b1
  			}
  			projection() {
  				return {
-@@ -2129,6 +2225,10 @@ window.__ModuleLoader__.load({
+@@ -2129,6 +2229,10 @@ window.__ModuleLoader__.load({
  			* disposer calls this on teardown.
  			*/
  			dispose() {
@@ -553,7 +586,7 @@ index 1f1cf24408ba19f547e0948eb8569f036b903120..7ab411d4952373509bc3ea26a5a590b1
  				this.form.dispose();
  			}
  		};
-@@ -2423,9 +2523,10 @@ window.__ModuleLoader__.load({
+@@ -2423,9 +2527,10 @@ window.__ModuleLoader__.load({
  		//#endregion
  		//#region src/client/index.ts
  		/** Same-origin JSON fetch helper (GET without body, POST with JSON body). */
@@ -566,7 +599,7 @@ index 1f1cf24408ba19f547e0948eb8569f036b903120..7ab411d4952373509bc3ea26a5a590b1
  				headers: { "content-type": "application/json" },
  				body: JSON.stringify(body)
  			});
-@@ -2434,8 +2535,8 @@ window.__ModuleLoader__.load({
+@@ -2434,8 +2539,8 @@ window.__ModuleLoader__.load({
  		}
  		/** The live host API instance (always defined; failures surface per call). */
  		const petApi = {
@@ -577,7 +610,7 @@ index 1f1cf24408ba19f547e0948eb8569f036b903120..7ab411d4952373509bc3ea26a5a590b1
  			interact: (kind) => petFetch("/api/pet/interact", { kind }),
  			setVisible: (visible) => petFetch("/api/pet/set-visible", { visible }),
  			setConfig: (patch) => petFetch("/api/pet/set-config", patch),
-@@ -2494,23 +2595,30 @@ window.__ModuleLoader__.load({
+@@ -2494,23 +2599,30 @@ window.__ModuleLoader__.load({
  					const setSnapshot = petStore.actions.setSnapshot;
  					const setPets = petStore.actions.setPets;
  					const setState = petStore.actions.setState;
@@ -624,7 +657,7 @@ index 1f1cf24408ba19f547e0948eb8569f036b903120..7ab411d4952373509bc3ea26a5a590b1
  					};
  					const disposePoll = ctx.effect(() => {
  						let timer;
-@@ -2527,12 +2635,16 @@ window.__ModuleLoader__.load({
+@@ -2527,12 +2639,16 @@ window.__ModuleLoader__.load({
  							if (document.visibilityState === "visible") {
  								pollNow();
  								start();
@@ -642,7 +675,7 @@ index 1f1cf24408ba19f547e0948eb8569f036b903120..7ab411d4952373509bc3ea26a5a590b1
  							document.removeEventListener("visibilitychange", onVisibility);
  						};
  					}, "pet: poll");
-@@ -2565,12 +2677,12 @@ window.__ModuleLoader__.load({
+@@ -2565,12 +2681,12 @@ window.__ModuleLoader__.load({
  						},
  						hide: () => {
  							petApi.setVisible(false).then(() => {
@@ -657,7 +690,7 @@ index 1f1cf24408ba19f547e0948eb8569f036b903120..7ab411d4952373509bc3ea26a5a590b1
  							}, () => {});
  						},
  						dragEnd: (right, bottom) => {
-@@ -2578,12 +2690,12 @@ window.__ModuleLoader__.load({
+@@ -2578,12 +2694,12 @@ window.__ModuleLoader__.load({
  								right,
  								bottom
  							}).then(() => {
@@ -672,7 +705,7 @@ index 1f1cf24408ba19f547e0948eb8569f036b903120..7ab411d4952373509bc3ea26a5a590b1
  							}, () => {});
  						},
  						feedbackDone: () => {
-@@ -2600,9 +2712,10 @@ window.__ModuleLoader__.load({
+@@ -2600,9 +2716,10 @@ window.__ModuleLoader__.load({
  						t
  					}));
  					disposeUi = () => {
@@ -684,7 +717,7 @@ index 1f1cf24408ba19f547e0948eb8569f036b903120..7ab411d4952373509bc3ea26a5a590b1
  						disposeUi = void 0;
  					};
  				} else if (!enabled() && disposeUi !== void 0) {
-@@ -2610,8 +2723,14 @@ window.__ModuleLoader__.load({
+@@ -2610,8 +2727,14 @@ window.__ModuleLoader__.load({
  					disposeUi = void 0;
  				}
  			};
@@ -1536,7 +1569,7 @@ index 0000000000000000000000000000000000000000..1edd90052f433c3cc505e718b9296d0b
 +  }
 +}
 diff --git a/src/client/settings-form.ts b/src/client/settings-form.ts
-index a789fc72ceb85b2665ee4ef3c52c4b9db034b307..85227910a8d9551e018eeae402d970796ec0654a 100644
+index a789fc72ceb85b2665ee4ef3c52c4b9db034b307..00eb560eb2f57b302d52029ddb51fa5cef5b06d3 100644
 --- a/src/client/settings-form.ts
 +++ b/src/client/settings-form.ts
 @@ -8,8 +8,8 @@
@@ -1550,6 +1583,93 @@ index a789fc72ceb85b2665ee4ef3c52c4b9db034b307..85227910a8d9551e018eeae402d97079
  
  /** The write one field's staged text performs when the card is saved. */
  export type FieldWrite =
+@@ -117,34 +117,10 @@ export interface BatchedWrite {
+   value?: unknown
+ }
+ 
+-/** Per-field outcome of one batched scope write. */
+-export interface BatchedFieldResult {
+-  /** Field this entry writes. */
+-  field: string
+-  /** Whether the Host accepted this field's write (per the read-back view). */
+-  landed: boolean
+-}
+-
+-/**
+- * Result of a batched scope write. The bridge scope posts every planned write
+- * in one /mutate so the Host validate hook judges baseURL+model together; a
+- * batched refusal fails the whole save rather than per-field.
+- */
+-export interface BatchResult {
+-  /** Whether the whole mutate was accepted. */
+-  ok: boolean
+-  /** Per-field success, in the request order (always present when ok). */
+-  fields: BatchedFieldResult[]
+-  /** Host rejection code (mutate refused). */
+-  code?: string
+-  /** Host rejection message (mutate refused). */
+-  message?: string
+-}
+-
+ /** The optional batch surface the bridge scope adds over the SettingsScope contract. */
+ interface BatchedSettingsScope {
+-  /** Write every operation in one scope mutation, reporting per-field success. */
+-  mutate: (writes: BatchedWrite[]) => Promise<BatchResult>
++  /** Write every operation in one scope mutation. The official API resolves void. */
++  mutate: (writes: BatchedWrite[]) => Promise<void>
+ }
+ 
+ /** Constraints a numeric field's accepted drafts must satisfy, mirroring the host schema. */
+@@ -343,27 +319,33 @@ export class CardForm<T> {
+     this.failedReason = undefined
+     this.publish()
+     const landed = new Set<string>()
+-    const batch = this.batchedScope()
+-    if (batch !== undefined) {
+-      const result = await batch.mutate(plannedWrites)
+-      if (result.ok) {
+-        for (const field of result.fields) {
+-          if (field.landed) landed.add(field.field)
++    try {
++      const batch = this.batchedScope()
++      if (batch !== undefined) {
++        await batch.mutate(plannedWrites)
++        const user = this.scope.getSnapshot().user as Record<string, unknown> | undefined
++        for (const item of valid) {
++          if (this.specOf(item.field).secret
++            || (item.op.op === 'unset' && (user === undefined || !Object.hasOwn(user, item.field)))
++            || (item.op.op === 'set' && user?.[item.field] === item.op.value)) {
++            landed.add(item.field)
++          }
+         }
+       } else {
+-        this.failedReason = result.message
++        for (const item of valid) {
++          if (await item.run!()) landed.add(item.field)
++        }
+       }
+-    } else {
+-      for (const item of valid) {
+-        if (await item.run!()) landed.add(item.field)
++    } catch (error) {
++      this.failedReason = error instanceof Error ? error.message : String(error)
++    } finally {
++      for (const [field, before] of pending) {
++        if (landed.has(field) && this.staged.get(field) === before) this.staged.delete(field)
+       }
++      this.saving = false
++      this.failed = landed.size !== pending.size
++      this.publish()
+     }
+-    for (const [field, before] of pending) {
+-      if (landed.has(field) && this.staged.get(field) === before) this.staged.delete(field)
+-    }
+-    this.saving = false
+-    this.failed = landed.size !== pending.size
+-    this.publish()
+   }
+ 
+   /** The scope's batch surface when it supports one; undefined conservatively otherwise. */
 diff --git a/src/event-projection.ts b/src/event-projection.ts
 index 4c7a46205fbefc3b2a802266a56b55c85671eef5..59b96e3fd559f139892c6c38827dce37ba04e24d 100644
 --- a/src/event-projection.ts

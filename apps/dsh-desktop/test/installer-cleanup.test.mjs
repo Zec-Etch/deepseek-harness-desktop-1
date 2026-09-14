@@ -143,7 +143,12 @@ test('NSIS preflight cleans only stale processes owned by the previous install',
   assert.match(config, /from: build\/update-shutdown-v2[\s\S]*to: update-shutdown-v2/u)
   assert.match(config, /from: build\/installer-upgrade-v3[\s\S]*to: installer-upgrade-v3/u)
   assert.match(include, /customCheckAppRunning/u)
-  assert.doesNotMatch(include, /customInit/u)
+  const customInit = include.match(/!macro customInit([\s\S]*?)!macroend/u)?.[1] ?? ''
+  assert.match(customInit, /ReadRegStr \$DshLegacyInstallDirectory HKCU "\$\{DSH_LEGACY_INSTALL_REGISTRY_KEY\}" InstallLocation/u)
+  assert.match(customInit, /IfFileExists "\$DshLegacyInstallDirectory\\resources\\update-shutdown-v1"/u)
+  assert.match(customInit, /IfFileExists "\$DshLegacyInstallDirectory\\\$\{APP_EXECUTABLE_FILENAME\}"/u)
+  assert.match(customInit, /StrCpy \$INSTDIR \$DshLegacyInstallDirectory/u)
+  assert.doesNotMatch(customInit, /cleanup-stale-processes\.ps1|installer-upgrade-transaction\.ps1|nsExec::|ExecShell|Delete(?:RegKey)?|RMDir/u)
   assert.match(include, /cleanup-stale-processes\.ps1/u)
   assert.match(include, /installer-upgrade-transaction\.ps1/u)
   assert.match(include, /SetOutPath "\$TEMP"/u)

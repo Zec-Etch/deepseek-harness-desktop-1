@@ -1,8 +1,10 @@
+import { DESKTOP_DISTRIBUTION_IDENTITY } from './distribution-identity.mjs'
+
 export const DESKTOP_METADATA = Object.freeze({
-  appId: 'ai.deepseek.harness.desktop',
-  productName: 'DeepSeek Harness Desktop',
-  profile: 'desktop',
-  protocol: 'dsh',
+  appId: DESKTOP_DISTRIBUTION_IDENTITY.appId,
+  productName: DESKTOP_DISTRIBUTION_IDENTITY.productName,
+  profile: DESKTOP_DISTRIBUTION_IDENTITY.profile,
+  protocol: DESKTOP_DISTRIBUTION_IDENTITY.protocol,
 })
 
 export async function bootstrapDesktopApp() {

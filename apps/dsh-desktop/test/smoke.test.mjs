@@ -8,10 +8,10 @@ import {
 
 test('desktop metadata is stable and identifies the embedded DSH surface', () => {
   assert.deepEqual(DESKTOP_METADATA, {
-    appId: 'ai.deepseek.harness.desktop',
+    appId: 'com.ningbainb.deepseek-harness.desktop',
     productName: 'DeepSeek Harness Desktop',
     profile: 'desktop',
-    protocol: 'dsh',
+    protocol: 'dsh-community',
   })
 })
 

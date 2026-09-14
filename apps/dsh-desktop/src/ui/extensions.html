@@ -120,6 +120,10 @@
             <button type="button" class="secondary" id="check-plugin-updates">检查插件更新</button>
           </div>
         </div>
+        <section class="legacy-plugin-restore" id="legacy-plugin-restore" hidden>
+          <div class="feature-heading"><div><p class="index">4.0 升级恢复</p><h3>旧版第三方插件</h3></div><p>NPM 精确版本会自动恢复；Git 插件需要确认来源和权限后再安装。</p></div>
+          <div class="list" id="legacy-plugin-restore-list" aria-live="polite"></div>
+        </section>
         <div class="list" id="plugin-list" aria-live="polite"></div>
         <section class="plugin-detail" id="plugin-detail" hidden aria-live="polite"></section>
       </section>

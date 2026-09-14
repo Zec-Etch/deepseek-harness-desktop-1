@@ -1,14 +1,20 @@
 # DeepSeek Harness Desktop
 
+DeepSeek Harness Desktop is maintained by repository owner **ningbai牛逼** (`ningbainb`) with contributions from the community.
+
 ## Architecture
 
-The desktop application is a thin lifecycle and security layer around the official DSH host. Desktop 3.5.0 validates the packaged `@deepseek-ai/dsh` CLI as its installation anchor, then composes the `desktop` Profile through the official DSH 1.1.5 app-boot, command-line, HTTP-proxy, and launch-environment SDKs on a random loopback port. It probes HTTP readiness and loads that URL into the main window. The Web application, protocols, data paths, and tools remain DSH implementations; Desktop owns the immutable Runtime baseline and the transactional boundary around community plugin dependencies.
+The desktop application is a lifecycle and security layer around the official DSH host. Desktop 4.0.0-rc.3 validates the packaged `@deepseek-ai/dsh@0.1.5-rc.2` CLI as its installation anchor, then composes the `desktop` Profile through the public official app-boot, command-line, HTTP-proxy, launch-environment, settings, session, workspace, renderer, and tool SDKs. The Web application, protocols, data paths, and tools remain official DSH implementations; Desktop owns the native host, immutable Runtime baseline, and transactional boundary around community plugin dependencies.
 
-The DSH home remains `DSH_HOME` or `~/.dsh`. The desktop app runs the managed `~/.dsh/profiles/desktop` profile, which composes `@deepseek-ai/dsh-base`, `@deepseek-ai/dsh-web-app`, `@linxin666/dsh-web-ui-all`, `@tencent-connect/dsh-qqbot`, and `reasoning-slider` while preserving community bundles already added to that profile. DSH 1.1.5 provides the native Codex model adapter through `@deepseek-ai/dsh-base`; the retired standalone Codex providers are removed from Desktop-managed profiles to prevent duplicate provider registration. The native Extension Dock market fetches the public awesome-dsh-plugin index and sends confirmed installs through Desktop's transactional plugin manager; it is not a Runtime bundle. Packaged plugin directories are linked into the profile's `node_modules`; this is runtime package resolution, not a second configuration store. Existing default profiles are not changed.
+The community Desktop home is `DSH_HOME` when explicitly supplied or `~/.dsh-community` by default. The desktop app runs the managed `~/.dsh-community/profiles/desktop` profile, which composes `@deepseek-ai/dsh-base`, `@deepseek-ai/dsh-web-app`, `@linxin666/dsh-web-ui-all`, `@tencent-connect/dsh-qqbot`, and `reasoning-slider` while preserving community bundles already added to that profile. DSH 1.1.5 provides the native Codex model adapter through `@deepseek-ai/dsh-base`; the retired standalone Codex providers are removed from Desktop-managed profiles to prevent duplicate provider registration. The native Extension Dock market fetches the public awesome-dsh-plugin index and sends confirmed installs through Desktop's transactional plugin manager; it is not a Runtime bundle. Packaged plugin directories are linked into the profile's `node_modules`; this is runtime package resolution, not a second configuration store. The official Desktop remains free to use its own `~/.dsh` home and package graph.
 
-## Desktop 3.5 platform policy
+Desktop 4 also owns a distinct application id, installer GUID, private package name, `dsh-community://` operating-system protocol, and `ningbainb/deepseek-harness-desktop` GitHub update feed. Those boundaries prevent a later official Desktop installer or updater from replacing the community application. An eligible 3.3, 3.4, or 3.5 community Home is copied transactionally into `~/.dsh-community`; source bytes remain in `~/.dsh`, generated dependencies are rebuilt, and the migration commits only after the rebuilt Runtime passes health checks. The old community installer location is adopted only when its private shutdown marker and executable are both present, and its legacy registry identity is retired only after the new installation commits.
 
-Desktop 3.5.0 retains grouped Dock settings, shared project/workspace dialogs, model-driven file handoff, and visible local memory activity on DSH 1.1.5. It adds an application-owned Runtime baseline, a unified package ownership policy, compatibility admission, isolated pnpm staging, protected dependency-graph validation, atomic activation, post-start health confirmation, and crash-safe recovery. New public integrations must use the 3.0 contracts and official split SDK services rather than infer behavior from the internal Electron implementation.
+## Desktop 4 platform policy
+
+DeepSeek has not yet released a standalone official Desktop product. The 4.0 community edition integrates the public official DSH Runtime, Web UI, split SDKs, and the Desktop boundaries visible in the official repository at the recorded upstream commit. This is source-based compatibility work, not access to unreleased private code. The community application remains distinct through its application id, installer identity, `~/.dsh-community` home, `dsh-community://` protocol, and `ningbainb/deepseek-harness-desktop` update feed, so it cannot impersonate or overwrite a future official Desktop installation.
+
+Desktop 4 retains grouped Dock settings, shared project/workspace dialogs, model-driven file handoff, and visible local memory activity. It adds legacy-plugin recovery, non-blocking history projection fallback, repeatable local plugin staging, verified Git-source installation, a unified collaboration page, consistent Skills discovery, and bounded product metrics. New public integrations must use the documented Desktop contracts and official split SDK services rather than infer behavior from the internal Electron implementation.
 
 The Desktop Client SDK and Desktop Contract remain 1.x. Runtime Provider, Preset, Project/Task/Run/Evidence, Deep Link, plugin compatibility, Runtime matrix, and compat-patch inputs have machine-readable definitions. The applicable additive-change, deprecation, and major-version rules are in the [compatibility policy](compatibility-policy.md) and [schema versioning guide](schema-versioning.md).
 
@@ -16,7 +22,7 @@ Stable Runtime selection is evidence-led: a Stable build and startup accept only
 
 Startup reads the current Home and persistent Desktop Profile directly. It tries the complete plugin graph twice, may run a bounded model-backed repair in a private transaction workspace, verifies every candidate before applying it, and otherwise starts built-in plugins from the same Home. It does not require a startup migration, isolated recovery session, or safe-mode choice. The exact fallback and rollback boundaries are documented in [upgrade and rollback](upgrade-and-rollback.md).
 
-Official packaged Desktop releases enable first-party anonymous product analysis for activity, retention, country-level adoption, versions, updates, and fixed feature outcomes. Rotating daily/monthly actors and a stable anonymous installation hash are independent of DSH accounts, hardware, sessions, and credentials. Schema 4 adds daily, version-specific project, ordinary-file, and Dock settings outcomes; these independent observations do not prove ordered funnel completion or completed model tasks. Development, source, test, and Fork builds stay disconnected. Desktop never automatically uploads diagnostics; a redacted JSON/ZIP is exported only after confirmation to a user-selected location. See the [privacy policy](../PRIVACY.md), [metric definitions](../apps/dsh-telemetry-worker/README.md), and [security boundaries](security-boundaries.md).
+Official packaged Desktop releases enable first-party anonymous product analysis for activity, retention, country-level adoption, versions, updates, and fixed feature outcomes. Rotating daily/monthly actors and a stable anonymous installation hash are independent of DSH accounts, hardware, sessions, and credentials. Current fixed feature events cover project and file outcomes, Skills, Dock settings, Agent Team, local LAN access, Value Mode, and coarse plugin operations. These independent observations do not prove ordered funnel completion or completed model tasks. Development, source, test, and Fork builds stay disconnected. Desktop never automatically uploads diagnostics; a redacted JSON/ZIP is exported only after confirmation to a user-selected location. See the [privacy policy](../PRIVACY.md), [metric definitions](../apps/dsh-telemetry-worker/README.md), and [security boundaries](security-boundaries.md).
 
 ## Included desktop capabilities
 
@@ -39,7 +45,7 @@ Official packaged Desktop releases enable first-party anonymous product analysis
 | Upgrade and diagnostics | Existing Homes load in place without a startup migration. User-initiated Web Profile import remains transactional. Diagnostics are user-initiated, redacted JSON/ZIP exports only |
 | Update handoff | Token-bound shutdown receipt v2, verified runtime/extension quiescence, constrained legacy cleanup fallback |
 | Renderer bridge | Contract v1.2 capability discovery, structured notifications, browser-safe Desktop client SDK, split main/extension preloads, sender-identity enforcement |
-| OS integration | Strict `dsh://` route allowlist, `.dshpreset` preview association, deduplicated foreground-aware notifications, and main-window-only workspace file opening |
+| OS integration | Strict `dsh-community://` route allowlist with input-only `dsh://` 3.x compatibility, `.dshpreset` preview association, deduplicated foreground-aware notifications, and main-window-only workspace file opening |
 | Task Board | Host-owned v3 Projects/Task Runs/Evidence ledger, copy-first v2 migration, explicit Worktree review, ID-only Host routes, SSE synchronization, and an opt-in durable Host scheduler with browser fallback |
 | Value Mode | Expert controller model for top-level sessions, configured worker model for subagent sessions, first-use setup guide, Saver/Balanced/Powerful strategies, one-level delegation cap, and controller/worker call analytics |
 | Live usage | Input/output token accounting, context/cache/latency/cost projection, valid streaming samples, rolling one-second rate and per-step peak, with legacy average-rate values ignored |
@@ -59,7 +65,7 @@ After a one-time native confirmation, the single primary Runtime runs with `dang
 
 Desktop writes its fixed full-user overlay under `<userData>/runtime-overlays`, outside user configuration, with atomic replacement and read-back verification. The renderer and plugins cannot supply that path or content. The primary invocation contains exactly one `--no-open`, so the Runtime cannot launch the system browser; Electron loads the detected loopback URL in the main window.
 
-## Using Desktop 3.5.0
+## Using Desktop 4.0
 
 1. Open the Extension Dock to connect a model or configure Value Mode. Its sidebar also groups Personal Prompt, Memory, the particle theme, and image understanding. Existing plugin, import, backup, and repair entries remain available.
 2. Use Add workspace to open Create project, enter a name, and click the source-folder area to open the system folder picker. Choose workspace uses the shared dialog to connect a directory; an already connected directory opens its existing workspace.
@@ -71,15 +77,15 @@ Model-directory recovery events are coalesced for 30 seconds, so reopening the m
 
 The built-in QQ Bot integration is pinned to `@tencent-connect/dsh-qqbot@0.5.0`. Desktop also packages the matching DSH 1.1.5 user-approval service, allowing QQ conversations to answer supported approval prompts while preserving the existing encrypted credential store, profile isolation, and transactional bind or unbind rollback.
 
-![DeepSeek Harness Desktop 3.3.0 main workspace](screenshots/3.3.0-workspace.webp)
+![DeepSeek Harness Desktop 4.0.0-rc.3 model collaboration](screenshots/desktop-4.0.0-rc.3/model-collaboration.png)
 
-![DeepSeek Harness Desktop 3.3.0 project creation dialog](screenshots/3.3.0-create-project.webp)
+![DeepSeek Harness Desktop 4.0.0-rc.3 conversation Skills menu](screenshots/desktop-4.0.0-rc.3/conversation-skills.png)
 
-![DeepSeek Harness Desktop 3.3.0 Dock memory settings](screenshots/3.3.0-memory.webp)
+![DeepSeek Harness Desktop 4.0.0-rc.3 bai model access](screenshots/desktop-4.0.0-rc.3/bai-models.png)
 
 ## Model collaboration, usage, and import
 
-These capabilities remain available in 3.5.0. The screenshots below are historical 3.2.0 captures; the current settings navigation and layout are represented by the preserved 3.3.0 captures above.
+These capabilities remain available in 4.0. The screenshots below are historical 3.2.0 captures; current collaboration, Skills, and model navigation are represented by the 4.0.0-rc.3 captures above.
 
 ![DeepSeek Harness Desktop 3.2.0 main workspace and AI coding entry points](screenshots/3.2.0-workspace.webp)
 
@@ -148,7 +154,7 @@ Reference measurements on the Windows 11 development machine for version 2.0.0:
 | Warm DSH readiness | about 2.8–3.0 seconds |
 | First cold Windows file scan | about 25.2 seconds |
 
-The release keeps the official DSH runtime, Chromium, terminal/native modules, SSH, remote UI, all built-in plugin packages, and all skins. The first start may be slower while Windows scans newly installed files. Later starts reuse both the installed files and profile links. Run `pnpm --filter @deepseek-ai/dsh-desktop measure:profile` to reproduce the profile-only benchmark without network access.
+The release keeps the official DSH runtime, Chromium, terminal/native modules, SSH, remote UI, all built-in plugin packages, and all skins. The first start may be slower while Windows scans newly installed files. Later starts reuse both the installed files and profile links. Run `pnpm --filter @linxin666/dsh-desktop measure:profile` to reproduce the profile-only benchmark without network access.
 
 ## Installation
 
@@ -178,7 +184,7 @@ The upstream settings dialog remains the settings implementation, while the desk
 
 `@linxin666/dsh-particle-theme` is a normal Web UI bundle rather than a mutually exclusive skin. Its fixed, pointer-transparent canvas extends the startup whale language into the main interface. Page profiles reduce density, opacity, and speed while an editable control is focused or a dialog is open, stop animation for a hidden page, and honor `prefers-reduced-motion`. Users can disable the canvas or tune density, opacity, and speed in **Settings > Plugin config > Particle theme**. Device-pixel ratio is capped and sustained slow frames lower scene quality; new scenes can register through `ParticleThemeRegistry` without changing the page controller.
 
-Skin Center v2 switches the active skin atomically in the current page and persists the selection for the next launch; it does not rewrite the Cordis patch or require a page reload. Its background occlusion and the empty/with-content blur controls are independent. Setting both blur values to zero removes the fixed blur layer while keeping a selected skin's artwork mounted. The regression entry `pnpm --filter @deepseek-ai/dsh-desktop test:skin-center:e2e` verifies live Blue Fantasy activation, zero-occlusion artwork, zero-blur overlay safety, five full relaunches, and Electron device scale factors 1, 1.25, and 1.5. Command-line device scaling is automation evidence, not a substitute for a final packaged pass under physical Windows display settings.
+Skin Center v2 switches the active skin atomically in the current page and persists the selection for the next launch; it does not rewrite the Cordis patch or require a page reload. Its background occlusion and the empty/with-content blur controls are independent. Setting both blur values to zero removes the fixed blur layer while keeping a selected skin's artwork mounted. The regression entry `pnpm --filter @linxin666/dsh-desktop test:skin-center:e2e` verifies live Blue Fantasy activation, zero-occlusion artwork, zero-blur overlay safety, five full relaunches, and Electron device scale factors 1, 1.25, and 1.5. Command-line device scaling is automation evidence, not a substitute for a final packaged pass under physical Windows display settings.
 
 ## Extension Dock
 
@@ -222,7 +228,7 @@ pnpm install --frozen-lockfile
 pnpm desktop:test
 $env:CSC_IDENTITY_AUTO_DISCOVERY = 'false'
 pnpm desktop:pack
-pnpm --filter @deepseek-ai/dsh-desktop pack:verify
+pnpm --filter @linxin666/dsh-desktop pack:verify
 ```
 
 Use Node.js 24 and pnpm 11.22.0. The installer is written to `apps/dsh-desktop/dist`.

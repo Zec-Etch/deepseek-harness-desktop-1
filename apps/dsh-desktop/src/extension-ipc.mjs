@@ -6,8 +6,10 @@ import { createPluginUIStates } from './extensions/plugin-ui-state.mjs'
 import { defaultSkillRoots, discoverSkills, importSkill } from './extensions/skills.mjs'
 import { DESKTOP_ERROR_CODES, DesktopContractError } from './desktop-contract.mjs'
 import { assertExternalPluginDescriptor } from './external-plugin-source.mjs'
+import { desktopDeepLink } from './distribution-identity.mjs'
 import { createRuntimeMutationCoordinator } from './runtime-mutation-coordinator.mjs'
 import { assertDockSetting } from './dock-pages.mjs'
+import { classifyPluginInstallFailure } from './legacy-plugin-recovery.mjs'
 
 export const EXTENSION_QUIESCE_TIMEOUT_MS = 15_000
 const PROFILE_RESET_BACKUP_LIMIT = 3
@@ -155,6 +157,8 @@ const CHANNELS = [
   'extensions:recovery-state',
   'extensions:recovery-restore-all',
   'extensions:recovery-restore',
+  'extensions:legacy-plugin-restore-state',
+  'extensions:legacy-plugin-restore-git',
   'extensions:full-user-trust-revoke',
   'extensions:diagnostics-export',
   'extensions:network-diagnostics',
@@ -172,6 +176,8 @@ const CHANNELS = [
   'extensions:qqbot-bind',
   'extensions:qqbot-cancel',
   'extensions:qqbot-unbind',
+  'dock-settings:agent-team-status',
+  'dock-settings:agent-team-set',
   'extensions:preset-export',
   'extensions:preset-select',
   'extensions:preset-import',
@@ -184,6 +190,7 @@ export function registerExtensionIpc({
   selectDockSetting = async () => { throw new Error('Dock settings are unavailable') },
   ipcMain,
   surfaceRegistry = ipcMain.surfaceRegistry,
+  isDockSettingsSender = () => false,
   dialog,
   shell,
   getWindow,
@@ -194,7 +201,12 @@ export function registerExtensionIpc({
   dshHome,
   agentsHome,
   qqBotBinding,
+  agentTeamFeature = Object.freeze({
+    status: async () => Object.freeze({ available: false, enabled: false }),
+    setEnabled: async () => { throw new Error('Agent Team is unavailable') },
+  }),
   pluginRecovery,
+  legacyPluginRecovery,
   presetService,
   migrationService,
   notificationService,
@@ -235,6 +247,9 @@ export function registerExtensionIpc({
   if (typeof completeBlockedPluginRecovery !== 'function') {
     throw new TypeError('blocked plugin recovery completion callback must be a function')
   }
+  if (typeof agentTeamFeature?.status !== 'function' || typeof agentTeamFeature?.setEnabled !== 'function') {
+    throw new TypeError('Agent Team feature controller is invalid')
+  }
   for (const channel of CHANNELS) ipcMain.removeHandler(channel)
   let skillPaths = new Map()
   let pluginMutationQueue = Promise.resolve()
@@ -262,12 +277,15 @@ export function registerExtensionIpc({
 
   const scan = async () => {
     const roots = defaultSkillRoots({ projectRoot, dshHome, agentsHome })
-    const [plugins, catalog, recoveryState] = await Promise.all([
+    const [plugins, catalog, recoveryState, legacyPluginRestore] = await Promise.all([
       pluginManager.inventory(),
       discoverSkills({ roots }),
       typeof pluginRecovery?.getState === 'function'
         ? pluginRecovery.getState()
         : Promise.resolve({ incidents: [] }),
+      typeof legacyPluginRecovery?.getState === 'function'
+        ? legacyPluginRecovery.getState()
+        : Promise.resolve({ plugins: [] }),
     ])
     skillPaths = new Map()
     const skills = catalog.skills.map((skill, index) => {
@@ -286,6 +304,7 @@ export function registerExtensionIpc({
       communityPlugins: COMMUNITY_PLUGIN_CATALOG.map((plugin) => ({ ...plugin })),
       skills,
       qqbot: qqBotBinding.status(),
+      legacyPluginRestore,
       diagnostics: catalog.diagnostics.map((item) => ({ error: item.error })),
     }
   }
@@ -340,14 +359,17 @@ export function registerExtensionIpc({
       throw new TypeError('invalid plugin confirmation mode')
     }
     const request = typeof payload === 'string'
-      ? { spec: payload, allowUnknown: false, fullAccess: false }
-      : payload
+      ? { spec: payload, allowUnknown: false, allowIncompatible: false, fullAccess: false }
+      : { ...payload, allowIncompatible: payload?.allowIncompatible ?? false }
     if (
       request === null
       || typeof request !== 'object'
       || typeof request.spec !== 'string'
       || typeof request.allowUnknown !== 'boolean'
+      || typeof request.allowIncompatible !== 'boolean'
       || (request.fullAccess !== undefined && typeof request.fullAccess !== 'boolean')
+      || (request.expectedName !== undefined && typeof request.expectedName !== 'string')
+      || (request.enabled !== undefined && typeof request.enabled !== 'boolean')
     ) {
       throw new TypeError('invalid plugin install request')
     }
@@ -373,7 +395,10 @@ export function registerExtensionIpc({
               if (typeof pluginManager.prepareFullAccessExternal !== 'function') {
                 throw new Error('staged full-access plugin preparation is unavailable')
               }
-              return pluginManager.prepareFullAccessExternal(installationDescriptor)
+              return pluginManager.prepareFullAccessExternal(installationDescriptor, {
+                expectedName: request.expectedName,
+                enabled: request.enabled ?? true,
+              })
             },
             abandon: async (prepared) => prepared?.staging?.cancel?.(),
             apply: async (prepared) => {
@@ -395,7 +420,10 @@ export function registerExtensionIpc({
       label: 'plugin change',
       // Registry inspection and package-store warming happen while the current
       // DSH process remains available. Only the exact offline switch is downtime.
-      prepare: () => pluginManager.prepare(request.spec, { allowUnknown: request.allowUnknown }),
+      prepare: () => pluginManager.prepare(request.spec, {
+        allowUnknown: request.allowUnknown,
+        allowIncompatible: request.allowIncompatible,
+      }),
       abandon: async (prepared) => prepared?.staging?.cancel?.(),
       apply: async (prepared) => {
         const transaction = await pluginManager.applyPrepared(prepared)
@@ -404,7 +432,7 @@ export function registerExtensionIpc({
     }))
   }
 
-  const installPluginBatch = (payload) => {
+  const installPluginBatch = (payload, { enabledNames } = {}) => {
     if (
       payload === null
       || typeof payload !== 'object'
@@ -420,7 +448,10 @@ export function registerExtensionIpc({
       onRuntimeEvent: (event) => emitProgress('plugin-batch', event),
       prepare: async () => {
         emitProgress('plugin-batch', 'preparing', { total: payload.specs.length })
-        const prepared = await pluginManager.prepareMany(payload.specs, { allowUnknown: payload.allowUnknown })
+        const prepared = await pluginManager.prepareMany(payload.specs, {
+          allowUnknown: payload.allowUnknown,
+          enabledNames,
+        })
         emitProgress('plugin-batch', 'prefetched', { total: prepared.items.length })
         return prepared
       },
@@ -435,6 +466,29 @@ export function registerExtensionIpc({
         return plan?.result
       },
     }))
+  }
+
+  const confirmExternalPluginPermission = async ({ name, source, recovery = false }) => {
+    if (typeof dialog?.showMessageBox !== 'function') throw new Error('external plugin permission confirmation is unavailable')
+    const options = {
+      type: 'warning',
+      title: recovery ? '确认恢复 Git 插件' : '确认安装 Git 插件',
+      message: `${name} 将以完整本机权限运行。`,
+      detail: `来源：${source}\nDesktop 会先在隔离 staging 中验证包名、DSH Bundle 和运行图；验证通过后才切换 Profile。请只继续安装你信任的来源。`,
+      buttons: [recovery ? '确认并恢复' : '确认并安装', '取消'],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+    }
+    const parent = getWindow()
+    const confirmation = parent
+      ? await dialog.showMessageBox(parent, options)
+      : await dialog.showMessageBox(options)
+    if (confirmation.response !== 0) {
+      const error = new Error('external plugin permission was not approved')
+      error.code = 'EXTERNAL_PLUGIN_PERMISSION_DENIED'
+      throw error
+    }
   }
 
   const removePlugin = (name) => {
@@ -525,7 +579,7 @@ export function registerExtensionIpc({
           id: `preset:${record.sha256.slice(0, 24)}:complete`,
           title: 'Preset import complete',
           body: `${record.parsed.manifest.name} is ready in the Desktop profile.`,
-          deepLink: 'dsh://extensions',
+          deepLink: desktopDeepLink('extensions'),
         }).catch(() => {})
         return Object.freeze({
           preset: Object.freeze({ name: record.parsed.manifest.name, sha256: record.sha256 }),
@@ -542,7 +596,7 @@ export function registerExtensionIpc({
           id: `preset:${planRecord.sha256.slice(0, 24)}:failed`,
           title: 'Preset import failed',
           body: 'The previous Desktop environment was restored.',
-          deepLink: 'dsh://preset/preview',
+          deepLink: desktopDeepLink('preset/preview'),
         }).catch(() => {})
       },
     }))
@@ -561,11 +615,27 @@ export function registerExtensionIpc({
           throw presented
         }
         if (error?.code === 'PLUGIN_INCOMPATIBLE') {
-          const presented = new Error('此插件暂不兼容：插件需要的 DeepSeek Harness Runtime 与当前 Desktop 版本不一致。为了避免影响应用稳定性，本次安装已停止。')
+          const presented = new Error('这个插件尚未适配当前版本：插件声明的 DeepSeek Harness Runtime 范围与当前 Desktop 不一致。你可以取消，或确认风险后继续进行隔离验证；Bundle、完整性和运行图安全检查仍然不能绕过。')
           presented.code = error.code
           presented.compatibility = error.compatibility
           throw presented
         }
+        if (error instanceof TypeError) {
+          throw new DesktopContractError(DESKTOP_ERROR_CODES.INVALID_ARGUMENT, error.message)
+        }
+        throw error
+      }
+    })
+  }
+
+  const handleDockSettings = (channel, handler) => {
+    ipcMain.handle(channel, async (event, ...args) => {
+      try {
+        if (!isDockSettingsSender(event?.sender)) {
+          throw new DesktopContractError(DESKTOP_ERROR_CODES.CAPABILITY_DENIED, 'Dock settings sender is not authorized')
+        }
+        return await handler(event, ...args)
+      } catch (error) {
         if (error instanceof TypeError) {
           throw new DesktopContractError(DESKTOP_ERROR_CODES.INVALID_ARGUMENT, error.message)
         }
@@ -602,17 +672,20 @@ export function registerExtensionIpc({
     return trackProductOperation('install', () => installPluginBatch(request))
   })
   handleExtension('extensions:plugin-update', (_event, request) => {
+    const normalizedRequest = { ...request, allowIncompatible: request?.allowIncompatible ?? false }
     if (
-      request === null
-      || typeof request !== 'object'
-      || typeof request.name !== 'string'
-      || typeof request.allowUnknown !== 'boolean'
+      normalizedRequest === null
+      || typeof normalizedRequest !== 'object'
+      || typeof normalizedRequest.name !== 'string'
+      || typeof normalizedRequest.allowUnknown !== 'boolean'
+      || typeof normalizedRequest.allowIncompatible !== 'boolean'
     ) {
       throw new TypeError('invalid plugin update request')
     }
     return trackProductOperation('update', () => installPlugin({
-      spec: `${request.name}@latest`,
-      allowUnknown: request.allowUnknown,
+      spec: `${normalizedRequest.name}@latest`,
+      allowUnknown: normalizedRequest.allowUnknown,
+      allowIncompatible: normalizedRequest.allowIncompatible,
     }))
   })
   handleExtension('extensions:plugin-remove', (_event, name) => {
@@ -658,14 +731,74 @@ export function registerExtensionIpc({
     if (typeof force !== 'boolean') throw new TypeError('invalid community market refresh request')
     return communityMarket.list({ force })
   })
-  handleExtension('extensions:market-install', async (_event, id) => {
-    if (typeof communityMarket?.resolveInstall !== 'function') throw new Error('community market is unavailable')
-    const spec = await communityMarket.resolveInstall(id)
-    return trackProductOperation('install', () => installPlugin({
-      spec,
-      allowUnknown: true,
-      fullAccess: true,
-    }, { confirmationMode: 'market' }))
+  handleExtension('extensions:legacy-plugin-restore-state', () => {
+    if (typeof legacyPluginRecovery?.getState !== 'function') throw new Error('legacy plugin recovery is unavailable')
+    return legacyPluginRecovery.getState()
+  })
+  handleExtension('extensions:legacy-plugin-restore-git', async (_event, id) => {
+    if (typeof legacyPluginRecovery?.prepareGitRestore !== 'function') {
+      throw new Error('legacy plugin recovery is unavailable')
+    }
+    const request = await legacyPluginRecovery.prepareGitRestore(id)
+    try {
+      await confirmExternalPluginPermission({ name: request.name, source: request.spec, recovery: true })
+      const result = await trackProductOperation('install', () => installPlugin({
+        spec: request.spec,
+        allowUnknown: true,
+        fullAccess: true,
+        expectedName: request.name,
+        enabled: request.enabled,
+      }))
+      await legacyPluginRecovery.finishGitRestore(id)
+      return result
+    } catch (error) {
+      await legacyPluginRecovery.finishGitRestore(id, error)
+      throw error
+    }
+  })
+  handleExtension('extensions:market-install', async (_event, payload) => {
+    const request = typeof payload === 'string'
+      ? { id: payload, allowIncompatible: false }
+      : payload
+    if (
+      request === null
+      || typeof request !== 'object'
+      || typeof request.id !== 'string'
+      || typeof request.allowIncompatible !== 'boolean'
+    ) {
+      throw new TypeError('invalid community market install request')
+    }
+    if (typeof communityMarket?.resolveInstallEntry !== 'function') throw new Error('community market is unavailable')
+    const entry = await communityMarket.resolveInstallEntry(request.id)
+    try {
+      if (entry.sourceKind === 'github') {
+        await confirmExternalPluginPermission({ name: entry.name, source: entry.installSpec })
+      }
+      const result = await trackProductOperation('install', () => installPlugin({
+        spec: entry.installSpec,
+        allowUnknown: true,
+        allowIncompatible: request.allowIncompatible,
+        fullAccess: entry.sourceKind === 'github',
+      }, { confirmationMode: 'market' }))
+      if (entry.sourceKind === 'github') communityMarket.recordVerification?.(request.id, { verification: 'passed' })
+      return result
+    } catch (error) {
+      if (entry.sourceKind === 'github') {
+        if (error?.code === 'EXTERNAL_PLUGIN_PERMISSION_DENIED') {
+          communityMarket.recordVerification?.(request.id, { verification: 'required' })
+          throw error
+        }
+        const failure = classifyPluginInstallFailure(error)
+        const verification = ['legacy-sdk-incompatible', 'runtime-graph-conflict'].includes(failure.category)
+          ? 'incompatible'
+          : 'failed'
+        communityMarket.recordVerification?.(request.id, { verification, failureCategory: failure.category })
+        const presented = new Error(`${failure.message} ${failure.suggestion}`.trim())
+        presented.failureCategory = failure.category
+        throw presented
+      }
+      throw error
+    }
   })
   handleExtension('extensions:skill-import', async () => {
     const result = await dialog.showOpenDialog(getWindow(), {
@@ -759,6 +892,46 @@ export function registerExtensionIpc({
   handleExtension('extensions:qqbot-unbind', () => {
     assertPluginMutationIdle()
     return qqBotBinding.unbind()
+  })
+  const setAgentTeamEnabled = (event, enabled) => {
+    if (typeof enabled !== 'boolean') throw new TypeError('Agent Team enabled state must be a boolean')
+    return enqueuePluginMutation(async () => {
+      const detail = enabled ? 'enable' : 'disable'
+      try {
+        const previous = await agentTeamFeature.status()
+        if (enabled && previous.available !== true) throw new Error('Agent Team is unavailable in this Desktop build')
+        if (previous.enabled === enabled) return previous
+        const result = await mutation().run({
+          label: 'Agent Team setting change',
+          onRuntimeEvent: phase => {
+            if (isDockSettingsSender(event?.sender)) {
+              event.sender.send?.('dock-settings:agent-team-progress', {
+                phase: phase === 'rolling-back' || phase === 'restored' ? phase : 'restarting',
+              })
+            }
+          },
+          apply: async () => {
+            await agentTeamFeature.setEnabled(enabled)
+            const transaction = Object.freeze({
+              rollback: () => agentTeamFeature.setEnabled(previous.enabled),
+              commit: async () => true,
+            })
+            return { transactions: [transaction], result: Object.freeze({ ...previous, enabled }) }
+          },
+          finalize: () => agentTeamFeature.status(),
+        })
+        try { recordFeatureEvent({ feature: 'agent-team', outcome: 'succeeded', detail }) } catch {}
+        return result
+      } catch (error) {
+        try { recordFeatureEvent({ feature: 'agent-team', outcome: 'failed', detail }) } catch {}
+        throw error
+      }
+    })
+  }
+  handleDockSettings('dock-settings:agent-team-status', () => agentTeamFeature.status())
+  handleDockSettings('dock-settings:agent-team-set', (event, enabled) => {
+    event.sender.send?.('dock-settings:agent-team-progress', { phase: 'saving' })
+    return setAgentTeamEnabled(event, enabled)
   })
   handleExtension('extensions:runtime-restart', () => enqueuePluginMutation(async () => {
     await controller.stop()
@@ -881,6 +1054,15 @@ export function registerExtensionIpc({
     acceptingPluginMutations = true
     if (typeof qqBotBinding.resume === 'function') qqBotBinding.resume()
     return true
+  }
+  unregister.restoreLegacyNpm = () => {
+    if (typeof legacyPluginRecovery?.restoreNpm !== 'function') {
+      return Promise.resolve(Object.freeze({ restored: false, plugins: Object.freeze([]) }))
+    }
+    return legacyPluginRecovery.restoreNpm(({ specs, enabledNames }) => installPluginBatch({
+      specs,
+      allowUnknown: true,
+    }, { enabledNames }))
   }
   return unregister
 }

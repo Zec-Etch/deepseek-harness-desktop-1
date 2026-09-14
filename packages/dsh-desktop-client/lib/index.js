@@ -231,11 +231,14 @@ export function createDesktopClient({ globalObject = globalThis } = {}) {
                     handler(record.href);
             });
         },
-        async openDesktopSurface(surface) {
+        async openDesktopSurface(surface, options) {
             if (surface === 'extensions' && typeof bridge?.openExtensionDock === 'function') {
+                if (options?.setting !== undefined && options.setting !== 'value-mode') {
+                    throw new DesktopClientError('desktop-invalid-argument', 'Unsupported Extension Dock setting');
+                }
                 if (!await hasBridgeCapability('extensions.open'))
                     return false;
-                const result = asRecord(await bridge.openExtensionDock());
+                const result = asRecord(await bridge.openExtensionDock(options));
                 return result?.opened === true;
             }
             if (surface === 'updates' && typeof bridge?.helpAction === 'function') {
@@ -334,9 +337,10 @@ export const requestPluginInstall = defaultClient.requestPluginInstall;
 export const getLocalLanGatewayStatus = defaultClient.getLocalLanGatewayStatus;
 export const configureLocalLanGateway = defaultClient.configureLocalLanGateway;
 export const subscribeLocalLanGatewayStatus = defaultClient.subscribeLocalLanGatewayStatus;
+export const DESKTOP_DEEP_LINK_PROTOCOL = 'dsh-community';
 export function taskDeepLink(taskId) {
-    return `dsh://task/${requireSafeDeepLinkId(taskId, 'task id')}`;
+    return `${DESKTOP_DEEP_LINK_PROTOCOL}://task/${requireSafeDeepLinkId(taskId, 'task id')}`;
 }
 export function runDeepLink(runId) {
-    return `dsh://run/${requireSafeDeepLinkId(runId, 'run id')}`;
+    return `${DESKTOP_DEEP_LINK_PROTOCOL}://run/${requireSafeDeepLinkId(runId, 'run id')}`;
 }

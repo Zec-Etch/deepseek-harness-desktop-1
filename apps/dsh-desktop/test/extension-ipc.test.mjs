@@ -170,6 +170,86 @@ test('extension IPC exposes only renderer-safe QQ Bot state and forwards lifecyc
   assert.equal(ipcMain.handlers.has('extensions:qqbot-bind'), false)
   assert.equal(qqBotBinding.listenerCount('event'), 0)
 })
+
+test('Agent Team switch restarts Runtime and returns the persisted feature state', async () => {
+  const ipcMain = new FakeIpcMain()
+  const qqBotBinding = new EventEmitter()
+  qqBotBinding.status = () => ({ bound: false })
+  let enabled = false
+  const lifecycle = []
+  const telemetry = []
+  const agentTeamFeature = {
+    status: async () => ({ available: true, enabled, version: '0.1.5-rc.2' }),
+    setEnabled: async (next) => { enabled = next },
+  }
+  const unregister = registerExtensionIpc({
+    ipcMain, dialog: {}, shell: {}, getWindow: () => undefined,
+    pluginManager: {},
+    controller: {
+      stop: async () => { lifecycle.push('stop') },
+      start: async () => { lifecycle.push('start') },
+    },
+    ensureProfile: async () => { lifecycle.push('ensure') },
+    projectRoot: 'C:\\project', dshHome: 'C:\\dsh', qqBotBinding, agentTeamFeature,
+    isDockSettingsSender: sender => sender === ipcMain.sender,
+    recordFeatureEvent: event => { telemetry.push(event); throw new Error('telemetry unavailable') },
+  })
+  try {
+    await assert.rejects(
+      ipcMain.handlers.get('dock-settings:agent-team-status')({ sender: {} }),
+      error => error.code === DESKTOP_ERROR_CODES.CAPABILITY_DENIED,
+    )
+    assert.deepEqual(await ipcMain.handlers.get('dock-settings:agent-team-status')(), {
+      available: true, enabled: false, version: '0.1.5-rc.2',
+    })
+    assert.deepEqual(await ipcMain.handlers.get('dock-settings:agent-team-set')(undefined, true), {
+      available: true, enabled: true, version: '0.1.5-rc.2',
+    })
+    assert.deepEqual(lifecycle, ['stop', 'ensure', 'start'])
+    assert.deepEqual(telemetry, [{ feature: 'agent-team', outcome: 'succeeded', detail: 'enable' }])
+    await assert.rejects(
+      ipcMain.handlers.get('dock-settings:agent-team-set')(undefined, 'true'),
+      /enabled state must be a boolean/u,
+    )
+  } finally { await unregister() }
+})
+
+test('Agent Team switch rolls profile state back when Runtime cannot restart', async () => {
+  const ipcMain = new FakeIpcMain()
+  const qqBotBinding = new EventEmitter()
+  qqBotBinding.status = () => ({ bound: false })
+  let enabled = false
+  let starts = 0
+  const telemetry = []
+  const agentTeamFeature = {
+    status: async () => ({ available: true, enabled }),
+    setEnabled: async (next) => { enabled = next },
+  }
+  const unregister = registerExtensionIpc({
+    ipcMain, dialog: {}, shell: {}, getWindow: () => undefined,
+    pluginManager: {},
+    controller: {
+      stop: async () => {},
+      start: async () => {
+        starts += 1
+        if (starts === 1) throw new Error('new profile failed')
+      },
+    },
+    ensureProfile: async () => {},
+    projectRoot: 'C:\\project', dshHome: 'C:\\dsh', qqBotBinding, agentTeamFeature,
+    isDockSettingsSender: sender => sender === ipcMain.sender,
+    recordFeatureEvent: event => telemetry.push(event),
+  })
+  try {
+    await assert.rejects(
+      ipcMain.handlers.get('dock-settings:agent-team-set')(undefined, true),
+      /new profile failed/u,
+    )
+    assert.equal(enabled, false)
+    assert.equal(starts, 2)
+    assert.deepEqual(telemetry, [{ feature: 'agent-team', outcome: 'failed', detail: 'enable' }])
+  } finally { await unregister() }
+})
 test('plugin install prepares before downtime and rolls back a failed runtime start', async () => {
   const ipcMain = new FakeIpcMain()
   const events = []
@@ -221,7 +301,7 @@ test('plugin install prepares before downtime and rolls back a failed runtime st
     /updated runtime failed/u,
   )
   assert.deepEqual(events, [
-    ['prepare', '@community/example@latest', { allowUnknown: false }],
+    ['prepare', '@community/example@latest', { allowUnknown: false, allowIncompatible: false }],
     'stop',
     'apply',
     'ensure',
@@ -297,7 +377,7 @@ test('plugin update checks stay online and exact updates use the guarded transac
   )
   assert.deepEqual(events, [
     'check',
-    ['prepare', '@community/example@latest', { allowUnknown: true }],
+    ['prepare', '@community/example@latest', { allowUnknown: true, allowIncompatible: false }],
     'stop',
     'ensure',
     'start',
@@ -415,7 +495,7 @@ test('user-selected plugin installation skips trust approval and commits the per
   unregister()
 })
 
-test('community market resolves an opaque catalog ID and installs it without an approval prompt', async () => {
+test('community market resolves an opaque catalog ID and confirms Git full access before staging', async () => {
   const ipcMain = new FakeIpcMain()
   const events = []
   const qqBotBinding = new EventEmitter()
@@ -427,7 +507,7 @@ test('community market resolves an opaque catalog ID and installs it without an 
   const publicCatalog = { updated: '2026-08-21', count: 1, categories: [], plugins: [] }
   const unregister = registerExtensionIpc({
     ipcMain,
-    dialog: {},
+    dialog: { showMessageBox: async () => ({ response: 0 }) },
     shell: {},
     getWindow: () => undefined,
     pluginManager: {
@@ -451,10 +531,13 @@ test('community market resolves an opaque catalog ID and installs it without an 
     qqBotBinding,
     communityMarket: {
       list: async () => { events.push('list'); return publicCatalog },
-      resolveInstall: async (id) => { events.push(['catalog-resolve', id]); return 'github:owner/plugin' },
+      resolveInstallEntry: async (id) => {
+        events.push(['catalog-resolve', id])
+        return { id, name: '@community/plugin', sourceKind: 'github', installSpec: 'github:owner/plugin' }
+      },
+      recordVerification: (id, value) => events.push(['catalog-verification', id, value]),
     },
     resolveFullAccessPlugin: async (request) => { events.push(['resolve', request]); return descriptor },
-    confirmFullAccessPlugin: async () => assert.fail('market installs must not request trust approval'),
     revalidateFullAccessPlugin: async (value) => { events.push(['revalidate', value]); return descriptor },
     completeFullAccessPlugin: async (value) => events.push(['complete', value]),
     onRuntimeMaintenanceChange: (active) => events.push(['maintenance', active]),
@@ -478,11 +561,52 @@ test('community market resolves an opaque catalog ID and installs it without an 
     'commit',
     ['complete', descriptor],
     ['maintenance', false],
+    ['catalog-verification', 'opaque-market-id', { verification: 'passed' }],
   ])
 
   unregister()
   assert.equal(ipcMain.handlers.has('extensions:market-list'), false)
   assert.equal(ipcMain.handlers.has('extensions:market-install'), false)
+})
+
+test('Registry market entries use compatibility staging without full-access confirmation', async () => {
+  const ipcMain = new FakeIpcMain()
+  const calls = []
+  const qqBotBinding = new EventEmitter()
+  qqBotBinding.status = () => ({ bound: false })
+  const prepared = { name: '@community/registry', staging: { cancel: async () => true } }
+  const unregister = registerExtensionIpc({
+    ipcMain,
+    dialog: { showMessageBox: async () => assert.fail('Registry install must not request full access') },
+    shell: {},
+    getWindow: () => undefined,
+    pluginManager: {
+      prepare: async (spec, options) => { calls.push(['prepare', spec, options]); return prepared },
+      applyPrepared: async () => ({
+        result: { name: '@community/registry', restartRequired: true },
+        commit: async () => calls.push('commit'),
+        rollback: async () => calls.push('rollback'),
+      }),
+    },
+    controller: { stop: async () => calls.push('stop'), start: async () => calls.push('start') },
+    ensureProfile: async () => calls.push('ensure'),
+    projectRoot: 'C:\\project',
+    dshHome: 'C:\\dsh',
+    qqBotBinding,
+    communityMarket: {
+      resolveInstallEntry: async (id) => ({ id, name: '@community/registry', sourceKind: 'npm', installSpec: '@community/registry' }),
+    },
+  })
+  const result = await ipcMain.handlers.get('extensions:market-install')(undefined, {
+    id: 'registry-market-id',
+    allowIncompatible: true,
+  })
+  assert.equal(result.name, '@community/registry')
+  assert.deepEqual(calls[0], ['prepare', '@community/registry', {
+    allowUnknown: true,
+    allowIncompatible: true,
+  }])
+  await unregister()
 })
 
 test('a failed full-access source revalidation leaves Runtime and the profile untouched', async () => {
@@ -759,6 +883,72 @@ test('plugin batch emits every progress phase and stops and starts the runtime o
     'preparing', 'prefetched', 'stopping', 'applying', 'starting', 'committed',
   ])
   unregister()
+})
+
+test('legacy recovery exposes state, preserves NPM enablement, and validates Git identity before activation', async () => {
+  const ipcMain = new FakeIpcMain()
+  const calls = []
+  const qqBotBinding = new EventEmitter()
+  qqBotBinding.status = () => ({ bound: false })
+  const descriptor = await resolveExternalPluginSource('github:owner/plugin#0123456789abcdef0123456789abcdef01234567')
+  const legacyPluginRecovery = {
+    getState: async () => ({ plugins: [{ id: 'legacy-git-id', name: '@community/git', status: 'awaiting-confirmation' }] }),
+    restoreNpm: async (install) => install({
+      specs: ['@community/enabled@1.0.0', '@community/disabled@1.0.0'],
+      enabledNames: ['@community/enabled'],
+    }),
+    prepareGitRestore: async (id) => {
+      calls.push(['git-prepare-record', id])
+      return { id, name: '@community/git', spec: 'github:owner/plugin#0123456789abcdef0123456789abcdef01234567', enabled: false }
+    },
+    finishGitRestore: async (id, error) => calls.push(['git-finish-record', id, error?.message]),
+  }
+  const preparedBatch = { items: [{ name: '@community/enabled' }, { name: '@community/disabled' }], staging: { cancel: async () => true } }
+  const unregister = registerExtensionIpc({
+    ipcMain,
+    dialog: { showMessageBox: async () => ({ response: 0 }) },
+    shell: {},
+    getWindow: () => undefined,
+    pluginManager: {
+      prepareMany: async (specs, options) => {
+        calls.push(['npm-prepare', specs, options])
+        return preparedBatch
+      },
+      applyPreparedBatch: async () => ({
+        result: { plugins: preparedBatch.items, restartRequired: true },
+        commit: async () => calls.push('npm-commit'),
+        rollback: async () => calls.push('npm-rollback'),
+      }),
+      prepareFullAccessExternal: async (value, options) => {
+        calls.push(['git-stage', value.installSpec, options])
+        return { descriptor: value, name: '@community/git', staging: { cancel: async () => true } }
+      },
+      applyPreparedFullAccessExternal: async () => ({
+        result: { name: '@community/git', fullAccess: true },
+        commit: async () => calls.push('git-commit'),
+        rollback: async () => calls.push('git-rollback'),
+      }),
+    },
+    controller: { stop: async () => calls.push('stop'), start: async () => calls.push('start') },
+    ensureProfile: async () => calls.push('ensure'),
+    projectRoot: 'C:\\project',
+    dshHome: 'C:\\dsh',
+    qqBotBinding,
+    legacyPluginRecovery,
+    resolveFullAccessPlugin: async () => descriptor,
+    revalidateFullAccessPlugin: async () => descriptor,
+  })
+
+  assert.equal((await ipcMain.handlers.get('extensions:legacy-plugin-restore-state')()).plugins[0].name, '@community/git')
+  await unregister.restoreLegacyNpm()
+  assert.deepEqual(calls.find((item) => Array.isArray(item) && item[0] === 'npm-prepare')[2].enabledNames, ['@community/enabled'])
+  await ipcMain.handlers.get('extensions:legacy-plugin-restore-git')(undefined, 'legacy-git-id')
+  assert.deepEqual(calls.find((item) => Array.isArray(item) && item[0] === 'git-stage')[2], {
+    expectedName: '@community/git',
+    enabled: false,
+  })
+  assert.deepEqual(calls.find((item) => Array.isArray(item) && item[0] === 'git-finish-record'), ['git-finish-record', 'legacy-git-id', undefined])
+  await unregister()
 })
 
 test('preset file selection returns only a preview token and confirmed import uses one runtime cycle', async () => {
@@ -1165,7 +1355,7 @@ test('plugin removal rolls back when the updated runtime cannot start', async ()
 test('compatibility admission errors cross IPC with plain user-facing messages before downtime', async () => {
   for (const [code, expected] of [
     ['PLUGIN_COMPATIBILITY_CONFIRMATION_REQUIRED', /无法确认兼容性/u],
-    ['PLUGIN_INCOMPATIBLE', /此插件暂不兼容/u],
+    ['PLUGIN_INCOMPATIBLE', /这个插件尚未适配当前版本/u],
   ]) {
     const ipcMain = new FakeIpcMain()
     const qqBotBinding = new EventEmitter()
@@ -1217,7 +1407,7 @@ test('production plugin removal prepares staging before runtime downtime', async
   }
   const unregister = registerExtensionIpc({
     ipcMain,
-    dialog: {},
+    dialog: { showMessageBox: async () => ({ response: 0 }) },
     shell: {},
     getWindow: () => undefined,
     pluginManager: {

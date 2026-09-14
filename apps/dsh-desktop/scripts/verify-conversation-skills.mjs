@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -13,9 +14,38 @@ const screenshot = screenshotArgument ? resolve(screenshotArgument) : undefined
 const packagedExecutable = process.env.DSH_DESKTOP_E2E_EXECUTABLE
 const runtimeReadyTimeoutMs = packagedExecutable ? 120_000 : 60_000
 const temporary = await mkdtemp(resolve(tmpdir(), 'dsh-conversation-skills-e2e-'))
+const dshHome = resolve(temporary, 'dsh-home')
+const workspacePath = resolve(temporary, 'conversation-skills-workspace')
+const skillName = 'desktop-conversation-check'
 let electronApp
+let page
+
+async function rpc(runtimePage, method, payload) {
+  const response = await runtimePage.evaluate(async ({ rpcMethod, rpcPayload, rpcId }) => {
+    const endpoint = rpcMethod.replace('.', '/')
+    const requestField = rpcMethod === 'session.list' ? '_request' : 'request'
+    const result = await fetch(`/api/${endpoint}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'client-request',
+        rpcId,
+        method: endpoint,
+        payload: { args: { [requestField]: rpcPayload } },
+      }),
+    })
+    return { status: result.status, body: await result.json().catch(() => undefined) }
+  }, { rpcMethod: method, rpcPayload: payload, rpcId: randomUUID() })
+  assert.equal(response.status, 200, `${method}: HTTP ${response.status}`)
+  assert.equal(response.body?.result?.ok, true, `${method}: ${JSON.stringify(response.body?.result)}`)
+  return response.body.result.value
+}
 
 try {
+  const skillRoot = resolve(dshHome, 'skills', skillName)
+  await mkdir(skillRoot, { recursive: true })
+  await mkdir(workspacePath, { recursive: true })
+  await writeFile(resolve(skillRoot, 'SKILL.md'), `---\nname: ${skillName}\ndescription: Conversation skill menu release check\n---\n\n# Instructions\n`, 'utf8')
   electronApp = await electron.launch({
     executablePath: packagedExecutable || electronPath,
     args: packagedExecutable ? [] : [resolve(appDir, 'src', 'main.mjs')],
@@ -24,10 +54,10 @@ try {
       ...process.env,
       DSH_DESKTOP_DISABLE_UPDATES: '1',
       DSH_DESKTOP_USER_DATA: resolve(temporary, 'user-data'),
-      DSH_HOME: resolve(temporary, 'dsh-home'),
+      DSH_HOME: dshHome,
     },
   })
-  const page = await electronApp.firstWindow()
+  page = await electronApp.firstWindow()
   try {
     await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: runtimeReadyTimeoutMs })
   } catch (error) {
@@ -36,12 +66,25 @@ try {
     throw error
   }
   await page.setViewportSize({ width: 1280, height: 800 })
-  const continueButton = page.getByRole('button', { name: '继续', exact: true })
+  const continueButton = page.getByRole('button', { name: /^(?:先继续使用|继续)$/u })
   await continueButton.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => {})
   if (await continueButton.isVisible().catch(() => false)) await continueButton.click()
-  const commandButton = page.getByRole('button', { name: '命令' })
+  const workspace = await rpc(page, 'workspace.create', { path: workspacePath })
+  const workspaceId = workspace?.workspace?.workspaceId ?? workspace?.workspaceId
+  assert.equal(typeof workspaceId, 'string', JSON.stringify(workspace))
+  const newSession = page.locator('button[aria-label*="中新建会话"], button[aria-label^="New session in"]').first()
+  await newSession.waitFor({ state: 'attached', timeout: 20_000 })
+  await newSession.dispatchEvent('click')
+  await page.locator('[data-composer-card="true"] [role="textbox"][contenteditable]:not([contenteditable="false"])').waitFor({ state: 'visible' })
+  const commandButton = page.getByRole('button', { name: /^(?:指令|命令|Commands)$/u })
   const skillsButton = page.getByRole('button', { name: '技能库' })
   await skillsButton.waitFor({ state: 'visible' })
+  const starPrompt = page.locator('#dsh-desktop-star-prompt[data-open="true"]')
+  await starPrompt.waitFor({ state: 'visible', timeout: 8_000 }).catch(() => {})
+  if (await starPrompt.isVisible().catch(() => false)) {
+    await starPrompt.getByRole('button', { name: '先继续使用', exact: true }).click({ force: true })
+    await starPrompt.waitFor({ state: 'hidden' })
+  }
   const [commandBounds, skillsBounds] = await Promise.all([commandButton.boundingBox(), skillsButton.boundingBox()])
   assert.ok(commandBounds && skillsBounds)
   assert.ok(skillsBounds.x > commandBounds.x)
@@ -74,8 +117,13 @@ try {
   await search.fill('')
   await page.keyboard.press('ArrowDown')
   assert.equal(await listbox.getByRole('option').nth(1).getAttribute('aria-selected'), 'true')
+  const selectedName = (await listbox.getByRole('option').nth(1).locator('strong').textContent())?.trim()
+  assert.ok(selectedName)
   await page.keyboard.press('Enter')
   await menu.waitFor({ state: 'hidden' })
+  const composerInput = page.locator('[data-composer-card="true"] textarea, [data-composer-card="true"] [role="textbox"][contenteditable]:not([contenteditable="false"])')
+  await composerInput.waitFor({ state: 'visible' })
+  assert.match(await composerInput.textContent().catch(async () => await composerInput.inputValue()), new RegExp(`使用 ${selectedName} 技能：`, 'u'))
 
   await skillsButton.click()
   // Dispatch the underlying navigation click intentionally while the modal
@@ -89,6 +137,34 @@ try {
     await page.screenshot({ path: screenshot })
   }
   console.log(`verified conversation Skills menu at ${page.url()}`)
+} catch (error) {
+  if (screenshot && page) await page.screenshot({ path: screenshot }).catch(() => {})
+  const diagnostics = page ? await page.evaluate(() => ({
+    url: location.href,
+    buttons: [...document.querySelectorAll('button')].map((button) => ({
+      label: button.getAttribute('aria-label'),
+      title: button.getAttribute('title'),
+      text: button.textContent?.trim().slice(0, 80),
+    })).slice(0, 80),
+    composers: document.querySelectorAll('[data-composer-card="true"]').length,
+    composerButtons: [...document.querySelectorAll('[data-composer-card="true"] button')].map((button) => ({
+      label: button.getAttribute('aria-label'),
+      title: button.getAttribute('title'),
+      text: button.textContent?.trim().slice(0, 80),
+    })),
+    composerTextareas: document.querySelectorAll('[data-composer-card="true"] textarea').length,
+    composerFields: [...document.querySelectorAll('[data-composer-card="true"] [role="textbox"], [data-composer-card="true"] [contenteditable]')].map((field) => ({
+      tag: field.tagName,
+      role: field.getAttribute('role'),
+      contenteditable: field.getAttribute('contenteditable'),
+      ariaLabel: field.getAttribute('aria-label'),
+      dataPlaceholder: field.getAttribute('data-placeholder'),
+    })),
+    skillController: Boolean(globalThis.__dshDesktopConversationSkillsV1),
+  })).catch(() => undefined) : undefined
+  if (diagnostics) console.error(`Conversation Skills evidence: ${JSON.stringify(diagnostics)}`)
+  console.error((await readFile(resolve(temporary, 'user-data', 'logs', 'desktop.log'), 'utf8').catch(() => '')).slice(-8_000))
+  throw error
 } finally {
   await electronApp?.close()
   await rm(temporary, { recursive: true, force: true })

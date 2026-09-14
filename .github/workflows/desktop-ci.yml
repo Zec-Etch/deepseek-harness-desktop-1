@@ -26,7 +26,7 @@ jobs:
       - name: Enforce the desktop version release floor
         run: node scripts/verify-desktop-version-floor.mjs
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @deepseek-ai/dsh-desktop exec playwright install chromium
+      - run: pnpm --filter @linxin666/dsh-desktop exec playwright install chromium
       - name: Feature preservation baseline check
         run: pnpm feature-baseline:check
       - name: Desktop core regression E2E gate

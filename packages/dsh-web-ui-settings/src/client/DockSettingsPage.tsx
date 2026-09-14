@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import type { DesktopPalette } from './desktop-appearance.ts'
 import type { PropsLocale, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import { SafePluginBoundary } from './SafePluginBoundary.tsx'
+import { AgentTeamSettingsCard } from './AgentTeamSettingsCard.tsx'
 import css from './dock-settings.module.css'
 
 export const DOCK_SETTINGS = ['relay', 'value-mode', 'personal-prompt', 'memory', 'particle-theme', 'describe-image', 'appearance', 'models', 'usage', 'sessions'] as const
@@ -75,13 +76,19 @@ export function DockSettingsPage({ renderSlot, t }: PropsRenderSlots<'web-ui.plu
         }}>{id === 'personal-prompt' ? t('dockResponsePreferences') : t('dockMemory')}</button>)}
       </div>
     </>}
+    {selected === 'value-mode' && <div className={css.collaborationIntro}>
+      <h1 className={css.heading}>{t('dockCollaboration')}</h1>
+      <p>Agent Team 负责多角色协作，性价比模式负责模型分工与成本控制；两者可独立开启，也可同时使用。</p>
+    </div>}
     {visited.map(id => <section key={id} id={`dock-form-${id}`} hidden={id !== selected} className={css.content} role={id === 'memory' || id === 'personal-prompt' ? 'tabpanel' : undefined} aria-labelledby={id === 'memory' || id === 'personal-prompt' ? `${id}-tab` : undefined}>
       <SafePluginBoundary pluginName={id} fallback={<p role="alert">{t('dockSettingUnavailable')}</p>}>
+        {id === 'value-mode' && <AgentTeamSettingsCard />}
         {sectionFor(id)
           ? <>{id === 'models' && renderSlot('web-ui.plugin.item', {}, { only: 'relay', fallback: <p role="status">{t('dockSettingUnavailable')}</p> })}
             {renderSlot('settings.section', { close: () => {} }, { only: sectionFor(id), fallback: <p role="status">{t('dockSettingUnavailable')}</p> })}</>
           : renderSlot('web-ui.plugin.item', {}, { only: id, fallback: <p role="status">{t('dockSettingUnavailable')}</p> })}
       </SafePluginBoundary>
+      {id === 'value-mode' && <aside className={css.collaborationAdvice}><strong>使用建议</strong><span>复杂任务需要多人分工时开启 Agent Team；希望主控模型规划、轻量模型执行时使用性价比模式。</span></aside>}
     </section>)}
   </main>
 }

@@ -15,7 +15,7 @@ export interface ToolCallNormalizationDiagnostic {
     readonly source: 'block-end' | 'stream-delta';
 }
 /** Reasons an exact one-key `arguments` envelope was accepted or left intact. */
-export type ToolCallNormalizationReason = 'schema-validated-envelope' | 'unknown-tool' | 'duplicate-tool-schema' | 'unsupported-tool-schema' | 'nested-arguments-not-object' | 'nested-arguments-invalid' | 'ambiguous-outer-and-inner-valid';
+export type ToolCallNormalizationReason = 'schema-validated-envelope' | 'redundant-full-access-escalation' | 'unknown-tool' | 'duplicate-tool-schema' | 'unsupported-tool-schema' | 'nested-arguments-not-object' | 'nested-arguments-invalid' | 'ambiguous-outer-and-inner-valid';
 export interface ToolCallArgumentNormalization {
     readonly arguments: string;
     readonly diagnostic?: Omit<ToolCallNormalizationDiagnostic, 'provider' | 'model' | 'tool' | 'callId' | 'source'>;
@@ -37,11 +37,20 @@ export interface ToolCallArgumentNormalization {
  */
 export declare function normalizeWrappedToolCallArguments(raw: string, tool: ToolSchema | undefined): ToolCallArgumentNormalization;
 /**
+ * Desktop's trusted Runtime already runs with the permission selected by the
+ * host. Some models still copy an escalation field into shell calls. When the
+ * current mode is `danger-full-access`, every declared sandbox target is equal
+ * or narrower and therefore cannot be an escalation. Remove only that one
+ * optional field, and only when the advertised tool schema still accepts the
+ * resulting arguments. All commands, paths, and other options remain exact.
+ */
+export declare function normalizeRedundantSandboxEscalation(raw: string, tool: ToolSchema | undefined, currentMode: string | undefined): ToolCallArgumentNormalization;
+/**
  * Normalize model tool-call payloads before dsh-agent-loop parses raw JSON.
  * Complete `block-end` calls are transformed in place. Delta-only calls are
  * held until they close so the raw JSON can be assessed as a complete value;
  * non-recovered deltas are replayed byte-for-byte.
  */
-export declare function normalizeToolCallArgumentStream(options: GenerateOptions, source: AsyncIterable<StreamChunk>, diagnostic?: (diagnostic: ToolCallNormalizationDiagnostic) => void): AsyncGenerator<StreamChunk>;
+export declare function normalizeToolCallArgumentStream(options: GenerateOptions, source: AsyncIterable<StreamChunk>, diagnostic?: (diagnostic: ToolCallNormalizationDiagnostic) => void, permissionMode?: string | undefined): AsyncGenerator<StreamChunk>;
 /** Install the Desktop-only stream compatibility hook through the public SDK. */
 export declare function installToolCallArgumentNormalization(ctx: Context): void;

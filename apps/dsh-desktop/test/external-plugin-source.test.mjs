@@ -385,6 +385,33 @@ test('a confirmed local source is staged into the isolated session before pnpm c
   })
 })
 
+test('a content-addressed local tgz can be staged repeatedly without deleting its durable pnpm source', async () => {
+  await withTemporaryDirectory(async (root) => {
+    const archive = join(root, 'plugin.tgz')
+    const tar = Buffer.concat([
+      tarEntry('package/package.json', JSON.stringify({
+        name: '@external/repeatable-archive',
+        version: '1.0.0',
+        dsh: { bundle: { patch: './cordis.patch.yml' } },
+      })),
+      tarEntry('package/cordis.patch.yml', 'patch: []\n'),
+      Buffer.alloc(1024),
+    ])
+    const archiveBytes = gzipSync(tar)
+    await writeFile(archive, archiveBytes)
+    const descriptor = await resolveExternalPluginSource(archive, { baseDir: root })
+    const stagingDirectory = join(root, 'persistent', 'plugin-staging')
+
+    const first = await stageExternalPluginSource(descriptor, { stagingDirectory })
+    await rm(archive)
+    const second = await stageExternalPluginSource(descriptor, { stagingDirectory })
+
+    assert.equal(second.installSpec, first.installSpec)
+    assert.equal(second.contentFingerprint, first.contentFingerprint)
+    assert.deepEqual(await readFile(fileURLToPath(second.installSpec)), archiveBytes)
+  })
+})
+
 test('staging rejects a local source whose bytes differ from the confirmed fingerprint', async () => {
   await withTemporaryDirectory(async (root) => {
     const directory = await createPluginDirectory(root, '@external/raced-source')

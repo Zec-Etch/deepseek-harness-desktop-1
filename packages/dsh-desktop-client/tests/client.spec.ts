@@ -63,6 +63,7 @@ describe('Desktop Client SDK v1', () => {
     expect(onDeepLink).toHaveBeenCalledWith('dsh://task/task-1')
     expect(await client.showNotification({ category: 'run', id: 'run:1', title: 'Done', body: 'Run complete' })).toEqual({ shown: true })
     expect(await client.openDesktopSurface('extensions')).toBe(true)
+    expect(await client.openDesktopSurface('extensions', { setting: 'value-mode' })).toBe(true)
     expect(await client.getDockEntryState()).toEqual({ available: true, showNudge: true })
     expect(await client.dismissDockNudge('escape')).toBe(true)
     expect(await client.openDesktopSurface('updates')).toBe(true)
@@ -72,7 +73,9 @@ describe('Desktop Client SDK v1', () => {
     expect(await client.configureLocalLanGateway({ enabled: true, address: '192.168.1.8', port: 43126 })).toEqual({
       state: 'running', enabled: true, address: '192.168.1.8', port: 43126, availableAddresses: ['192.168.1.8'], url: 'http://192.168.1.8:43126',
     })
-    expect(bridge.openExtensionDock).toHaveBeenCalledTimes(1)
+    expect(bridge.openExtensionDock).toHaveBeenNthCalledWith(1, undefined)
+    expect(bridge.openExtensionDock).toHaveBeenNthCalledWith(2, { setting: 'value-mode' })
+    await expect(client.openDesktopSurface('extensions', { setting: 'plugins' as never })).rejects.toMatchObject({ code: 'desktop-invalid-argument' })
     expect(bridge.dismissDockNudge).toHaveBeenCalledWith('escape')
     expect('bridge' in client).toBe(false)
   })
@@ -118,8 +121,8 @@ describe('Desktop Client SDK v1', () => {
   })
 
   it('creates safe task and run deep links', () => {
-    expect(taskDeepLink('task-1')).toBe('dsh://task/task-1')
-    expect(runDeepLink('run-1')).toBe('dsh://run/run-1')
+    expect(taskDeepLink('task-1')).toBe('dsh-community://task/task-1')
+    expect(runDeepLink('run-1')).toBe('dsh-community://run/run-1')
     for (const value of ['../task', 'task?query', 'task/child', 'Task-1', '']) {
       expect(() => taskDeepLink(value)).toThrow(/safe Desktop identifier|non-empty/u)
       expect(() => runDeepLink(value)).toThrow(/safe Desktop identifier|non-empty/u)

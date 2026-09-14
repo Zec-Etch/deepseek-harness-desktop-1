@@ -68,7 +68,7 @@ export class RelayConnectionController {
 
   private respond(response: ServerResponse, status: number, text: string): void {
     response.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer', 'content-security-policy': "default-src 'none'; frame-ancestors 'none'", 'x-content-type-options': 'nosniff', connection: 'close' })
-    response.end('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>DeepSeek Harness Desktop</title><h1>' + text + '</h1>' + (status === 200 ? '<p><a href="dsh://extensions">返回桌面软件 / Return to Desktop</a></p>' : ''))
+    response.end('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>DeepSeek Harness Desktop</title><h1>' + text + '</h1>' + (status === 200 ? '<p><a href="dsh-community://extensions">返回桌面软件 / Return to Desktop</a></p>' : ''))
   }
 
   private async complete(request: IncomingMessage, response: ServerResponse): Promise<void> {

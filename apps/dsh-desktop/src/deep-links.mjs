@@ -11,7 +11,7 @@ const ID_ROUTES = new Map([
   ['run', 'run'],
 ])
 
-export function normalizeDeepLink(value, protocol = 'dsh') {
+export function normalizeDeepLink(value, protocol = 'dsh', legacyProtocols = []) {
   if (typeof value !== 'string' || value.length === 0 || value.length > 4_096) {
     throw new TypeError('deep link is empty or too long')
   }
@@ -24,7 +24,8 @@ export function normalizeDeepLink(value, protocol = 'dsh') {
   } catch (error) {
     throw new TypeError('deep link is not a valid URL', { cause: error })
   }
-  if (url.protocol !== `${protocol}:` || url.username || url.password || url.port || url.hash || url.search) {
+  const acceptedProtocols = new Set([protocol, ...legacyProtocols])
+  if (!acceptedProtocols.has(url.protocol.slice(0, -1)) || url.username || url.password || url.port || url.hash || url.search) {
     throw new TypeError('deep link contains an unsupported scheme, credential, port, fragment, or query')
   }
   const host = url.hostname.toLowerCase()
@@ -54,10 +55,11 @@ export function presetFileFrom(commandLine = []) {
 }
 
 export class DeepLinkRouter {
-  constructor({ dispatch, protocol = 'dsh', maxPending = 32, maxLifetimeLinks = 256 } = {}) {
+  constructor({ dispatch, protocol = 'dsh', legacyProtocols = [], maxPending = 32, maxLifetimeLinks = 256 } = {}) {
     if (typeof dispatch !== 'function') throw new TypeError('deep link router requires dispatch')
     this.dispatch = dispatch
     this.protocol = protocol
+    this.legacyProtocols = Object.freeze([...legacyProtocols])
     this.maxPending = maxPending
     this.maxLifetimeLinks = maxLifetimeLinks
     this.ready = false
@@ -69,7 +71,7 @@ export class DeepLinkRouter {
   enqueue(value) {
     let link
     try {
-      link = normalizeDeepLink(value, this.protocol)
+      link = normalizeDeepLink(value, this.protocol, this.legacyProtocols)
     } catch {
       return Object.freeze({ accepted: false, reason: 'invalid' })
     }
@@ -100,7 +102,7 @@ export class DeepLinkRouter {
     if (value === null || typeof value !== 'object' || typeof value.href !== 'string') {
       throw new TypeError('validated deep link is invalid')
     }
-    const link = normalizeDeepLink(value.href, this.protocol)
+    const link = normalizeDeepLink(value.href, this.protocol, this.legacyProtocols)
     if (queueUntilReady && !this.ready) {
       if (this.pending.length >= this.maxPending) throw new Error('deep link queue is full')
       this.pending.push(link)

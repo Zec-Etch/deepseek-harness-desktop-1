@@ -60,7 +60,7 @@ export async function saveDockSettingsDrafts({
 
 /** Lazy, unprivileged runtime view. It shares the local user's browser session,
  * but never receives the extension-management preload or an IPC surface grant. */
-export function createDockSettingsView({ WebContentsView, window, mainWindow, getRuntimeOrigin, dialog, runtimePreload, openExternal = () => {}, closeCheckTimeoutMs = 1500, navigationTimeoutMs = 25000 }) {
+export function createDockSettingsView({ WebContentsView, window, mainWindow, getRuntimeOrigin, dialog, runtimePreload, onWebContentsCreated = () => {}, onWebContentsDisposed = () => {}, openExternal = () => {}, closeCheckTimeoutMs = 1500, navigationTimeoutMs = 25000 }) {
   let view
   let selected = null
   let origin
@@ -145,6 +145,7 @@ export function createDockSettingsView({ WebContentsView, window, mainWindow, ge
       } })
       view.setVisible(false)
       window.contentView.addChildView(view)
+      onWebContentsCreated(view.webContents)
       view.setBackgroundColor?.(theme === 'dark' ? '#0a141b' : '#ffffff')
       installNavigationPolicy({ webContents: view.webContents, getRuntimeOrigin, openExternal })
       view.webContents.on('will-redirect', (event, url) => {
@@ -198,6 +199,7 @@ export function createDockSettingsView({ WebContentsView, window, mainWindow, ge
     window.removeListener('minimize', minimize)
     window.removeListener('restore', restore)
     window.removeListener('close', checkClose)
+    if (view) onWebContentsDisposed(view.webContents)
     if (view && !view.webContents.isDestroyed()) view.webContents.close()
     view = undefined
   })

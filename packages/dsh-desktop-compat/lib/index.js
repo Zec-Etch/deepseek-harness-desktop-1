@@ -531,6 +531,39 @@ function normalizeWrappedToolCallArgumentsWithLookup(raw, tool) {
 		}
 	};
 }
+const SANDBOX_PERMISSION_LEVELS = /* @__PURE__ */ new Set([
+	"read-only",
+	"workspace-write",
+	"danger-full-access"
+]);
+/**
+* Desktop's trusted Runtime already runs with the permission selected by the
+* host. Some models still copy an escalation field into shell calls. When the
+* current mode is `danger-full-access`, every declared sandbox target is equal
+* or narrower and therefore cannot be an escalation. Remove only that one
+* optional field, and only when the advertised tool schema still accepts the
+* resulting arguments. All commands, paths, and other options remain exact.
+*/
+function normalizeRedundantSandboxEscalation(raw, tool, currentMode) {
+	if (currentMode !== "danger-full-access" || tool === void 0) return { arguments: raw };
+	const value = parseObject(raw);
+	if (value === void 0 || !Object.hasOwn(value, "sandbox_permissions")) return { arguments: raw };
+	if (typeof value.sandbox_permissions !== "string" || !SANDBOX_PERMISSION_LEVELS.has(value.sandbox_permissions)) return { arguments: raw };
+	const normalized = { ...value };
+	delete normalized.sandbox_permissions;
+	try {
+		if (validateJsonSchemaValue(tool.parameters, normalized).length > 0) return { arguments: raw };
+	} catch {
+		return { arguments: raw };
+	}
+	return {
+		arguments: JSON.stringify(normalized),
+		diagnostic: {
+			outcome: "normalized",
+			reason: "redundant-full-access-escalation"
+		}
+	};
+}
 function addDiagnostic(callback, options, name, id, source, normalization) {
 	if (normalization.diagnostic === void 0 || callback === void 0) return;
 	callback({
@@ -542,8 +575,14 @@ function addDiagnostic(callback, options, name, id, source, normalization) {
 		source
 	});
 }
-function normalizeToolCall(raw, name, id, source, options, lookup, diagnostic) {
-	const normalization = normalizeWrappedToolCallArgumentsWithLookup(raw, lookup.get(name) ?? { kind: "missing" });
+function normalizeToolCall(raw, name, id, source, options, lookup, diagnostic, permissionMode) {
+	const tool = lookup.get(name) ?? { kind: "missing" };
+	const envelope = normalizeWrappedToolCallArgumentsWithLookup(raw, tool);
+	const sandbox = tool.kind === "found" ? normalizeRedundantSandboxEscalation(envelope.arguments, tool.schema, permissionMode) : envelope;
+	const normalization = sandbox.diagnostic === void 0 && envelope.diagnostic !== void 0 ? {
+		...sandbox,
+		diagnostic: envelope.diagnostic
+	} : sandbox;
 	addDiagnostic(diagnostic, options, name, id, source, normalization);
 	return normalization.arguments;
 }
@@ -563,7 +602,7 @@ function bufferToolCallChunk(buffered, chunk) {
 	if (chunk.name !== void 0 && chunk.name.length > 0) existing.name = chunk.name;
 	existing.arguments += chunk.argumentsDelta;
 }
-function* flushBufferedToolCall(index, buffered, options, lookup, diagnostic) {
+function* flushBufferedToolCall(index, buffered, options, lookup, diagnostic, permissionMode) {
 	const pending = buffered.get(index);
 	if (pending === void 0) return;
 	buffered.delete(index);
@@ -571,7 +610,7 @@ function* flushBufferedToolCall(index, buffered, options, lookup, diagnostic) {
 		yield* pending.chunks;
 		return;
 	}
-	const normalized = normalizeToolCall(pending.arguments, pending.name, pending.id, "stream-delta", options, lookup, diagnostic);
+	const normalized = normalizeToolCall(pending.arguments, pending.name, pending.id, "stream-delta", options, lookup, diagnostic, permissionMode);
 	if (normalized === pending.arguments) {
 		yield* pending.chunks;
 		return;
@@ -596,7 +635,7 @@ function* flushRawBufferedToolCall(index, buffered) {
 * held until they close so the raw JSON can be assessed as a complete value;
 * non-recovered deltas are replayed byte-for-byte.
 */
-async function* normalizeToolCallArgumentStream(options, source, diagnostic) {
+async function* normalizeToolCallArgumentStream(options, source, diagnostic, permissionMode = process.env.DSH_PERMISSION_MODE) {
 	const lookup = buildToolSchemaLookup(options.tools);
 	const buffered = /* @__PURE__ */ new Map();
 	try {
@@ -608,7 +647,7 @@ async function* normalizeToolCallArgumentStream(options, source, diagnostic) {
 			if (chunk.type === "block-end") {
 				if (chunk.block.type === "tool-call") {
 					yield* flushRawBufferedToolCall(chunk.index, buffered);
-					const arguments_ = normalizeToolCall(chunk.block.arguments, chunk.block.name, String(chunk.block.id), "block-end", options, lookup, diagnostic);
+					const arguments_ = normalizeToolCall(chunk.block.arguments, chunk.block.name, String(chunk.block.id), "block-end", options, lookup, diagnostic, permissionMode);
 					yield {
 						...chunk,
 						block: {
@@ -618,22 +657,22 @@ async function* normalizeToolCallArgumentStream(options, source, diagnostic) {
 					};
 					continue;
 				}
-				yield* flushBufferedToolCall(chunk.index, buffered, options, lookup, diagnostic);
+				yield* flushBufferedToolCall(chunk.index, buffered, options, lookup, diagnostic, permissionMode);
 				yield chunk;
 				continue;
 			}
 			if (chunk.type === "finish") {
-				for (const index of [...buffered.keys()]) yield* flushBufferedToolCall(index, buffered, options, lookup, diagnostic);
+				for (const index of [...buffered.keys()]) yield* flushBufferedToolCall(index, buffered, options, lookup, diagnostic, permissionMode);
 				yield chunk;
 				continue;
 			}
 			yield chunk;
 		}
 	} catch (error) {
-		for (const index of [...buffered.keys()]) yield* flushBufferedToolCall(index, buffered, options, lookup, diagnostic);
+		for (const index of [...buffered.keys()]) yield* flushBufferedToolCall(index, buffered, options, lookup, diagnostic, permissionMode);
 		throw error;
 	}
-	for (const index of [...buffered.keys()]) yield* flushBufferedToolCall(index, buffered, options, lookup, diagnostic);
+	for (const index of [...buffered.keys()]) yield* flushBufferedToolCall(index, buffered, options, lookup, diagnostic, permissionMode);
 }
 function diagnosticValue(value) {
 	const truncated = value.length <= 160 ? value : `${value.slice(0, 157)}...`;
@@ -1305,8 +1344,8 @@ const DESKTOP_COMPAT_PATCHES = validateCompatPatchRegistry([
 		upstreamReference: "@deepseek-ai/dsh-llm 0.1.1-rc.1, 0.1.5-alpha.1, and 0.1.5-rc.1 llm/stream waterfall plus dsh-tools schema validation",
 		owner: "desktop-platform",
 		tests: ["packages/dsh-desktop-compat/tests/tool-call-normalization.spec.ts"],
-		reason: "Recover only a schema-proven single-key arguments envelope before the agent loop parses tool JSON.",
-		removeWhen: "The upstream adapter or agent loop normalizes this malformed transport envelope with the same ambiguity guard.",
+		reason: "Recover only schema-proven tool argument defects, including a single-key arguments envelope and redundant escalation under an already full-access Desktop Runtime.",
+		removeWhen: "The upstream adapter or agent loop normalizes these malformed tool arguments with the same schema and permission guards.",
 		lastVerified: "2026-09-10"
 	},
 	{
@@ -1411,4 +1450,4 @@ function apply(ctx) {
 	});
 }
 //#endregion
-export { DESKTOP_COMPAT_PATCHES, DESKTOP_CONVERSATION_IMPORT_PATH, DESKTOP_TASK_BOARD_SCHEDULER_OWNERSHIP, DESKTOP_WORKSPACE_FILE_OPEN_TARGET_PATH, DesktopSkinStateService, DesktopSkinStateStore, FRIENDLY_CANCELLED_MESSAGE, SKIN_STATE_END, SKIN_STATE_START, apply, balanceTranscriptMessages, createDesktopConversationImportRoute, createDesktopTaskBoardHostScheduleRunner, createDesktopWorkspaceFileOpenRoute, createQueueRecoveryScheduler, extractToolCallsFromAssistantMessage, importConversationIntoHost, inject, installToolCallArgumentNormalization, installTranscriptBalanceGuard, name, normalizeCancellationDecision, normalizeToolCallArgumentStream, normalizeWrappedToolCallArguments, recoverQueuedTurns, registerDesktopConversationImportRoute, registerDesktopWorkspaceFileOpenRoute, resolveDesktopWorkspaceFileOpenTarget, validateCompatPatchRegistry };
+export { DESKTOP_COMPAT_PATCHES, DESKTOP_CONVERSATION_IMPORT_PATH, DESKTOP_TASK_BOARD_SCHEDULER_OWNERSHIP, DESKTOP_WORKSPACE_FILE_OPEN_TARGET_PATH, DesktopSkinStateService, DesktopSkinStateStore, FRIENDLY_CANCELLED_MESSAGE, SKIN_STATE_END, SKIN_STATE_START, apply, balanceTranscriptMessages, createDesktopConversationImportRoute, createDesktopTaskBoardHostScheduleRunner, createDesktopWorkspaceFileOpenRoute, createQueueRecoveryScheduler, extractToolCallsFromAssistantMessage, importConversationIntoHost, inject, installToolCallArgumentNormalization, installTranscriptBalanceGuard, name, normalizeCancellationDecision, normalizeRedundantSandboxEscalation, normalizeToolCallArgumentStream, normalizeWrappedToolCallArguments, recoverQueuedTurns, registerDesktopConversationImportRoute, registerDesktopWorkspaceFileOpenRoute, resolveDesktopWorkspaceFileOpenTarget, validateCompatPatchRegistry };

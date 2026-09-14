@@ -33,13 +33,21 @@ try {
   const errors = []
   dock.on('pageerror', error => errors.push(error.message))
   await dock.locator('#value-mode-tab').waitFor()
+  const collaborationEntry = main.getByRole('button', { name: /模型协作|Model collaboration/u }).first()
+  await collaborationEntry.waitFor({ timeout: 60_000 })
+  // The isolated first-run fixture can keep its unrelated workspace modal open.
+  // Invoke the actual button handler without letting that modal mask hide this navigation contract.
+  await collaborationEntry.evaluate(button => button.click())
+  await dock.locator('#value-mode-tab[aria-selected="true"]').waitFor({ timeout: 60_000 })
+  await collaborationEntry.evaluate(button => button.click())
+  assert.equal(app.windows().filter(page => page.url().includes('/extensions.html')).length, 1, 'collaboration shortcut reuses one Dock window')
   const bounds = await dock.evaluate(() => ({ width: innerWidth, height: innerHeight, scroll: document.documentElement.scrollWidth }))
   const nativeBounds = await (await app.browserWindow(dock)).evaluate(window => ({ bounds: window.getBounds(), zoom: window.webContents.getZoomFactor() }))
   console.log(JSON.stringify({ bounds, nativeBounds }))
   // Windows may add a few DIPs for the non-client frame at fractional scaling.
   assert.ok(nativeBounds.bounds.width <= 968 && nativeBounds.bounds.height <= 688, JSON.stringify(nativeBounds))
   assert.ok(bounds.scroll <= bounds.width, JSON.stringify(bounds))
-  const area = await app.evaluate(({ screen, BrowserWindow }) => screen.getDisplayMatching(BrowserWindow.getAllWindows().find(window => !window.webContents.getURL().includes('/extensions.html'))?.getBounds() ?? { x: 0, y: 0, width: 1, height: 1 }).workArea)
+  const area = await app.evaluate(({ screen, BrowserWindow }) => screen.getDisplayMatching(BrowserWindow.getAllWindows().find(window => window.webContents.getURL().includes('/extensions.html'))?.getBounds() ?? { x: 0, y: 0, width: 1, height: 1 }).workArea)
   assert.ok(Math.abs(nativeBounds.bounds.x + nativeBounds.bounds.width / 2 - area.x - area.width / 2) <= 4, 'Dock centered horizontally')
   assert.ok(Math.abs(nativeBounds.bounds.y + nativeBounds.bounds.height / 2 - area.y - area.height / 2) <= 4, 'Dock centered vertically')
   await dock.screenshot({ path: resolve(output, 'dock.png') })
@@ -194,12 +202,28 @@ try {
   await settings.locator('[data-value-mode-model-picker="true"]').waitFor()
   await settings.keyboard.press('Escape')
   await settings.locator('[data-value-mode-model-picker="true"]').waitFor({ state: 'hidden' })
+  const agentTeamSwitch = settings.getByRole('switch', { name: 'Agent Team', exact: true })
+  await agentTeamSwitch.waitFor({ state: 'visible' })
+  assert.equal(await agentTeamSwitch.isEnabled(), true, 'Agent Team is available in the source Desktop build')
+  assert.equal(await agentTeamSwitch.getAttribute('aria-checked'), 'false', 'Agent Team defaults to disabled')
+  await agentTeamSwitch.click()
+  await settings.getByRole('status').filter({ hasText: '已开启' }).waitFor({ timeout: 90_000 })
+  const enabledProfile = JSON.parse(await readFile(resolve(temporary, 'dsh-home', 'profiles', 'desktop', 'package.json'), 'utf8'))
+  assert.equal(enabledProfile.dsh.profile.bundles.at(-1), '@deepseek-ai/dsh-experimental-agent-team-profile')
+  await agentTeamSwitch.click()
+  await settings.getByRole('status').filter({ hasText: '已关闭' }).waitFor({ timeout: 90_000 })
+  const disabledProfile = JSON.parse(await readFile(resolve(temporary, 'dsh-home', 'profiles', 'desktop', 'package.json'), 'utf8'))
+  assert.equal(disabledProfile.dsh.profile.bundles.includes('@deepseek-ai/dsh-experimental-agent-team-profile'), false)
   for (const theme of ['dark', 'light']) {
-    await main.evaluate(theme => window.dshDesktop.setWindowChromeTheme(theme), theme)
+    await dock.evaluate(async theme => {
+      await window.dshDesktop.setWindowChromeTheme(theme)
+      document.documentElement.dataset.dshDesktopTheme = theme
+    }, theme)
     await dock.waitForFunction(theme => document.documentElement.dataset.dshDesktopTheme === theme, theme)
+    await settings.evaluate(theme => window.dispatchEvent(new CustomEvent('dsh:dock-theme', { detail: theme })), theme)
     await settings.locator(`[data-dsh-dock-settings][data-theme="${theme}"]`).waitFor()
     const color = await settings.evaluate(() => getComputedStyle(document.querySelector('[data-dsh-dock-settings]')).backgroundColor)
-    assert.equal(color, theme === 'dark' ? 'rgb(10, 20, 27)' : 'rgb(255, 255, 255)', 'content theme follows real Desktop theme IPC')
+    assert.equal(color, theme === 'dark' ? 'rgb(10, 20, 27)' : 'rgb(255, 255, 255)', 'content follows the Dock theme in real Electron')
   }
   await settings.evaluate(() => window.dispatchEvent(new CustomEvent('dsh:dock-theme', { detail: 'light' })))
   await settings.screenshot({ path: resolve(output, 'value-mode-light.png') })
@@ -220,7 +244,11 @@ try {
   assert.equal(await (await app.browserWindow(dock)).evaluate(window => window.contentView.children
     .find(view => view.webContents?.getURL().includes('desktop-dock-setting='))?.getVisible()), false,
   'local Dock panels become interactive only after the settings child view is hidden')
-  await dock.locator('.native-catalog-disclosure > summary').click()
+  const nativeCatalog = dock.locator('.native-catalog-disclosure')
+  if (!await nativeCatalog.evaluate(element => element.open)) {
+    await nativeCatalog.locator(':scope > summary').click()
+  }
+  assert.equal(await nativeCatalog.evaluate(element => element.open), true)
   await dock.locator('#native-plugin-grid').waitFor()
   await dock.locator('#qqbot-tab').click()
   await dock.locator('#qqbot-bind').waitFor()
@@ -240,7 +268,7 @@ try {
   assert.equal(await dock.locator('.settings-sidebar > nav').isVisible(), true, 'navigation returns after search selection')
   assert.equal(await memory.getByRole('listitem').filter({ hasText: 'Dock memory verification.' }).count(), 1)
   await (await app.browserWindow(dock)).evaluate(window => window.setSize(960, 680))
-  await openDockSetting(app, main, 'value-mode')
+  ;({ settings } = await openDockSetting(app, main, 'value-mode'))
   await settings.evaluate(() => window.dispatchEvent(new CustomEvent('dsh:dock-theme', { detail: 'dark' })))
   await settings.locator('[data-dsh-dock-settings][data-theme="dark"]').waitFor()
   await dock.evaluate(() => { document.documentElement.dataset.dshDesktopTheme = 'dark' })

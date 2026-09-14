@@ -48,7 +48,7 @@ test('Task Ledger v3 freezes its required major shape while allowing additive op
 test('deep-link and preset schemas reject unsupported inputs with actionable version guidance', () => {
   const schemas = loadPublicSchemas()
   const fixtures = publicSchemaFixtures()
-  assert.ok(validateJsonSchema(schemas.deepLink, 'dsh://task/not?allowed').length > 0)
+  assert.ok(validateJsonSchema(schemas.deepLink, 'dsh-community://task/not?allowed').length > 0)
 
   const unknownMajor = {
     ...fixtures.preset,

@@ -33,6 +33,7 @@ import {
 } from './local-lan-gateway.mjs'
 import { createDesktopIngress, registerDesktopProtocolClient } from './desktop-ingress.mjs'
 import { CommunityHomeMigration } from './community-home-migration.mjs'
+import { LegacyPluginRecovery } from './legacy-plugin-recovery.mjs'
 import { createRuntimePresentationGuard } from './runtime-presentation.mjs'
 import { createDesktopInstallPreparation } from './install-preparation.mjs'
 import { registerExtensionIpc } from './extension-ipc.mjs'
@@ -96,13 +97,17 @@ import {
 } from './automatic-repair-runner.mjs'
 import { projectDirectStartupState } from './repair-state.mjs'
 import {
+  AGENT_TEAM_PROFILE_BUNDLE,
+  AGENT_TEAM_VERSION,
   BUILTIN_BUNDLES,
   classifyDesktopProfileBootstrapFailure,
   DESKTOP_PROFILE_FAILURE_CATEGORIES,
   ensureDesktopProfile,
+  readAgentTeamProfileEnabled,
   resolveDshCliPath,
   resolvePackageRoot,
   resolveRuntimePackages,
+  setAgentTeamProfileEnabled,
 } from './profile.mjs'
 import { createRuntimeBaseline, resolveHostPackageVersion } from './runtime-baseline.mjs'
 import { validateProtectedRuntimeGraph } from './runtime-graph-validator.mjs'
@@ -167,6 +172,8 @@ import { installConversationSkills } from './conversation-skills.mjs'
 import { attachWindowStatePersistence, loadWindowStateForRestore } from './window-state.mjs'
 import { ConversationImportService } from './conversation-import/service.mjs'
 import { createUpdateShutdownCoordinator } from './update-shutdown-coordinator.mjs'
+import { DESKTOP_DISTRIBUTION_IDENTITY, desktopDeepLink } from './distribution-identity.mjs'
+import { assertPackagedUpdateIdentity } from './update-identity.mjs'
 import {
   createDesktopWindowFactory,
   createMainWindow,
@@ -176,7 +183,7 @@ import {
 
 const SOURCE_DIR = dirname(fileURLToPath(import.meta.url))
 const MAIN_PRELOAD_PATH = join(SOURCE_DIR, 'preload-main.cjs')
-const RUNTIME_PRELOAD_PATH = join(SOURCE_DIR, 'preload-runtime.cjs')
+const DOCK_SETTINGS_PRELOAD_PATH = join(SOURCE_DIR, 'preload-dock-settings.cjs')
 const EXTENSION_PRELOAD_PATH = join(SOURCE_DIR, 'preload-extension.cjs')
 const STARTUP_PATH = join(SOURCE_DIR, 'ui', 'startup.html')
 const EXTENSIONS_PATH = join(SOURCE_DIR, 'ui', 'extensions.html')
@@ -194,7 +201,7 @@ export function runtimeStatusNeedsStartupSurface(status, { extensionMaintenance 
 }
 
 function runtimeHome() {
-  return process.env.DSH_HOME || join(homedir(), '.dsh-community')
+  return process.env.DSH_HOME || join(homedir(), DESKTOP_DISTRIBUTION_IDENTITY.defaultHomeDirectoryName)
 }
 
 function runtimeWorkspace(app) {
@@ -586,6 +593,7 @@ export async function startElectronApp(metadata) {
   const desktopIngress = createDesktopIngress({
     app,
     protocol: metadata.protocol,
+    legacyProtocols: [DESKTOP_DISTRIBUTION_IDENTITY.legacyProtocol],
     initialCommandLine: process.argv,
     onUpdateShutdownRequest: enqueueUpdateShutdownRequest,
     getMainWindow: () => mainWindow,
@@ -808,7 +816,7 @@ export async function startElectronApp(metadata) {
     appIcon,
     windowChromeIconDataUrl,
     mainPreload: MAIN_PRELOAD_PATH,
-    runtimePreload: RUNTIME_PRELOAD_PATH,
+    runtimePreload: DOCK_SETTINGS_PRELOAD_PATH,
     extensionPreload: EXTENSION_PRELOAD_PATH,
     extensionsPath: EXTENSIONS_PATH,
     handoffPath: HANDOFF_PATH,
@@ -1493,6 +1501,15 @@ export async function startElectronApp(metadata) {
       label: event?.name ? `${event.type}: ${event.name}` : event?.type ?? '插件变更前',
     }),
   })
+  const legacyPluginRecovery = new LegacyPluginRecovery({
+    sourceHome: join(homedir(), '.dsh'),
+    targetProfileDir: desktopProfileDir,
+    statePath: join(pluginRecoveryStateDir, 'legacy-v4.json'),
+    protectedNames: [...runtimePackages.keys()],
+  })
+  await legacyPluginRecovery.initialize().catch(async (error) => {
+    await logStore.append(`[plugins] legacy plugin recovery inventory failed: ${error instanceof Error ? error.name : 'unknown'}`)
+  })
   const preferredRuntimePort = await selectPreferredRuntimePort(runtimePortStatePath).catch(async (error) => {
     await logStore.append(`[port] failed to read preferred port: ${error instanceof Error ? error.message : String(error)}`)
     return 0
@@ -1516,8 +1533,8 @@ export async function startElectronApp(metadata) {
     }
   }
 
+  const runtimeTransport = desktopRuntimeHost === undefined ? 'pipe' : 'http'
   const createPrimaryRuntimeController = (profileName) => {
-    const runtimeTransport = desktopRuntimeHost === undefined ? 'pipe' : 'http'
     const controller = new DshRuntimeController({
       cliPath: dshCliPath,
       cwd: projectRoot,
@@ -1596,6 +1613,7 @@ export async function startElectronApp(metadata) {
     initialConfig: initialLanGatewayConfig,
     getProvider: () => runtimeProvider,
     log: message => logStore.append(message),
+    recordFeatureEvent: event => productMetrics.recordFeatureEvent(event),
   })
   await lanGateway.start()
   const removeLanGatewayStatusListener = lanGateway.onStatus((status) => {
@@ -1686,6 +1704,14 @@ export async function startElectronApp(metadata) {
     restartRuntime: () => runtimeProvider.recover(),
     onEventError: (error) => logStore.append(`[qqbot] event delivery failed: ${error instanceof Error ? error.message : String(error)}`),
   })
+  const agentTeamFeature = Object.freeze({
+    status: async () => Object.freeze({
+      available: runtimePackages.has(AGENT_TEAM_PROFILE_BUNDLE),
+      enabled: await readAgentTeamProfileEnabled({ profileDir: desktopProfileDir }),
+      version: AGENT_TEAM_VERSION,
+    }),
+    setEnabled: (enabled) => setAgentTeamProfileEnabled({ profileDir: desktopProfileDir, enabled }),
+  })
 
   const persistUpdateChannel = (channel) => {
     const operation = updateChannelWriteQueue.then(async () => {
@@ -1730,6 +1756,7 @@ export async function startElectronApp(metadata) {
   })
 
   const notificationService = new DesktopNotificationService({
+    protocol: metadata.protocol,
     isForeground: () => Boolean(
       mainWindow?.isFocused?.()
       || desktopWindowFactory.extensionWindow?.isFocused?.()
@@ -1783,6 +1810,7 @@ export async function startElectronApp(metadata) {
     },
     controller: runtimeProvider,
     pluginRecovery,
+    legacyPluginRecovery,
     pluginManager,
     pluginArchiveRecovery: blockedPluginArchiveRecovery,
     logStore,
@@ -1843,7 +1871,7 @@ export async function startElectronApp(metadata) {
         const link = {
           kind: 'session',
           id: sessionId,
-          href: `dsh://session/${encodeURIComponent(sessionId)}`,
+          href: desktopDeepLink(`session/${encodeURIComponent(sessionId)}`),
         }
         try {
           // Keep the import navigation in the readiness queue. loadURL may
@@ -1855,7 +1883,7 @@ export async function startElectronApp(metadata) {
           mainWindow.webContents.send('desktop:deep-link', {
             kind: 'session',
             id: String(importResult.sessionId),
-            href: `dsh://session/${encodeURIComponent(String(importResult.sessionId))}`,
+            href: desktopDeepLink(`session/${encodeURIComponent(String(importResult.sessionId))}`),
           })
         }
       }
@@ -1910,14 +1938,15 @@ export async function startElectronApp(metadata) {
         return false
       }
     },
-    openExtensionDock: async () => {
+    openExtensionDock: async (options = {}) => {
       productMetrics.recordDockClick()
       try {
         const dismissed = await dockNudgeStore.dismiss()
         if (dismissed) productMetrics.recordDockNudgeDismissed('clicked')
       } catch {}
       try {
-        await createExtensionWindow()
+        const window = await createExtensionWindow()
+        if (options.setting) window.webContents.send('extensions:navigate', { setting: options.setting })
         productMetrics.recordDockOpened(true)
         return true
       } catch (error) {
@@ -1975,7 +2004,10 @@ export async function startElectronApp(metadata) {
           cancelId: 1,
           noLink: true,
         })
-        if (confirmation.response !== 0) return lanGateway.status
+        if (confirmation.response !== 0) {
+          productMetrics.recordFeatureEvent({ feature: 'local-lan', outcome: 'cancelled', detail: 'enable' })
+          return lanGateway.status
+        }
       }
       const before = lanGateway.status
       const status = await lanGateway.configure(request)
@@ -2096,7 +2128,11 @@ export async function startElectronApp(metadata) {
     })
   }
   const completeFullAccessPlugin = async (descriptor) => {
-    await rm(persistentPluginStagingDirectory(descriptor), { recursive: true, force: true }).catch(() => {})
+    assertExternalPluginDescriptor(descriptor)
+    // pnpm saves local content as a file: dependency that points at this
+    // content-addressed Desktop copy. Retain it after success and failure so a
+    // repeated local install, or a later registry install, never inherits a
+    // dangling dependency. A changed source receives a different candidate ID.
   }
 
   const communityMarket = createCommunityMarketService({
@@ -2128,6 +2164,7 @@ export async function startElectronApp(metadata) {
     selectDockSetting: (id) => desktopWindowFactory.selectDockSetting(id),
     ipcMain,
     surfaceRegistry,
+    isDockSettingsSender: sender => desktopWindowFactory.isDockSettingsSender(sender),
     dialog,
     shell,
     getWindow: () => desktopWindowFactory.extensionWindow ?? mainWindow,
@@ -2138,6 +2175,7 @@ export async function startElectronApp(metadata) {
     dshHome,
     agentsHome: process.env.DSH_AGENTS_HOME,
     qqBotBinding,
+    agentTeamFeature,
     pluginRecovery,
     presetService,
     migrationService,
@@ -2155,6 +2193,7 @@ export async function startElectronApp(metadata) {
     onRuntimeMaintenanceChange: (active) => { extensionRuntimeMaintenance = active === true },
     completeBlockedPluginRecovery,
   })
+  let legacyNpmRestoreScheduled = false
   const dispatchDeepLink = async (link) => {
     if (link.kind === 'extensions' || link.kind === 'preset-preview') {
       const window = await createExtensionWindow()
@@ -2256,7 +2295,7 @@ export async function startElectronApp(metadata) {
     }
   }
   runtimeProvider.on('status', (status) => {
-    productMetrics.observeRuntimeStatus(status)
+    productMetrics.observeRuntimeStatus(status, runtimeTransport)
     if (!runtimePresentation.active) {
       deepLinkRouter.setReady(false)
       return
@@ -2650,6 +2689,18 @@ export async function startElectronApp(metadata) {
           await logStore.append('[migration] community-home committed after full Runtime health verification')
         }
         await recordDirectStartupState(state)
+        if (!legacyNpmRestoreScheduled) {
+          legacyNpmRestoreScheduled = true
+          queueMicrotask(() => {
+            void unregisterExtensionIpc.restoreLegacyNpm().then(async (result) => {
+              if (result?.restored === true) {
+                await logStore.append(`[plugins] restored ${result.plugins.length} legacy NPM plugin(s)`)
+              }
+            }).catch(async (error) => {
+              await logStore.append(`[plugins] legacy NPM plugin recovery failed: ${error instanceof Error ? error.name : 'unknown'}`)
+            })
+          })
+        }
         if (communityHomeMigrationResult?.manualRecoveryRequired === true) {
           await notificationService.show({
             category: 'plugin-recovery',
@@ -2855,9 +2906,12 @@ export async function startElectronApp(metadata) {
   let autoUpdater
   if (updateAvailability.enabled) {
     try {
+      if (app.isPackaged) {
+        await assertPackagedUpdateIdentity(join(process.resourcesPath, 'app-update.yml'))
+      }
       autoUpdater = await loadElectronAutoUpdater()
     } catch (error) {
-      void logStore.append(`[updater] failed to load: ${error.message}`)
+      void logStore.append(`[updater] disabled by identity check: ${error.message}`)
     }
   }
   if (process.env.DSH_DESKTOP_VERIFY_UPDATER === '1' && !autoUpdater) {
@@ -2945,7 +2999,7 @@ export async function startElectronApp(metadata) {
         id: `update:${status.version.toLowerCase().replace(/[^a-z0-9._:-]/gu, '-').slice(0, 80)}:downloaded`,
         title: 'DeepSeek Harness Desktop update ready',
         body: `Version ${status.version} has been downloaded and is ready to install.`,
-        deepLink: 'dsh://updates',
+        deepLink: desktopDeepLink('updates'),
       }).catch(() => {})
     }
   }

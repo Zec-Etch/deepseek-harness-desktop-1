@@ -4,7 +4,7 @@ import { rollupAnalytics } from './analytics-rollup.mjs'
 
 const HIGH_FREQUENCY = new Set(['surface_opened', 'dock_entry_impression', 'dock_nudge_shown', 'dock_nudge_dismissed', 'dock_entry_click', 'dock_opened', 'feature_dock_setting'])
 export const CLEANUP_WRITE_BUDGET = 350
-export function isAggregateOnly(event) { return event.name.startsWith('cost_mode_') || event.name.startsWith('value_mode_') || HIGH_FREQUENCY.has(event.name) }
+export function isAggregateOnly(event) { return event.name.startsWith('cost_mode_') || event.name.startsWith('value_mode_') || event.name.startsWith('feature_') || HIGH_FREQUENCY.has(event.name) }
 const FAILURE_SQL = `INSERT OR IGNORE INTO analytics_failure (id, timestamp, received_day, event, error_type, model, role, strategy, version, diagnostic)
   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 export function dataPoint(event, day, country) {

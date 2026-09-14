@@ -95,8 +95,10 @@ test('community market projects bounded catalog data and derives install sources
   ])
   assert.equal(result.plugins[0].installSpec, 'dsh-status-rotator')
   assert.equal(result.plugins[0].sourceKind, 'npm')
+  assert.equal(result.plugins[0].verification, 'registry')
   assert.equal(result.plugins[1].installSpec, 'github:0xsline/dsh-spotlight')
   assert.equal(result.plugins[1].sourceKind, 'github')
+  assert.equal(result.plugins[1].verification, 'required')
   assert.equal(
     result.plugins[2].installSpec,
     'github:linxin666/dsh-web-ui#path:/packages/dsh-web-ui-all',
@@ -107,6 +109,19 @@ test('community market projects bounded catalog data and derives install sources
   assert.equal(result.plugins.some((plugin) => plugin.npm === 'dshmarket'), false)
   assert.notEqual(result.plugins[1].id, result.plugins[3].id)
   assert.equal(await service.resolveInstall(result.plugins[2].id), result.plugins[2].installSpec)
+  assert.deepEqual(await service.resolveInstallEntry(result.plugins[1].id), {
+    id: result.plugins[1].id,
+    name: result.plugins[1].name,
+    sourceKind: 'github',
+    installSpec: result.plugins[1].installSpec,
+  })
+  service.recordVerification(result.plugins[1].id, {
+    verification: 'incompatible',
+    failureCategory: 'legacy-sdk-incompatible',
+  })
+  const verified = await service.list()
+  assert.equal(verified.plugins[1].verification, 'incompatible')
+  assert.equal(verified.plugins[1].failureCategory, 'legacy-sdk-incompatible')
   await assert.rejects(service.resolveInstall('unknown-entry'), /community market plugin identifier/u)
 })
 

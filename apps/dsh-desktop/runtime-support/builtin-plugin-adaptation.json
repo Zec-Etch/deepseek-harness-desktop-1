@@ -17,6 +17,7 @@
       "@linxin666/dsh-value-mode",
       "dsh-better-sidebar",
       "@linxin666/dsh-web-ui-all",
+      "@linxin666/dsh-client-ui-skill-explorer",
       "@linxin666/dsh-client-ui-model-capabilities",
       "@linxin666/dsh-usage",
       "@linxin666/dsh-session-archive",
@@ -116,6 +117,93 @@
     ]
   },
   "plugins": [
+    {
+      "name": "@deepseek-ai/dsh-experimental-agent-team",
+      "selection": {
+        "version": "0.1.5-rc.2",
+        "source": "npm"
+      },
+      "publicSnapshot": {
+        "status": "available",
+        "latest": "0.1.5-alpha.2",
+        "checkedAt": "2026-09-13T15:37:26.106Z",
+        "url": "https://registry.npmjs.org/%40deepseek-ai%2Fdsh-experimental-agent-team"
+      },
+      "reason": "Use the exact next-tag build aligned with Desktop's DSH 0.1.5-rc.2 runtime. The public latest tag points to the older alpha line, so it is not selected.",
+      "desktopContracts": [
+        "Opt-in Team roster, mailbox and shared task state",
+        "No change to the default Desktop Agent behavior"
+      ],
+      "validation": {
+        "automatedChecks": [
+          "apps/dsh-desktop/test/profile.test.mjs",
+          "apps/dsh-desktop/test/agent-team-runtime.test.mjs"
+        ],
+        "desktopAcceptance": [
+          "Enable Agent Team, create a session, delegate one bounded task, and disable Agent Team again."
+        ],
+        "results": []
+      }
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-agent-team-profile",
+      "selection": {
+        "version": "0.1.5-rc.2",
+        "source": "npm"
+      },
+      "publicSnapshot": {
+        "status": "available",
+        "latest": "0.1.5-alpha.2",
+        "checkedAt": "2026-09-13T15:37:26.106Z",
+        "url": "https://registry.npmjs.org/%40deepseek-ai%2Fdsh-experimental-agent-team-profile"
+      },
+      "reason": "Use the official composition layer as a final opt-in profile bundle so its tool replacements apply after Desktop builtins and community bundles. Keep it disabled by default.",
+      "desktopContracts": [
+        "Explicit Desktop settings switch with persisted state",
+        "Safe Runtime restart and rollback on activation failure",
+        "Existing one-shot SubAgent behavior restored when disabled"
+      ],
+      "validation": {
+        "automatedChecks": [
+          "apps/dsh-desktop/test/profile.test.mjs",
+          "apps/dsh-desktop/test/extension-ipc.test.mjs",
+          "apps/dsh-desktop/test/agent-team-runtime.test.mjs",
+          "apps/dsh-desktop/scripts/verify-dock-settings.mjs"
+        ],
+        "desktopAcceptance": [
+          "Toggle Agent Team in Plugin Settings and verify the status survives a Desktop restart."
+        ],
+        "results": []
+      }
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-tool-agent-team",
+      "selection": {
+        "version": "0.1.5-rc.2",
+        "source": "npm"
+      },
+      "publicSnapshot": {
+        "status": "available",
+        "latest": "0.1.5-alpha.2",
+        "checkedAt": "2026-09-13T15:37:26.106Z",
+        "url": "https://registry.npmjs.org/%40deepseek-ai%2Fdsh-experimental-tool-agent-team"
+      },
+      "reason": "Use the official Team tool layer from the same DSH release line; the exact version prevents alpha/latest drift and matches the selected Agent Team service.",
+      "desktopContracts": [
+        "Agent-scoped teammate lifecycle and messaging tools",
+        "Shared Team task-board tools without global tool-name collisions"
+      ],
+      "validation": {
+        "automatedChecks": [
+          "apps/dsh-desktop/test/profile.test.mjs",
+          "apps/dsh-desktop/test/agent-team-runtime.test.mjs"
+        ],
+        "desktopAcceptance": [
+          "Create a teammate and complete one shared task from an enabled Desktop session."
+        ],
+        "results": []
+      }
+    },
     {
       "name": "@linxin666/dsh-chat-recovery",
       "selection": {
@@ -353,14 +441,15 @@
         "checkedAt": "2026-09-12T06:50:35.937Z",
         "url": "https://registry.npmjs.org/%40linxin666%2Fdsh-client-ui-skill-explorer"
       },
-      "reason": "选用公开 0.3.20，声明支持 DSH >=0.1.5-rc.1。保留工作区技能列表与会话选择流程；执行证据记录在 validation.results。",
+      "reason": "选用公开 0.3.20，声明支持 DSH >=0.1.5-rc.1。Desktop 直接挂载该版本，避免旧聚合包只携带依赖却未启动技能中心；保留工作区技能列表与会话选择流程。",
       "desktopContracts": [
         "Workspace-scoped skill listing",
         "Skill viewing and conversation selection"
       ],
       "validation": {
         "automatedChecks": [
-          "apps/dsh-desktop/test/profile.test.mjs"
+          "apps/dsh-desktop/test/profile.test.mjs",
+          "apps/dsh-desktop/scripts/verify-skill-discovery.mjs"
         ],
         "desktopAcceptance": [
           "List and inspect workspace skills and use one in a conversation."

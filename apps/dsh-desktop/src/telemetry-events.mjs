@@ -17,6 +17,8 @@ const EVENT_POLICY = Object.freeze({
     outcomes: new Set(['ready', 'failed']),
     details: new Set([
       'none',
+      'http',
+      'pipe',
       'runtime-missing',
       'port-conflict',
       'integrity-failed',
@@ -87,7 +89,7 @@ const EVENT_POLICY = Object.freeze({
   }),
   surface_opened: Object.freeze({
     outcomes: new Set(['opened']),
-    details: new Set(['settings', 'extensions', 'community', 'updates', 'help']),
+    details: new Set(['settings', 'extensions', 'community', 'updates', 'help', 'conversation-import']),
     buckets: new Set(['none']),
   }),
   update_result: Object.freeze({

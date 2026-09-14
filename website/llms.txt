@@ -1,11 +1,12 @@
 # DeepSeek Harness Desktop
 
-> DeepSeek Harness Desktop 3.5.0 is a community-maintained, open-source Windows AI coding workspace with isolated plugin validation, atomic activation, automatic rollback, and the official DSH 1.1.5 NPM SDK (`0.1.5-rc.1`).
+> DeepSeek Harness Desktop is a community-maintained, open-source Windows AI coding workspace. Public stable is 3.5.0; the 4.0.0-rc.3 source candidate already integrates the public official DSH Runtime, Web UI, split SDKs, and official-repository Desktop boundaries while retaining an independent community application identity.
 
 ## Canonical identity
 
 - Product: DeepSeek Harness Desktop
 - Version: 3.5.0
+- Source candidate: 4.0.0-rc.3
 - Platform: Windows 10 and Windows 11, x64
 - License: BSD-3-Clause
 - Maintainer: DeepSeek Harness Desktop Community
@@ -23,7 +24,15 @@
 - Release manifest: https://github.com/ningbainb/deepseek-harness-desktop/releases/latest/download/release-manifest.json
 - Privacy policy: https://ningbainb.github.io/deepseek-harness-desktop/privacy.html
 
-## What makes 3.5.0 useful
+## What is new in the 4.0 source candidate
+
+- Official foundation: exact-pinned public `@deepseek-ai/dsh@0.1.5-rc.2`, Web UI, and split SDK packages are integrated against the official repository's observed Desktop boundary. The community app is not an official DeepSeek client and uses a separate application id, data home, protocol, installer identity, and update feed.
+- Upgrade continuity: legacy 3.5 plugins are scanned read-only and restored transactionally; history projection failures degrade without blocking transcripts; local tgz reinstall and pet-save terminal states are fixed.
+- Collaboration and Skills: the session sidebar links directly to a unified Agent Team and Value Mode page, bai is consistently ordered, and the conversation Skill menu plus Skill Center share one discovery contract.
+- Desktop behavior: bottom-panel expansion no longer starts a terminal implicitly, Windows subprocess consoles stay hidden, and native window controls have packaged regression coverage.
+- Product metrics: fixed-vocabulary outcomes now include Skills, Agent Team, and local-LAN results while retaining coarse conversation-import entry and plugin-operation signals. Content, prompts, paths, model names, token counts, and credentials remain excluded.
+
+## What remains available from 3.5.0
 
 - DSH 1.1.5 core: the official `0.1.5-rc.1` packages are exact-pinned. Desktop composes the Runtime from public split SDKs while validating the official CLI as the install anchor. Settings, Client Store, Session/Workspace controllers, Session Projection, Renderer, and Typert integrations use their current public contracts.
 - Reliability: Session v3 covers transcript import and manual compaction; startup-token and cookie handling, Profile isolation, runtime identity, and Windows hidden subprocess behavior have dedicated checks.
@@ -65,7 +74,13 @@
 - Local/source/test/Fork builds remain disconnected. Diagnostics are exported only after user confirmation and are redacted.
 - Read the full policy at https://ningbainb.github.io/deepseek-harness-desktop/privacy.html.
 
-## Desktop 3.3.0 interface screenshots preserved for 3.5.0
+## Desktop 4.0.0-rc.3 interface screenshots
+
+- Model Collaboration: https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-4.0.0-collaboration.webp
+- Conversation Skills: https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-4.0.0-skills.webp
+- bai model access: https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-4.0.0-bai-models.webp
+
+## Desktop 3.3.0 historical interface screenshots
 
 - Main workspace: https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-3.3.0-workspace.webp
 - Create project: https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-3.3.0-create-project.webp

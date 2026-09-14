@@ -5,6 +5,10 @@
  */
 export declare const DESKTOP_CLIENT_API_VERSION = "1.2.0";
 export type DesktopSurface = 'extensions' | 'updates';
+export type DesktopDockSetting = 'value-mode';
+export type DesktopSurfaceOpenOptions = Readonly<{
+    setting?: DesktopDockSetting;
+}>;
 export type DesktopAvailability = {
     available: false;
     reason: 'unavailable';
@@ -102,7 +106,7 @@ export type DesktopClient = Readonly<{
     subscribeRuntimeStatus: (handler: (status: RuntimeStatus) => void) => Unsubscribe;
     showNotification: (request: DesktopNotificationRequest) => Promise<DesktopNotificationResult>;
     subscribeDeepLinks: (handler: (link: string) => void) => Unsubscribe;
-    openDesktopSurface: (surface: DesktopSurface) => Promise<boolean>;
+    openDesktopSurface: (surface: DesktopSurface, options?: DesktopSurfaceOpenOptions) => Promise<boolean>;
     getDockEntryState: () => Promise<DockEntryState>;
     dismissDockNudge: (reason: DockDismissReason) => Promise<boolean>;
     openWorkspaceFile: (request: WorkspaceFileOpenRequest) => Promise<WorkspaceFileOpenResult>;
@@ -130,7 +134,7 @@ export declare const getRuntimeStatus: () => Promise<RuntimeStatus | DesktopAvai
 export declare const subscribeRuntimeStatus: (handler: (status: RuntimeStatus) => void) => Unsubscribe;
 export declare const showNotification: (request: DesktopNotificationRequest) => Promise<DesktopNotificationResult>;
 export declare const subscribeDeepLinks: (handler: (link: string) => void) => Unsubscribe;
-export declare const openDesktopSurface: (surface: DesktopSurface) => Promise<boolean>;
+export declare const openDesktopSurface: (surface: DesktopSurface, options?: DesktopSurfaceOpenOptions) => Promise<boolean>;
 export declare const getDockEntryState: () => Promise<DockEntryState>;
 export declare const dismissDockNudge: (reason: DockDismissReason) => Promise<boolean>;
 export declare const openWorkspaceFile: (request: WorkspaceFileOpenRequest) => Promise<WorkspaceFileOpenResult>;
@@ -140,6 +144,7 @@ export declare const requestPluginInstall: (request: {
 export declare const getLocalLanGatewayStatus: () => Promise<LocalLanGatewayStatus | DesktopAvailability>;
 export declare const configureLocalLanGateway: (request: LocalLanGatewayRequest) => Promise<LocalLanGatewayStatus | DesktopAvailability>;
 export declare const subscribeLocalLanGatewayStatus: (handler: (status: LocalLanGatewayStatus) => void) => Unsubscribe;
+export declare const DESKTOP_DEEP_LINK_PROTOCOL = "dsh-community";
 export declare function taskDeepLink(taskId: string): string;
 export declare function runDeepLink(runId: string): string;
 export {};

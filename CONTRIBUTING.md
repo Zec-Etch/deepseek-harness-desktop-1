@@ -29,4 +29,4 @@ pnpm desktop:pack
 - Do not commit credentials, local profiles, logs, or generated release directories.
 - Keep source, documentation, commit messages, and user-visible strings free of emoji.
 
-Before submitting a change, run `pnpm desktop:test`, `pnpm --filter @deepseek-ai/dsh-desktop pack:verify` after packaging, and `git diff --check`.
+Before submitting a change, run `pnpm desktop:test`, `pnpm --filter @linxin666/dsh-desktop pack:verify` after packaging, and `git diff --check`.

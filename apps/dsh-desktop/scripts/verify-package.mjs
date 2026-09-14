@@ -23,6 +23,7 @@ import {
   packagePathSegments,
 } from '../src/profile.mjs'
 import { CRITICAL_RUNTIME_FILES } from '../src/runtime-integrity.mjs'
+import { assertPackagedUpdateIdentity } from '../src/update-identity.mjs'
 import {
   assessRuntimeSupport,
   normalizeKnownGoodRuntimeEvidence,
@@ -550,7 +551,7 @@ const installerUpgradeProtocol = await readFile(join(resources, 'installer-upgra
 if (installerUpgradeProtocol.trim() !== 'dsh-desktop-installer-upgrade=3') {
   throw new Error('packaged installer upgrade marker is invalid')
 }
-if (!allowMissingUpdateMetadata) await access(join(resources, 'app-update.yml'))
+if (!allowMissingUpdateMetadata) await assertPackagedUpdateIdentity(join(resources, 'app-update.yml'))
 
 // electron-builder only refreshes builder-effective-config.yaml when stdout is a
 // TTY, so that file is commonly stale in CI. Validate the same config file the
@@ -564,8 +565,8 @@ if (JSON.stringify(packagingConfig.electronLanguages) !== JSON.stringify(
 )) {
   throw new Error('packaging config Electron locale allowlist is invalid')
 }
-if (!packagingConfig.protocols?.some((entry) => entry.schemes?.includes('dsh'))) {
-  throw new Error('packaging config is missing the dsh protocol registration')
+if (!packagingConfig.protocols?.some((entry) => entry.schemes?.includes('dsh-community'))) {
+  throw new Error('packaging config is missing the dsh-community protocol registration')
 }
 if (!packagingConfig.fileAssociations?.some((entry) => entry.ext === 'dshpreset' && entry.role === 'Editor')) {
   throw new Error('packaging config is missing the review-only .dshpreset association')

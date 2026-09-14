@@ -7,6 +7,8 @@
 export const DESKTOP_CLIENT_API_VERSION = '1.2.0'
 
 export type DesktopSurface = 'extensions' | 'updates'
+export type DesktopDockSetting = 'value-mode'
+export type DesktopSurfaceOpenOptions = Readonly<{ setting?: DesktopDockSetting }>
 export type DesktopAvailability = { available: false; reason: 'unavailable' }
 export type DockDismissReason = 'close' | 'escape' | 'clicked'
 export type DockEntryState = { available: true; showNudge: boolean } | DesktopAvailability
@@ -89,7 +91,7 @@ type Bridge = {
   toolAction?: (action: 'extensions') => Promise<unknown>
   getDockEntryState?: () => Promise<unknown>
   dismissDockNudge?: (reason: DockDismissReason) => Promise<unknown>
-  openExtensionDock?: () => Promise<unknown>
+  openExtensionDock?: (options?: DesktopSurfaceOpenOptions) => Promise<unknown>
   helpAction?: (action: 'updates') => Promise<unknown>
   openWorkspaceFile?: (request: WorkspaceFileOpenRequest) => Promise<unknown>
   requestPluginInstall?: (source: string) => Promise<unknown>
@@ -108,7 +110,7 @@ export type DesktopClient = Readonly<{
   subscribeRuntimeStatus: (handler: (status: RuntimeStatus) => void) => Unsubscribe
   showNotification: (request: DesktopNotificationRequest) => Promise<DesktopNotificationResult>
   subscribeDeepLinks: (handler: (link: string) => void) => Unsubscribe
-  openDesktopSurface: (surface: DesktopSurface) => Promise<boolean>
+  openDesktopSurface: (surface: DesktopSurface, options?: DesktopSurfaceOpenOptions) => Promise<boolean>
   getDockEntryState: () => Promise<DockEntryState>
   dismissDockNudge: (reason: DockDismissReason) => Promise<boolean>
   openWorkspaceFile: (request: WorkspaceFileOpenRequest) => Promise<WorkspaceFileOpenResult>
@@ -332,10 +334,13 @@ export function createDesktopClient({ globalObject = globalThis }: { globalObjec
         if (typeof record?.href === 'string') handler(record.href)
       })
     },
-    async openDesktopSurface(surface) {
+    async openDesktopSurface(surface, options) {
       if (surface === 'extensions' && typeof bridge?.openExtensionDock === 'function') {
+        if (options?.setting !== undefined && options.setting !== 'value-mode') {
+          throw new DesktopClientError('desktop-invalid-argument', 'Unsupported Extension Dock setting')
+        }
         if (!await hasBridgeCapability('extensions.open')) return false
-        const result = asRecord(await bridge.openExtensionDock())
+        const result = asRecord(await bridge.openExtensionDock(options))
         return result?.opened === true
       }
       if (surface === 'updates' && typeof bridge?.helpAction === 'function') {
@@ -419,10 +424,12 @@ export const getLocalLanGatewayStatus = defaultClient.getLocalLanGatewayStatus
 export const configureLocalLanGateway = defaultClient.configureLocalLanGateway
 export const subscribeLocalLanGatewayStatus = defaultClient.subscribeLocalLanGatewayStatus
 
+export const DESKTOP_DEEP_LINK_PROTOCOL = 'dsh-community'
+
 export function taskDeepLink(taskId: string): string {
-  return `dsh://task/${requireSafeDeepLinkId(taskId, 'task id')}`
+  return `${DESKTOP_DEEP_LINK_PROTOCOL}://task/${requireSafeDeepLinkId(taskId, 'task id')}`
 }
 
 export function runDeepLink(runId: string): string {
-  return `dsh://run/${requireSafeDeepLinkId(runId, 'run id')}`
+  return `${DESKTOP_DEEP_LINK_PROTOCOL}://run/${requireSafeDeepLinkId(runId, 'run id')}`
 }

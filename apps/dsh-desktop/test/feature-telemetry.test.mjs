@@ -10,7 +10,19 @@ import { DesktopSurfaceRegistry } from '../src/desktop-surfaces.mjs'
 test('feature bridge accepts only fixed fields and telemetry failure cannot break work', () => {
   const event = { feature: 'attachment', outcome: 'succeeded', detail: 'file' }
   assert.deepEqual(normalizeFeatureEvent(event), event)
+  assert.deepEqual(normalizeFeatureEvent({ feature: 'agent-team', outcome: 'succeeded', detail: 'enable' }), {
+    feature: 'agent-team', outcome: 'succeeded', detail: 'enable',
+  })
+  assert.deepEqual(normalizeFeatureEvent({ feature: 'local-lan', outcome: 'cancelled', detail: 'enable' }), {
+    feature: 'local-lan', outcome: 'cancelled', detail: 'enable',
+  })
+  assert.deepEqual(normalizeFeatureEvent({ feature: 'skill', outcome: 'succeeded', detail: 'conversation-insert' }), {
+    feature: 'skill', outcome: 'succeeded', detail: 'conversation-insert',
+  })
   for (const bad of [{ ...event, filename: 'private.txt' }, { ...event, detail: 'private.txt' }, { ...event, feature: 'constructor' }, { ...event, error: 'secret' }]) assert.throws(() => normalizeFeatureEvent(bad))
+  assert.throws(() => normalizeFeatureEvent({ feature: 'agent-team', outcome: 'succeeded', detail: '@private/team' }))
+  assert.throws(() => normalizeFeatureEvent({ feature: 'local-lan', outcome: 'failed', detail: '192.168.1.8' }))
+  assert.throws(() => normalizeFeatureEvent({ feature: 'skill', outcome: 'failed', detail: 'private-skill-name' }))
   const recorder = new ProductMetricsRecorder({ client: { record() { throw Error('offline') } } })
   assert.equal(recorder.recordFeatureEvent(event), false)
 })

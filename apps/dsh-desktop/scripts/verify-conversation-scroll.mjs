@@ -73,7 +73,7 @@ async function verifyMessageParticleClearance(page) {
 }
 
 async function dismissStartup(page) {
-  for (let attempt = 0; attempt < 16; attempt += 1) {
+  for (let attempt = 0; attempt < 180; attempt += 1) {
     await page.waitForTimeout(250)
     const starPrompt = page.locator('#dsh-desktop-star-prompt')
     if (await starPrompt.getAttribute('data-open').catch(() => null) === 'true') {
@@ -83,11 +83,16 @@ async function dismissStartup(page) {
     const continueButton = page.getByRole('button', { name: /^(?:继续|Continue)$/u })
     const introDialog = page.getByRole('dialog').filter({ has: continueButton })
     if (await introDialog.isVisible().catch(() => false)) {
-      await continueButton.last().click({ force: true })
+      const currentButton = continueButton.last()
+      if (!await currentButton.isEnabled().catch(() => false)) continue
+      await currentButton.click({ force: true, timeout: 2_000 }).catch(() => undefined)
       continue
     }
     if (attempt >= 7) break
   }
+  const remainingButton = page.getByRole('button', { name: /^(?:继续|Continue)$/u })
+  const remainingDialog = page.getByRole('dialog').filter({ has: remainingButton })
+  if (await remainingDialog.isVisible().catch(() => false)) throw new Error('startup dialog did not become actionable within 45 seconds')
 }
 
 async function launch() {

@@ -2,7 +2,7 @@ import { database } from './analytics-fixture.mjs'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import worker, { __test as ingest } from '../src/index.mjs'
-import { releaseFilters, releaseSummary } from '../src/release-analytics.mjs'
+import { releaseFeatureHealth, releaseFilters, releaseSummary } from '../src/release-analytics.mjs'
 import { ProductTelemetryClient } from '../../dsh-desktop/src/telemetry-client.mjs'
 import { createProductEvent } from '../../dsh-desktop/src/telemetry-events.mjs'
 
@@ -65,6 +65,27 @@ test('startup ratio has a real denominator and feature events carry no private f
     assert.equal(db.prepare('SELECT SUM(count) AS n FROM product_release_daily').get().n, 0)
     assert.equal((await worker.fetch(new Request('https://test.invalid/admin/api/release'), { ADMIN_PASSWORD_SHA256: 'a'.repeat(43), ADMIN_SESSION_SECRET: 'b'.repeat(43), METRICS: wrapper })).status, 401)
   } finally { db.close() }
+})
+
+test('release feature health keeps transport and opt-in feature outcomes separate', () => {
+  const rows = [
+    ['runtime_start_result', 'ready', 'pipe', 8],
+    ['runtime_start_result', 'ready', 'http', 2],
+    ['runtime_start_result', 'ready', 'none', 3],
+    ['feature_agent_team', 'succeeded', 'enable', 6],
+    ['feature_agent_team', 'failed', 'enable', 2],
+    ['feature_agent_team', 'succeeded', 'disable', 4],
+    ['feature_local_lan', 'succeeded', 'enable', 5],
+    ['feature_local_lan', 'failed', 'enable', 1],
+    ['feature_local_lan', 'cancelled', 'enable', 3],
+    ['feature_local_lan', 'succeeded', 'reconfigure', 2],
+  ].map(([event, outcome, detail, count]) => ({ event, outcome, detail, count }))
+  const health = releaseFeatureHealth(rows)
+  assert.deepEqual(health.runtimeTransport, { pipeReady: 8, httpReady: 2, legacyReady: 3 })
+  assert.deepEqual(health.agentTeam.enable, { succeeded: 6, failed: 2, cancelled: 0, successRate: 0.75 })
+  assert.deepEqual(health.agentTeam.disable, { succeeded: 4, failed: 0, cancelled: 0, successRate: 1 })
+  assert.deepEqual(health.localLan.enable, { succeeded: 5, failed: 1, cancelled: 3, successRate: 5 / 6 })
+  assert.deepEqual(health.localLan.reconfigure, { succeeded: 2, failed: 0, cancelled: 0, successRate: 1 })
 })
 
 test('release filters reject unknown fields, repeated values and SQL input', () => {

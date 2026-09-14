@@ -63,6 +63,28 @@ test('desktopDeepLinkFrom accepts only bounded allowlisted deep links', () => {
   assert.equal(desktopDeepLinkFrom(['desktop.exe', 'https://example.com']), undefined)
   assert.equal(desktopDeepLinkFrom(['desktop.exe', `dsh://${'a'.repeat(4_100)}`]), undefined)
 })
+
+test('desktop ingress preserves legacy links without registering the legacy scheme', async () => {
+  const app = createFakeApp()
+  const links = []
+  const ingress = createDesktopIngress({
+    app,
+    protocol: 'dsh-community',
+    legacyProtocols: ['dsh'],
+    initialCommandLine: ['desktop.exe', 'dsh://updates'],
+  })
+  ingress.setDispatchers({ deepLink: (link) => { links.push(link.href) } })
+  ingress.deepLinkRouter.setReady(true)
+  await ingress.deepLinkRouter.idle()
+  assert.deepEqual(links, ['dsh-community://updates'])
+  const registered = []
+  const registrationApp = {
+    isPackaged: true,
+    setAsDefaultProtocolClient: (protocol) => { registered.push(protocol); return true },
+  }
+  assert.equal(registerDesktopProtocolClient({ app: registrationApp, protocol: 'dsh-community', env: {} }), true)
+  assert.deepEqual(registered, ['dsh-community'])
+})
 test('desktop ingress queues initial links and preset files until dispatchers are installed', async () => {
   const app = createFakeApp()
   const mainWindow = createMainWindow()

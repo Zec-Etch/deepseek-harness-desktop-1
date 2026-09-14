@@ -16,6 +16,7 @@ import { normalizeValueModeProductEvent } from './value-mode-telemetry.mjs'
 import { normalizeFeatureEvent } from './feature-telemetry.mjs'
 import { normalizeWindowPalette } from './window-palette.mjs'
 import { DESKTOP_LAN_GATEWAY_STATES, isPrivateLanIpv4 } from './local-lan-gateway.mjs'
+import { DESKTOP_DISTRIBUTION_IDENTITY } from './distribution-identity.mjs'
 
 // 'launch-builtins' was accepted here through 3.0.x. It had no implementation
 // and no caller, so it fell through to the exit branch below - sending it quit
@@ -283,8 +284,10 @@ export function registerDesktopStartupIpc({
   ipcMain.handle('desktop:info', (event) => {
     assertMain(event)
     return {
-      appId: typeof metadata?.appId === 'string' ? metadata.appId : 'ai.deepseek.harness.desktop',
-      productName: typeof metadata?.productName === 'string' ? metadata.productName : 'DeepSeek Harness Desktop',
+      appId: typeof metadata?.appId === 'string' ? metadata.appId : DESKTOP_DISTRIBUTION_IDENTITY.appId,
+      productName: typeof metadata?.productName === 'string'
+        ? metadata.productName
+        : DESKTOP_DISTRIBUTION_IDENTITY.productName,
       version: typeof version === 'string' && version.length > 0 ? version : 'unknown',
       platform: typeof platform === 'string' && platform.length > 0 ? platform : process.platform,
     }
@@ -388,6 +391,18 @@ export function publicRepairStatus(value) {
     ...(safeReason === undefined ? {} : { reason: safeReason }),
     ...(canRetry ? { canRetry: true } : {}),
   })
+}
+
+export function normalizeDesktopDockOpenOptions(value) {
+  if (value === undefined) return Object.freeze({})
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('invalid Extension Dock navigation options')
+  }
+  const keys = Object.keys(value)
+  if (keys.some(key => key !== 'setting') || (value.setting !== undefined && value.setting !== 'value-mode')) {
+    throw new TypeError('invalid Extension Dock setting')
+  }
+  return Object.freeze(value.setting === undefined ? {} : { setting: value.setting })
 }
 
 /** Narrow clone-safe projection of the optional Desktop-owned LAN listener. */
@@ -621,8 +636,8 @@ export function registerDesktopIpc({
   handle('desktop:dock-nudge-dismiss', main, async (_event, _surface, rawReason) => ({
     dismissed: await dismissDockNudge(normalizeDockDismissReason(rawReason)) === true,
   }))
-  handle('desktop:dock-open', main, async () => ({
-    opened: await openExtensionDock() === true,
+  handle('desktop:dock-open', main, async (_event, _surface, rawOptions) => ({
+    opened: await openExtensionDock(normalizeDesktopDockOpenOptions(rawOptions)) === true,
   }))
   handle('desktop:star-prompt-claim', main, async () => await claimStarPrompt?.() === true)
   handle('desktop:update-status', main, () => publicUpdateStatus(getUpdateController?.()?.getStatus?.()))

@@ -14,5 +14,8 @@ export interface ModelPickerProps {
     onClose: () => void;
     fetchModels?: () => Promise<ValueModeModelCatalog>;
 }
+export declare const BAI_PROVIDER_ID = "project-relay";
+/** Keep the Desktop-recommended bai provider first without disturbing the catalog's remaining order. */
+export declare function sortValueModeProviderGroups(groups: readonly ModelProviderGroup[]): readonly ModelProviderGroup[];
 export declare const ModelPicker: React.FC<ModelPickerProps>;
 //# sourceMappingURL=ModelPicker.d.ts.map

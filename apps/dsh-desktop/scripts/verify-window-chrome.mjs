@@ -165,6 +165,22 @@ try {
         hitChrome: Boolean(hit?.closest('#dsh-desktop-window-chrome')),
       }
     }),
+    layoutCluster: (() => {
+      const cluster = document.querySelector('[class*="_toggleCluster"]')
+      if (!cluster) return undefined
+      const style = getComputedStyle(cluster)
+      const rect = cluster.getBoundingClientRect()
+      return {
+        controls: cluster.querySelectorAll(':scope > button').length,
+        width: rect.width,
+        height: rect.height,
+        padding: style.padding,
+        borderRadius: style.borderRadius,
+        borderWidth: style.borderWidth,
+        outlineStyle: style.outlineStyle,
+        boxShadow: style.boxShadow,
+      }
+    })(),
     url: location.href,
   }))
   const requiredChromeEntries = [
@@ -203,6 +219,13 @@ try {
       `right-sidebar toggles overlap the native title bar: ${JSON.stringify(state.sidebarToggles)}`,
     )
   }
+  assert.ok(state.layoutCluster, 'native layout toggle cluster is missing')
+  assert.ok(state.layoutCluster.controls >= 2, JSON.stringify(state.layoutCluster))
+  assert.equal(state.layoutCluster.padding, '2px')
+  assert.equal(state.layoutCluster.borderRadius, '9px')
+  assert.equal(state.layoutCluster.borderWidth, '1px')
+  assert.equal(state.layoutCluster.outlineStyle, 'none')
+  assert.equal(state.layoutCluster.boxShadow, 'none')
   assert.ok(state.rootBounds && state.rootBounds.top >= 31, `root overlaps title bar: ${JSON.stringify(state.rootBounds)}`)
   assert.ok(state.rootBounds.bottom <= viewportHeight + 1, `root exceeds safe viewport: ${JSON.stringify(state.rootBounds)}`)
   const positionedRootFrames = await page.evaluate(async () => {

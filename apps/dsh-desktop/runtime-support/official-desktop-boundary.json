@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-09-14",
+  "repository": "deepseek-ai/deepseek-harness",
+  "commit": "c291e7961a515f6d7af9304e7fd1d257929aef26",
+  "desktop": {
+    "packageName": "@deepseek-ai/dsh-desktop",
+    "productName": "DeepSeek Harness",
+    "applicationId": "release-environment-injected",
+    "profileHome": ".dsh",
+    "profileName": "desktop",
+    "internalProtocol": "dsh-app",
+    "updateProvider": "download.deepseek.com"
+  },
+  "sources": [
+    "apps/desktop/package.json",
+    "apps/desktop/electron-builder.config.mjs",
+    "apps/desktop/src/paths.ts",
+    "apps/desktop/src/main.ts",
+    "apps/desktop/scripts/desktop-auto-update-environment.mjs"
+  ]
+}

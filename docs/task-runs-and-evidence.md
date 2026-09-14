@@ -110,9 +110,9 @@ On page or application restart, Task Board uses the persisted Task Run, the Git 
 
 ## Deep links and notifications
 
-- `dsh://task/<task-id>` opens the task and latest run.
-- `dsh://run/<run-id>` opens the owning task and Evidence review surface.
-- `dsh://session/<session-id>` opens the official Session transcript.
+- `dsh-community://task/<task-id>` opens the task and latest run.
+- `dsh-community://run/<run-id>` opens the owning task and Evidence review surface.
+- `dsh-community://session/<session-id>` opens the official Session transcript.
 
 Completion and failure notifications use the run route. Deep-link identifiers are length bounded and validated; paths, commands, URLs, and arbitrary fragments are rejected.
 
@@ -122,7 +122,7 @@ Completion and failure notifications use the run route. Deep-link identifiers ar
 pnpm --filter @linxin666/dsh-client-ui-task-board typecheck
 pnpm --filter @linxin666/dsh-client-ui-task-board test
 node --test scripts/dsh-candidate-execution.test.mjs scripts/dsh-candidate-report.test.mjs
-pnpm --filter @deepseek-ai/dsh-desktop pack:smoke
+pnpm --filter @linxin666/dsh-desktop pack:smoke
 ```
 
 The tests cover migration, bounded Evidence, success/failure/cancellation, exact Worktree CWD, capability fallback, restart reconciliation without duplicate prompt/create, two-step discard, deep-link routing, and Candidate comparison.

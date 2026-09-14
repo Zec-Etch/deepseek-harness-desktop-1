@@ -12,6 +12,7 @@ import { _electron as electron } from 'playwright'
 
 import { useChineseFixtureLocale } from './dock-settings-fixture.mjs'
 import { seedPrimaryRuntimePermissionForTest } from './primary-runtime-permission-fixture.mjs'
+import { waitForSessionLog } from './session-log-fixture.mjs'
 
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const mainEntry = resolve(appDir, 'src', 'main.mjs')
@@ -19,6 +20,13 @@ const configuredExecutable = process.env.DSH_DESKTOP_E2E_EXECUTABLE
 const packagedExecutable = configuredExecutable === undefined ? undefined : resolve(configuredExecutable)
 if (packagedExecutable !== undefined && !existsSync(packagedExecutable)) {
   throw new Error(`DSH_DESKTOP_E2E_EXECUTABLE does not exist: ${packagedExecutable}`)
+}
+const configuredReopenExecutable = process.env.DSH_DESKTOP_REOPEN_EXECUTABLE
+const reopenExecutable = configuredReopenExecutable === undefined
+  ? packagedExecutable
+  : resolve(configuredReopenExecutable)
+if (reopenExecutable !== undefined && !existsSync(reopenExecutable)) {
+  throw new Error(`DSH_DESKTOP_REOPEN_EXECUTABLE does not exist: ${reopenExecutable}`)
 }
 
 const temporary = await mkdtemp(join(tmpdir(), 'dsh-agent-work-e2e-'))
@@ -235,7 +243,7 @@ try {
   const page = await app.firstWindow()
   const rendererErrors = []
   page.on('pageerror', error => rendererErrors.push(error.message))
-  await page.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 120_000 })
+  await page.waitForURL(/^(?:dsh-runtime:\/\/app\/|http:\/\/127\.0\.0\.1:\d+\/)/u, { timeout: 120_000 })
   await page.waitForSelector('style[data-plugin="@linxin666/dsh-web-ui-all"]', { state: 'attached', timeout: 120_000 })
   await dismissStartup(page)
 
@@ -274,6 +282,38 @@ try {
   assert.equal((await readFile(markerPath, 'utf8')).trim(), 'agent-work-complete')
   assert.deepEqual(rendererErrors, [])
 
+  await waitForSessionLog(join(dshHome, 'sessions'), sessionId)
+  await app.close()
+  app = undefined
+
+  app = await electron.launch({
+    executablePath: reopenExecutable ?? electronPath,
+    args: reopenExecutable === undefined ? [mainEntry] : [],
+    cwd: appDir,
+    env: {
+      ...process.env,
+      DSH_DESKTOP_USER_DATA: userData,
+      DSH_HOME: dshHome,
+      DSH_DESKTOP_DISABLE_UPDATES: '1',
+      DSH_DESKTOP_VERIFY_UPDATER: '0',
+      DSH_DESKTOP_DISABLE_PROTOCOL_REGISTRATION: '1',
+      DSH_AGENT_FIXTURE_KEY: 'synthetic-agent-fixture-key',
+    },
+  })
+  await useChineseFixtureLocale(app)
+  const reopenedPage = await app.firstWindow()
+  const reopenedRendererErrors = []
+  reopenedPage.on('pageerror', error => reopenedRendererErrors.push(error.message))
+  await reopenedPage.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 120_000 })
+  await reopenedPage.waitForSelector('style[data-plugin="@linxin666/dsh-web-ui-all"]', { state: 'attached', timeout: 120_000 })
+  await dismissStartup(reopenedPage)
+  await openCreatedSession(reopenedPage, sessionId)
+  await reopenedPage.getByRole('paragraph').filter({ hasText: finalText }).last()
+    .waitFor({ state: 'visible', timeout: 60_000 })
+  const historyFailure = reopenedPage.getByText(/历史加载失败|history load failed|runtime carrier Error/iu)
+  assert.equal(await historyFailure.count(), 0, 'completed session must reopen after a full Desktop restart')
+  assert.deepEqual(reopenedRendererErrors, [])
+
   console.log(JSON.stringify({
     passed: true,
     mode: packagedExecutable === undefined ? 'development-electron' : 'packaged-electron',
@@ -282,6 +322,8 @@ try {
     messageSent: true,
     toolCallCompleted: true,
     assistantCompleted: true,
+    historyReopenedAfterRestart: true,
+    crossVersionReopen: reopenExecutable !== packagedExecutable,
     toolNames: agentRequests[0].tools.map(tool => tool.function?.name).filter(Boolean),
     titleRequests: titleRequests.length,
     paidRequests: 0,

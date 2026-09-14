@@ -350,7 +350,13 @@ test('candidate preparation enforces compatible, unknown, and incompatible admis
       (error) => error.code === 'PLUGIN_INCOMPATIBLE'
         && error.userMessage === '这个插件与当前版本不兼容，因此没有安装。',
     )
-    assert.equal(calls.length, 2)
+    const riskAccepted = await manager.prepare('@community/example@latest', {
+      allowUnknown: true,
+      allowIncompatible: true,
+    })
+    assert.equal(riskAccepted.compatibility.status, 'incompatible')
+    assert.deepEqual(calls.at(-1), ['store', 'add', '@community/example@3.0.0'])
+    assert.equal(calls.length, 3)
     await assert.rejects(manager.prepare('@linxin666/dsh-web-ui-all@latest'), /built-in/u)
   } finally {
     await rm(profileDir, { recursive: true, force: true })

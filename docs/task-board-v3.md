@@ -39,7 +39,7 @@ Review actions update Evidence with a short audit entry. A successful Commit or 
 
 ## Transport and deep links
 
-The v3 ledger uses `GET|PUT|DELETE /api/dsh-task-board/v3`. Worktree operations use ID-only `POST /git-worktree/{list,create,status,diff,remove,commit,merge}` routes. Both surfaces are loopback-only, same-origin checked, size bounded, and reject paths and arbitrary argv. A run notification can open `dsh://run/<safe-id>`; Session navigation remains `dsh://session/<safe-id>`.
+The v3 ledger uses `GET|PUT|DELETE /api/dsh-task-board/v3`. Worktree operations use ID-only `POST /git-worktree/{list,create,status,diff,remove,commit,merge}` routes. Both surfaces are loopback-only, same-origin checked, size bounded, and reject paths and arbitrary argv. A run notification can open `dsh-community://run/<safe-id>`; Session navigation uses `dsh-community://session/<safe-id>`.
 
 ## Performance and recovery
 

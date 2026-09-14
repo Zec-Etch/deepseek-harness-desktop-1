@@ -1,9 +1,27 @@
 # Changelog
 
+## 4.0.0-rc.3
+
+- 融合公开的官方 DSH 0.1.5-rc.2 Runtime、Web UI、拆分 SDK 与官方仓库可见的 Desktop 能力边界；社区应用继续使用独立身份、数据目录、协议和更新源，并明确不是 DeepSeek 官方客户端。
+
+- 修复本地 `.tgz` 插件首次安装后误删持久来源、导致重复安装及后续 Registry 安装报 `ENOENT`；内容寻址缓存现在可重复校验和复用。
+- 插件版本声明不匹配时默认劝退，但允许用户明确选择“风险安装”；安装仍必须通过隔离 staging、Bundle、完整性、受保护依赖图及 Runtime 启动检查，失败自动回滚。
+- 梁神模式首个工具调用保留沙箱策略上下文；完全权限 Runtime 会按工具 Schema 自动移除同级或更低级别的无效提权字段，避免向会话暴露可恢复的权限参数错误。
+- 恢复 3.5 Desktop Profile 中的第三方插件清单：精确 NPM 版本自动通过 staging 事务恢复并保留启用状态，Git 来源固定旧锁文件 commit 后等待用户确认；旧 `.dsh` 始终只读。
+- 修复桌宠设置把官方 `SettingsScope.mutate(): Promise<void>` 当成结果对象而卡在保存中；保存成功后回读，失败保留草稿，并在所有终态退出保存状态。
+- 将 `liveTokenUsage` 投影状态升级到 v5；异常历史 replace 范围降级估算而不再阻断会话加载，原始 JSONL 保持不变。
+- 社区市场区分 Registry 与实验性 Git 来源；Git 插件先 staging 预检再激活，并展示网络、依赖、旧 SDK、Bundle、构建脚本和运行图等失败分类。
+- 保留 Desktop 侧 Windows 隐藏控制台适配，并将打包应用的沙箱命令回归纳入 rc.3 验收。
+- 会话侧栏新增“模型协作”入口；Agent Team 与性价比模式合并到同一拓展坞页面，bai 供应商在协作模型选择器中统一置顶。
+- 技能中心与会话技能菜单统一读取当前 DSH Home，并适配 DSH 4 富文本输入框；底部面板展开不再隐式启动终端。
+- 新增匿名会话技能漏斗指标，修复会话导入指标被白名单丢弃；聚合与失败诊断继续排除会话内容、技能名称、路径和凭据。
+- 发布说明门禁现在按 Desktop 清单精确校验预发布版本，避免 4.0 候选继续误用 3.5 文案。
+
 ## 4.0.0-rc.2
 
 - Added an explicit, fully local Desktop LAN gateway for phone access while keeping the official Runtime on the authenticated operating-system pipe. It binds one active private IPv4 address instead of `0.0.0.0`, exposes only the standalone mobile page, pair accept/heartbeat, and paired `/m/api`, and closes on disable or shutdown.
 - Added native first-enable confirmation, persistent address selection, renderer-safe Contract/SDK status, direct `/m` QR pairing, exact-interface packaged acceptance, and denial checks for full API, local-admin, and foreign-Origin requests.
+- Added privacy-bounded 4.0 telemetry for Runtime transport readiness, Agent Team enable/disable, and local LAN enable/disable/reconfiguration. Feature successes remain sampling-weighted Analytics Engine counters, failures retain one bounded diagnostic without addresses, project/session data, or raw errors, and the protected release dashboard now shows version-filtered 4.0 health and success rates.
 
 ## 3.5.0 - 2026-09-12
 

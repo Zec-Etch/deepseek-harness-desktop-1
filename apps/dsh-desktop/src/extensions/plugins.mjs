@@ -321,15 +321,20 @@ function compatibilityError(message, code, compatibility) {
 
 /**
  * Compatibility is a main-process admission policy, not renderer advice.
- * Unknown candidates require an explicit user decision; incompatible
- * candidates are never admitted, even when allowUnknown is true.
+ * Unknown and declared-incompatible candidates require separate explicit
+ * user decisions. Admission never bypasses the later Bundle, integrity, or
+ * protected Runtime graph checks performed in staging.
  */
-export function enforceCompatibilityAdmission(compatibility, { allowUnknown = false } = {}) {
+export function enforceCompatibilityAdmission(compatibility, {
+  allowUnknown = false,
+  allowIncompatible = false,
+} = {}) {
   if (typeof allowUnknown !== 'boolean') throw new TypeError('allowUnknown must be a boolean')
+  if (typeof allowIncompatible !== 'boolean') throw new TypeError('allowIncompatible must be a boolean')
   if (!['compatible', 'unknown', 'incompatible'].includes(compatibility?.status)) {
     throw new TypeError('plugin compatibility result is invalid')
   }
-  if (compatibility.status === 'incompatible') {
+  if (compatibility.status === 'incompatible' && !allowIncompatible) {
     throw compatibilityError(
       'plugin is incompatible with the current Desktop Runtime',
       'PLUGIN_INCOMPATIBLE',
@@ -622,7 +627,7 @@ export class PluginManager {
     return this.runtimeGraphValidator(profileDir)
   }
 
-  async #prepareStagedInstall(items, { operation }) {
+  async #prepareStagedInstall(items, { operation, enabledNames }) {
     if (this.stagingManager === undefined) return undefined
     const staged = await this.stagingManager.begin({
       operation,
@@ -649,7 +654,10 @@ export class PluginManager {
       const manifest = await readManifest(staged.stageDir)
       const profile = manifest.dsh?.profile ?? {}
       const bundles = new Set(profile.bundles ?? [])
-      for (const item of items) bundles.add(item.name)
+      for (const item of items) {
+        if (enabledNames === undefined || enabledNames.has(item.name)) bundles.add(item.name)
+        else bundles.delete(item.name)
+      }
       manifest.dsh = {
         ...(manifest.dsh ?? {}),
         profile: { ...profile, bundles: [...bundles] },
@@ -852,14 +860,15 @@ export class PluginManager {
     })
   }
 
-  prepare(rawSpec, { allowUnknown = false } = {}) {
+  prepare(rawSpec, { allowUnknown = false, allowIncompatible = false } = {}) {
     if (typeof allowUnknown !== 'boolean') throw new TypeError('allowUnknown must be a boolean')
+    if (typeof allowIncompatible !== 'boolean') throw new TypeError('allowIncompatible must be a boolean')
     const parsed = validatePluginSpec(rawSpec)
     return this.#enqueue(async () => {
       if (PROTECTED_PACKAGES.has(parsed.name)) throw new Error(`${parsed.name} is a built-in desktop plugin`)
       const candidate = await this.registry.fetchManifest(parsed.name, requestedVersion(parsed))
       const compatibility = await this.#assess(candidate)
-      enforceCompatibilityAdmission(compatibility, { allowUnknown })
+      enforceCompatibilityAdmission(compatibility, { allowUnknown, allowIncompatible })
       const spec = `${parsed.name}@${candidate.version}`
       await this.#runPnpm(['store', 'add', spec])
       const previous = await readInstalledManifest(this.profileDir, parsed.name)
@@ -883,12 +892,15 @@ export class PluginManager {
     })
   }
 
-  prepareMany(rawSpecs, { allowUnknown = false } = {}) {
+  prepareMany(rawSpecs, { allowUnknown = false, enabledNames } = {}) {
     return this.#enqueue(async () => {
       if (!Array.isArray(rawSpecs) || rawSpecs.length === 0) {
         throw new TypeError('plugin batch must contain at least one package spec')
       }
       if (typeof allowUnknown !== 'boolean') throw new TypeError('allowUnknown must be a boolean')
+      if (enabledNames !== undefined && (!Array.isArray(enabledNames) || enabledNames.some((name) => typeof name !== 'string'))) {
+        throw new TypeError('enabled plugin names must be an array of package names')
+      }
 
       const parsedByName = new Map()
       for (const rawSpec of rawSpecs) {
@@ -936,9 +948,19 @@ export class PluginManager {
         })
       }))
 
+      const enabledSet = enabledNames === undefined ? undefined : new Set(enabledNames)
+      if (enabledSet !== undefined) {
+        for (const name of enabledSet) {
+          if (!parsedByName.has(name)) throw new TypeError(`enabled plugin is not present in the batch: ${name}`)
+        }
+      }
+
       await this.#runPnpm(['store', 'add', ...candidates.map((candidate) => candidate.spec)])
       const previous = await readInstalledManifests(this.profileDir, candidates.map((candidate) => candidate.name))
-      const staging = await this.#prepareStagedInstall(candidates, { operation: 'plugin-batch-install' })
+      const staging = await this.#prepareStagedInstall(candidates, {
+        operation: 'plugin-batch-install',
+        enabledNames: enabledSet,
+      })
       return Object.freeze({
         items: Object.freeze(candidates),
         ...(staging === undefined ? {} : {
@@ -1348,8 +1370,11 @@ export class PluginManager {
     })
   }
 
-  prepareFullAccessExternal(descriptor) {
+  prepareFullAccessExternal(descriptor, { expectedName, enabled = true } = {}) {
     const external = assertExternalPluginDescriptor(descriptor)
+    if (typeof enabled !== 'boolean') throw new TypeError('external plugin enabled state must be a boolean')
+    const validatedExpectedName = expectedName === undefined ? undefined : validatePluginSpec(expectedName).name
+    if (validatedExpectedName !== expectedName) throw new TypeError('expected external plugin name is invalid')
     if (external.package.identity !== 'opaque' && PROTECTED_PACKAGES.has(external.package.name)) {
       throw new Error(`${external.package.name} is a built-in desktop plugin and cannot be replaced by an external source`)
     }
@@ -1373,6 +1398,9 @@ export class PluginManager {
         }
         const manifest = await readManifest(staged.stageDir)
         const name = installedExternalPackageName(beforeManifest, manifest, external)
+        if (validatedExpectedName !== undefined && name !== validatedExpectedName) {
+          throw new Error(`external plugin identity changed: expected ${validatedExpectedName}, received ${name}`)
+        }
         if (PROTECTED_PACKAGES.has(name)) {
           throw new Error(`${name} is a built-in desktop plugin and cannot be replaced by an external source`)
         }
@@ -1385,7 +1413,8 @@ export class PluginManager {
         }
         const profile = manifest.dsh?.profile ?? {}
         const bundles = new Set(profile.bundles ?? [])
-        bundles.add(name)
+        if (enabled) bundles.add(name)
+        else bundles.delete(name)
         manifest.dsh = {
           ...(manifest.dsh ?? {}),
           profile: { ...profile, bundles: [...bundles] },

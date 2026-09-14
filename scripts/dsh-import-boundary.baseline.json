@@ -3,6 +3,7 @@
   "policy": "New direct @deepseek-ai/dsh* imports are allowed only in controlled adapter/compat modules.",
   "controlledPrefixes": [
     "apps/dsh-desktop/src/runtime-provider.mjs",
+    "packages/dsh-desktop-pipe-webserver/lib/",
     "packages/dsh-desktop-compat/src/",
     "packages/dsh-desktop-repair/src/",
     "packages/dsh-web-ui-settings/src/chatgpt-auth"
@@ -322,15 +323,12 @@
     "packages/dsh-tool-describe-image/src/config-resolve.ts\u0000static-import\u0000@deepseek-ai/dsh-launch-environment": 1,
     "packages/dsh-tool-describe-image/src/index.ts\u0000static-import\u0000@deepseek-ai/dsh-settings": 1,
     "packages/dsh-tool-describe-image/src/index.ts\u0000static-import\u0000@deepseek-ai/dsh-tools": 2,
-    "packages/dsh-tool-describe-image/src/model-capability.ts\u0000static-import\u0000@deepseek-ai/dsh-agent": 1,
-    "packages/dsh-tool-describe-image/src/model-capability.ts\u0000static-import\u0000@deepseek-ai/dsh-llm": 1,
     "packages/dsh-tool-describe-image/src/vision-client.ts\u0000static-import\u0000@deepseek-ai/dsh-attachment": 1,
     "packages/dsh-tool-describe-image/tests/attach-routes.spec.ts\u0000static-import\u0000@deepseek-ai/dsh-attachment": 2,
     "packages/dsh-tool-describe-image/tests/loader-composition.spec.ts\u0000static-import\u0000@deepseek-ai/dsh-agent": 1,
     "packages/dsh-tool-describe-image/tests/loader-composition.spec.ts\u0000static-import\u0000@deepseek-ai/dsh-llm": 1,
     "packages/dsh-tool-describe-image/tests/loader-composition.spec.ts\u0000static-import\u0000@deepseek-ai/dsh-system-prompt": 1,
     "packages/dsh-tool-describe-image/tests/loader-composition.spec.ts\u0000static-import\u0000@deepseek-ai/dsh-tools": 1,
-    "packages/dsh-tool-describe-image/tests/send-hook-sdk.spec.ts\u0000static-import\u0000@deepseek-ai/dsh-client-ui-conversation/client": 1,
     "packages/dsh-tool-describe-image/tests/settings.spec.ts\u0000static-import\u0000@deepseek-ai/dsh-llm": 1,
     "packages/dsh-tool-describe-image/tests/settings.spec.ts\u0000static-import\u0000@deepseek-ai/dsh-settings": 2,
     "packages/dsh-tool-describe-image/tests/settings.spec.ts\u0000static-import\u0000@deepseek-ai/dsh-system-prompt": 1,
@@ -405,7 +403,7 @@
     "packages/skins/trading/src/client/index.ts\u0000static-import\u0000@deepseek-ai/dsh-client-connection/client": 1,
     "packages/skins/trading/src/client/quotes.ts\u0000static-import\u0000@deepseek-ai/dsh-client-connection/client": 1,
     "scripts/dsh-import-boundary.test.mjs\u0000static-import\u0000@deepseek-ai/dsh-session": 1,
-    "scripts/dsh-import-boundary.test.mjs\u0000static-import\u0000@deepseek-ai/dsh-settings": 1,
+    "scripts/dsh-import-boundary.test.mjs\u0000static-import\u0000@deepseek-ai/dsh-settings": 2,
     "shared/client/settings/settings-form.ts\u0000static-import\u0000@deepseek-ai/dsh-client-store": 1,
     "shared/client/settings/settings-form.ts\u0000static-import\u0000@deepseek-ai/dsh-client-ui-settings/client": 1,
     "shared/tests/settings-form.spec.ts\u0000static-import\u0000@deepseek-ai/dsh-client-ui-settings/client": 1

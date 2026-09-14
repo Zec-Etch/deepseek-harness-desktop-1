@@ -10,6 +10,7 @@ import { createPortal } from 'react-dom'
 import {
   dismissDockNudge,
   getDockEntryState,
+  hasCapability,
   openDesktopSurface,
   type DockDismissReason,
 } from '@linxin666/dsh-desktop-client'
@@ -19,6 +20,44 @@ import css from './web-ui-settings.module.css'
 export type DesktopExtensionDockEntryProps = {
   wide: boolean
   t: (key: WebUIPluginsKey, params?: Record<string, unknown>) => string
+}
+
+/** Desktop-only shortcut that deep-links straight to the collaboration page. */
+export function DesktopCollaborationEntry({ wide, t }: DesktopExtensionDockEntryProps) {
+  const [available, setAvailable] = useState(false)
+  const [opening, setOpening] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    void hasCapability('extensions.open').then(value => {
+      if (active) setAvailable(value)
+    }).catch(() => {})
+    return () => { active = false }
+  }, [])
+
+  const openCollaboration = useCallback(async () => {
+    if (opening) return
+    setOpening(true)
+    setFailed(false)
+    try {
+      if (!await openDesktopSurface('extensions', { setting: 'value-mode' })) setFailed(true)
+    } catch {
+      setFailed(true)
+    } finally {
+      setOpening(false)
+    }
+  }, [opening])
+
+  if (!available) return null
+  const label = t('collaborationLabel' satisfies WebUIPluginsKey)
+  return <div className={css.dockEntry} data-wide={wide ? 'wide' : 'rail'}>
+    <button type="button" className={css.dockTrigger} aria-label={label} title={label} disabled={opening} onClick={() => { void openCollaboration() }}>
+      <CollaborationIcon wide={wide} />
+      {wide && <span className={css.dockTriggerLabel}>{label}</span>}
+    </button>
+    {failed && <span className={css.dockError} role="alert">{t('collaborationOpenFailed' satisfies WebUIPluginsKey)}</span>}
+  </div>
 }
 
 type DockNudgePosition = { left: number; bottom: number; arrowLeft: number }
@@ -191,5 +230,14 @@ function DockIcon({ wide }: { wide?: boolean }) {
       <path d="M11.25 9v4.5M9 11.25h4.5" />
     </svg>
   )
+}
+
+function CollaborationIcon({ wide }: { wide?: boolean }) {
+  const size = wide ? 16 : 18
+  return <svg viewBox="0 0 16 16" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="5" cy="5" r="2" />
+    <circle cx="11" cy="5" r="2" />
+    <path d="M1.8 12.8c.4-2 1.5-3 3.2-3s2.8 1 3.2 3M7.8 12.8c.4-2 1.5-3 3.2-3s2.8 1 3.2 3" />
+  </svg>
 }
 

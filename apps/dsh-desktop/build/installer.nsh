@@ -1,5 +1,8 @@
 !define DSH_UPGRADE_HELPER_DIR "$TEMP\dsh-desktop-installer-support"
 !define DSH_UPGRADE_HELPER_SCRIPT "${DSH_UPGRADE_HELPER_DIR}\installer-upgrade-transaction.ps1"
+!define /ifndef DSH_LEGACY_APP_GUID "6d90015c-c2fd-5312-844b-e2226e35e28f"
+!define /ifndef DSH_LEGACY_INSTALL_REGISTRY_KEY "Software\${DSH_LEGACY_APP_GUID}"
+!define /ifndef DSH_LEGACY_UNINSTALL_REGISTRY_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${DSH_LEGACY_APP_GUID}"
 
 !ifndef BUILD_UNINSTALLER
 Var DshInstallerLogPath
@@ -7,6 +10,8 @@ Var DshInstallerStage
 Var DshInstallerCode
 Var DshInstallerDetail
 Var DshInstallerLogAvailable
+Var DshLegacyInstallDetected
+Var DshLegacyInstallDirectory
 
 ; Local-only diagnostics. No credentials/sessions are read or uploaded.
 Function WriteInstallerDiagnostic
@@ -44,6 +49,32 @@ Function RemoveUpgradeTransactionScript
   Delete "${DSH_UPGRADE_HELPER_SCRIPT}"
   RMDir "${DSH_UPGRADE_HELPER_DIR}"
 FunctionEnd
+
+Function RetireLegacyInstallerIdentity
+  StrCmp $DshLegacyInstallDetected "1" 0 legacy_identity_retire_done
+  DeleteRegKey HKCU "${DSH_LEGACY_UNINSTALL_REGISTRY_KEY}"
+  DeleteRegKey HKCU "${DSH_LEGACY_INSTALL_REGISTRY_KEY}"
+legacy_identity_retire_done:
+FunctionEnd
+
+; Community Desktop 3.x used an appId-derived GUID that could also be selected by
+; the official Desktop release. Adopt that installation only when our private
+; shutdown marker proves ownership, then retire only its registry identities after
+; the new community-owned transaction commits.
+!macro customInit
+  StrCpy $DshLegacyInstallDetected "0"
+  StrCpy $DshLegacyInstallDirectory ""
+  ReadRegStr $DshLegacyInstallDirectory HKCU "${DSH_LEGACY_INSTALL_REGISTRY_KEY}" InstallLocation
+  StrCmp $DshLegacyInstallDirectory "" legacy_identity_done
+  IfFileExists "$DshLegacyInstallDirectory\resources\update-shutdown-v1" 0 legacy_identity_done
+  IfFileExists "$DshLegacyInstallDirectory\${APP_EXECUTABLE_FILENAME}" 0 legacy_identity_done
+  StrCpy $DshLegacyInstallDetected "1"
+  StrCpy $INSTDIR $DshLegacyInstallDirectory
+  StrCpy $perUserInstallationFolder $DshLegacyInstallDirectory
+  StrCpy $hasPerUserInstallation "1"
+  StrCpy $hasPerMachineInstallation "0"
+legacy_identity_done:
+!macroend
 !endif
 
 !include "${BUILD_RESOURCES_DIR}\installer-progress.nsh"
@@ -160,6 +191,10 @@ upgrade_commit_rolled_back:
   MessageBox MB_ICONSTOP|MB_OK "升级事务提交失败（错误码 $2），上一版本已恢复。请将错误码反馈给开发者，确认原因后再重试。$\r$\n$\r$\nThe upgrade commit failed (code $2), and the previous version was restored. Report this code to the maintainer before retrying." /SD IDOK
   Abort
 upgrade_commit_done:
+  StrCmp $DshLegacyInstallDetected "1" 0 legacy_identity_retired
+  Call RetireLegacyInstallerIdentity
+  !insertmacro DshLog "legacy-identity" "0" "Retired the owned 3.x installer registry identity"
+legacy_identity_retired:
   !insertmacro DshLog "completed" "0" "Installation committed"
   !insertmacro DshStopProgress
   SendMessage $DshProgressBar 0x401 0 0x00640000

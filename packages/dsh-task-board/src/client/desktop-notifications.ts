@@ -41,6 +41,6 @@ export function notifyDesktopExecutionSettled(
     body: failed
       ? `${event.title}: ${event.error ?? 'The agent turn failed.'}`
       : event.title,
-    deepLink: `dsh://run/${event.executionId}`,
+    deepLink: `dsh-community://run/${event.executionId}`,
   })).then(() => undefined)
 }

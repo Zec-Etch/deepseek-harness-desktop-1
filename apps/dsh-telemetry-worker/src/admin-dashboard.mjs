@@ -551,6 +551,24 @@ const DASHBOARD_PAGE = String.raw`<!doctype html>
     }
     .activity-ratios span:last-child { border-right: 0; }
     .activity-ratios strong { color: var(--ink); }
+    .release-health {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin: 16px 0 10px;
+      border-top: 1px solid var(--ink);
+      border-left: 1px solid var(--ink);
+    }
+    .release-health article {
+      min-width: 0;
+      padding: 16px;
+      border-right: 1px solid var(--ink);
+      border-bottom: 1px solid var(--ink);
+      background: rgba(251, 249, 242, .78);
+    }
+    .release-health small, .release-health span { display: block; }
+    .release-health small { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .06em; }
+    .release-health strong { display: block; margin: 9px 0 7px; font: 800 32px/1 "Bahnschrift Condensed", sans-serif; }
+    .release-health span { color: var(--muted); font-size: 11px; line-height: 1.55; }
     .grid {
       display: grid;
       grid-template-columns: minmax(0, 1.6fr) minmax(300px, .8fr);
@@ -664,6 +682,7 @@ const DASHBOARD_PAGE = String.raw`<!doctype html>
       .range button { flex: 1; min-width: 0; }
       .logout { width: 100%; }
       .notice { grid-template-columns: 1fr; }
+      .release-health { grid-template-columns: 1fr; }
       .foot { flex-direction: column; }
     }
   </style>
@@ -727,6 +746,11 @@ const DASHBOARD_PAGE = String.raw`<!doctype html>
       <div class="panel-body">
         <p id="release-coverage" role="status">正在读取发布统计…</p>
         <p>启动实例：<strong id="release-active">--</strong> · 启动成功率：<strong id="release-startup">--</strong> <span id="release-denominator"></span></p>
+        <div class="release-health" aria-label="4.0 功能健康">
+          <article><small>系统管道启动就绪</small><strong id="release-pipe-ready">--</strong><span id="release-pipe-context">等待 4.0 客户端数据</span></article>
+          <article><small>Agent Team 开启成功</small><strong id="release-agent-team-enabled">--</strong><span id="release-agent-team-context">等待 4.0 客户端数据</span></article>
+          <article><small>局域网访问开启成功</small><strong id="release-local-lan-enabled">--</strong><span id="release-local-lan-context">等待 4.0 客户端数据</span></article>
+        </div>
         <p style="color:var(--muted);font-size:12px">次数包含重复操作，高频行为使用聚合统计。安装实例仅在保留去重数据的指标中展示，其他指标以 -- 表示。各阶段为独立观察，不代表有序转化。普通文件添加不代表消息已发送或任务已完成。下方旧报表的周期独立控制。</p>
       </div>
       <div class="table-wrap"><table><thead><tr><th>功能 / 事件</th><th>结果</th><th>细分</th><th>实例数</th><th>次数</th></tr></thead><tbody id="release-rows"></tbody></table></div>
@@ -841,9 +865,10 @@ const DASHBOARD_SCRIPT = String.raw`'use strict'
 let releaseData
 let releaseRequest = 0
 const releaseLabels = {
-  feature_project: '项目操作', feature_attachment: '普通文件添加', feature_dock_setting: '拓展坞设置',
+  feature_project: '项目操作', feature_attachment: '普通文件添加', feature_skill: '会话技能', feature_dock_setting: '拓展坞设置', feature_agent_team: 'Agent Team', feature_local_lan: '局域网访问',
   started: '开始', succeeded: '成功', failed: '失败', cancelled: '取消', opened: '已打开', ready: '就绪',
   create: '新建并连接', connect: '连接已有项目', file: '普通文件', relay: '供应商接入',
+  enable: '开启', disable: '关闭', reconfigure: '重新配置', pipe: '系统管道', http: '本机 HTTP', none: '旧版未标记',
   'value-mode': '性价比模式', 'personal-prompt': '个性化 Prompt', memory: '记忆', 'particle-theme': '粒子主题', 'describe-image': '图像理解',
 }
 function releaseLabel(value) { return releaseLabels[value] || eventLabels[value] || valueModeEventLabels[value] || value }
@@ -855,6 +880,9 @@ async function loadRelease() {
   element('release-export').disabled = true
   element('release-rows').replaceChildren()
   setText('release-active', '--'); setText('release-startup', '--'); setText('release-denominator', '')
+  setText('release-pipe-ready', '--'); setText('release-pipe-context', '正在读取所选版本')
+  setText('release-agent-team-enabled', '--'); setText('release-agent-team-context', '正在读取所选版本')
+  setText('release-local-lan-enabled', '--'); setText('release-local-lan-context', '正在读取所选版本')
   setText('release-coverage', '正在读取发布统计…')
   try {
     const response = await fetch('/admin/api/release?' + new URLSearchParams({ days, version }), { credentials: 'same-origin' })
@@ -875,6 +903,15 @@ async function loadRelease() {
     setText('release-active', numberFormat.format(data.activeInstances))
     setText('release-startup', data.startup.successRate === null ? '暂无样本' : (data.startup.successRate * 100).toFixed(1) + '%')
     setText('release-denominator', '（成功 ' + data.startup.ready + ' / 已上报结果 ' + data.startup.denominator + '）')
+    const transport = data.features.runtimeTransport
+    const agentEnable = data.features.agentTeam.enable
+    const lanEnable = data.features.localLan.enable
+    setText('release-pipe-ready', numberFormat.format(transport.pipeReady))
+    setText('release-pipe-context', '本机 HTTP ' + numberFormat.format(transport.httpReady) + ' · 旧版未标记 ' + numberFormat.format(transport.legacyReady))
+    setText('release-agent-team-enabled', numberFormat.format(agentEnable.succeeded))
+    setText('release-agent-team-context', '失败 ' + numberFormat.format(agentEnable.failed) + ' · 成功率 ' + (agentEnable.successRate === null ? '--' : (agentEnable.successRate * 100).toFixed(1) + '%'))
+    setText('release-local-lan-enabled', numberFormat.format(lanEnable.succeeded))
+    setText('release-local-lan-context', '失败 ' + numberFormat.format(lanEnable.failed) + ' · 取消 ' + numberFormat.format(lanEnable.cancelled) + ' · 成功率 ' + (lanEnable.successRate === null ? '--' : (lanEnable.successRate * 100).toFixed(1) + '%'))
     const body = element('release-rows')
     for (const row of data.events) {
       const tr = document.createElement('tr')
@@ -924,6 +961,8 @@ const surfaceLabels = Object.freeze({
 const eventLabels = Object.freeze({
   app_launch: '应用启动',
   runtime_start_result: '运行时启动结果',
+  feature_agent_team: 'Agent Team',
+  feature_local_lan: '局域网访问',
   runtime_recovery_action: '运行时恢复操作',
   surface_opened: '界面打开',
   update_result: '更新结果',

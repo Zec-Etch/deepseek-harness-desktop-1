@@ -6,12 +6,14 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 const desktop = vi.hoisted(() => ({
   dismissDockNudge: vi.fn(),
   getDockEntryState: vi.fn(),
+  hasCapability: vi.fn(),
   openDesktopSurface: vi.fn(),
 }))
 
 vi.mock('@linxin666/dsh-desktop-client', () => desktop)
 
 import {
+  DesktopCollaborationEntry,
   DesktopExtensionDockEntry,
   calculateDockNudgePosition,
 } from '../src/client/desktop-extension-dock.tsx'
@@ -21,6 +23,7 @@ const t = ((key: keyof typeof zh) => zh[key]) as never
 
 beforeEach(() => {
   desktop.getDockEntryState.mockResolvedValue({ available: true, showNudge: true })
+  desktop.hasCapability.mockResolvedValue(true)
   desktop.dismissDockNudge.mockResolvedValue(true)
   desktop.openDesktopSurface.mockResolvedValue(true)
 })
@@ -31,6 +34,25 @@ afterEach(() => {
 })
 
 describe('Desktop Extension Dock entry', () => {
+  it('shows a collaboration shortcut only on Desktop and deep-links to the unified page', async () => {
+    render(<DesktopCollaborationEntry wide={true} t={t} />)
+    const trigger = await screen.findByRole('button', { name: '模型协作' })
+    expect(trigger.textContent).toContain('模型协作')
+    fireEvent.click(trigger)
+    await waitFor(() => expect(desktop.openDesktopSurface).toHaveBeenCalledWith('extensions', { setting: 'value-mode' }))
+
+    cleanup()
+    desktop.hasCapability.mockResolvedValueOnce(false)
+    render(<DesktopCollaborationEntry wide={false} t={t} />)
+    await waitFor(() => expect(screen.queryByRole('button', { name: '模型协作' })).toBeNull())
+  })
+
+  it('keeps the collaboration shortcut accessible when the sidebar is collapsed', async () => {
+    render(<DesktopCollaborationEntry wide={false} t={t} />)
+    const trigger = await screen.findByRole('button', { name: '模型协作' })
+    expect(trigger.getAttribute('title')).toBe('模型协作')
+    expect(trigger.textContent).toBe('')
+  })
   it('stays absent on ordinary Web hosts', async () => {
     desktop.getDockEntryState.mockResolvedValue({ available: false, reason: 'unavailable' })
     render(<DesktopExtensionDockEntry wide={true} t={t} />)

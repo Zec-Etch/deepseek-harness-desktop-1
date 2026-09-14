@@ -47,6 +47,14 @@ test('an incompatible update keeps the installed version available', () => {
   assert.match(state.attention, /当前版本仍可继续使用/u)
 })
 
+test('an enabled declared-incompatible plugin is presented as an explicit risk instead of a failure', () => {
+  const state = createPluginUIState(plugin({ compatibility: { status: 'incompatible' } }))
+  assert.equal(state.status, 'risk-running')
+  assert.equal(state.statusLabel, '风险运行')
+  assert.match(state.attention, /当前仍保持启用/u)
+  assert.equal(state.health, 'healthy')
+})
+
 test('recovery incidents are joined in main-process UI state projection', () => {
   const [state] = createPluginUIStates([plugin()], {
     incidents: [{ pluginName: '@community/example', summary: 'failed' }],

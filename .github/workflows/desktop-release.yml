@@ -66,9 +66,9 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @deepseek-ai/dsh-desktop exec playwright install chromium
+      - run: pnpm --filter @linxin666/dsh-desktop exec playwright install chromium
       - run: pnpm verify
-      - run: pnpm --filter @deepseek-ai/dsh-desktop test:runtime-provider:e2e
+      - run: pnpm --filter @linxin666/dsh-desktop test:runtime-provider:e2e
       - name: Configure official anonymous product metrics
         shell: pwsh
         env:
@@ -97,7 +97,7 @@ jobs:
           } | ConvertTo-Json -Compress
           Set-Content -LiteralPath 'apps/dsh-desktop/build/telemetry-config.json' -Value $configuration -Encoding utf8NoBOM
       - name: Package unsigned direct-start candidate
-        run: pnpm --filter @deepseek-ai/dsh-desktop pack:dir
+        run: pnpm --filter @linxin666/dsh-desktop pack:dir
         env:
           DSH_DESKTOP_UPDATE_CHANNEL: ${{ steps.release.outputs.channel }}
           REQUIRE_SIGNING: 'false'
@@ -106,19 +106,19 @@ jobs:
         shell: pwsh
         run: |
           $env:DSH_DESKTOP_E2E_EXECUTABLE = (Resolve-Path 'apps/dsh-desktop/dist/win-unpacked/DeepSeek Harness Desktop.exe').Path
-          pnpm --filter @deepseek-ai/dsh-desktop test:direct-start-matrix:e2e
+          pnpm --filter @linxin666/dsh-desktop test:direct-start-matrix:e2e
       - name: Verify zero-state relaunch before signing
         shell: pwsh
         run: |
           $env:DSH_DESKTOP_E2E_EXECUTABLE = (Resolve-Path 'apps/dsh-desktop/dist/win-unpacked/DeepSeek Harness Desktop.exe').Path
-          pnpm --filter @deepseek-ai/dsh-desktop test:fresh-relaunch:e2e
+          pnpm --filter @linxin666/dsh-desktop test:fresh-relaunch:e2e
       - name: Verify orphaned managed link recovery before signing
         shell: pwsh
         run: |
           $env:DSH_DESKTOP_E2E_EXECUTABLE = (Resolve-Path 'apps/dsh-desktop/dist/win-unpacked/DeepSeek Harness Desktop.exe').Path
           node apps/dsh-desktop/scripts/verify-packaged-orphaned-managed-link.mjs
       - name: Package the selected release channel
-        run: pnpm --filter @deepseek-ai/dsh-desktop pack:win --config.publish.channel=${{ steps.release.outputs.updater_channel }}
+        run: pnpm --filter @linxin666/dsh-desktop pack:win --config.publish.channel=${{ steps.release.outputs.updater_channel }}
         env:
           DSH_DESKTOP_UPDATE_CHANNEL: ${{ steps.release.outputs.channel }}
           REQUIRE_SIGNING: ${{ steps.signing.outputs.required }}
@@ -133,33 +133,33 @@ jobs:
           $packagedExecutable = (Resolve-Path 'apps/dsh-desktop/dist/win-unpacked/DeepSeek Harness Desktop.exe').Path
           "DSH_DESKTOP_E2E_EXECUTABLE=$packagedExecutable" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Verify packaged directory picker
-        run: pnpm --filter @deepseek-ai/dsh-desktop test:directory-picker:e2e
+        run: pnpm --filter @linxin666/dsh-desktop test:directory-picker:e2e
       - name: Verify packaged embedded terminal
-        run: pnpm --filter @deepseek-ai/dsh-desktop test:terminal:e2e
+        run: pnpm --filter @linxin666/dsh-desktop test:terminal:e2e
       - name: Verify packaged window chrome
-        run: pnpm --filter @deepseek-ai/dsh-desktop test:window-chrome:e2e
+        run: pnpm --filter @linxin666/dsh-desktop test:window-chrome:e2e
       - name: Verify cleared profile rebuild
-        run: pnpm --filter @deepseek-ai/dsh-desktop test:profile-reset:e2e
+        run: pnpm --filter @linxin666/dsh-desktop test:profile-reset:e2e
       - name: Verify packaged update shutdown receipt
-        run: pnpm --filter @deepseek-ai/dsh-desktop test:update-shutdown:e2e
+        run: pnpm --filter @linxin666/dsh-desktop test:update-shutdown:e2e
       - name: Verify packaged desktop full regression E2E gate
         shell: pwsh
         run: |
           $env:DSH_DESKTOP_E2E_EXECUTABLE = (Resolve-Path 'apps/dsh-desktop/dist/win-unpacked/DeepSeek Harness Desktop.exe').Path
           # Maintainer accepted only DSH-340-DPI-01 for 3.4.0. The test still
           # runs; the runner accepts that exact failure, never future versions.
-          pnpm --filter @deepseek-ai/dsh-desktop test:regression:e2e:full --accept-known-dpi-position-3.4.0
-      - run: pnpm --filter @deepseek-ai/dsh-desktop pack:verify
-      - run: pnpm --filter @deepseek-ai/dsh-desktop pack:smoke
+          pnpm --filter @linxin666/dsh-desktop test:regression:e2e:full --accept-known-dpi-position-3.4.0
+      - run: pnpm --filter @linxin666/dsh-desktop pack:verify
+      - run: pnpm --filter @linxin666/dsh-desktop pack:smoke
       - name: Verify Windows Authenticode signatures
-        run: pnpm --filter @deepseek-ai/dsh-desktop release:signatures:verify
+        run: pnpm --filter @linxin666/dsh-desktop release:signatures:verify
         env:
           REQUIRE_SIGNING: ${{ steps.signing.outputs.required }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           CSC_NAME: ${{ vars.CSC_NAME }}
       - name: Verify release manifest
-        run: pnpm --filter @deepseek-ai/dsh-desktop release:manifest:verify
+        run: pnpm --filter @linxin666/dsh-desktop release:manifest:verify
         env:
           REQUIRE_SIGNING: ${{ steps.signing.outputs.required }}
           CSC_LINK: ${{ secrets.CSC_LINK }}

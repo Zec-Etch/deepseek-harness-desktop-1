@@ -27,7 +27,7 @@
   box-sizing: border-box;
   width: 100%;
   height: 100dvh;
-  padding: 24px 26px 28px;
+  padding: 17px 26px 24px;
   color: var(--dsw-alias-label-primary, #252830);
   background: var(--dsw-alias-bg-layer-1, #fff);
   font: 14px/1.5 system-ui, sans-serif;
@@ -49,8 +49,29 @@
 .content[hidden] { display: none; }
 .content > * { list-style: none; min-width: 0; }
 .content input, .content textarea, .content select { max-width: 100%; box-sizing: border-box; }
-.breadcrumb { margin: 0 auto 16px; max-width: 740px; color: var(--dsw-alias-label-tertiary); font-size: 12px; }
+.breadcrumb { margin: 0 auto 9px; max-width: 740px; color: var(--dsw-alias-label-tertiary); font-size: 12px; }
 .heading { max-width: 740px; margin: 0 auto 16px; font-size: 21px; font-weight: 650; letter-spacing: -.3px; }
+.collaborationIntro { max-width: 740px; margin: 0 auto 10px; }
+.collaborationIntro .heading { margin: 0 0 5px; }
+.collaborationIntro p { margin: 0; color: var(--dsw-alias-label-tertiary); font-size: 13px; }
+.collaborationCard { margin: 0 0 10px; padding: 10px 13px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 10px; background: var(--dsw-alias-bg-layer-3); }
+.collaborationCardHeader { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.collaborationCardHeader h2 { margin: 0; font-size: 16px; }
+.collaborationCardHeader p { margin: 3px 0 0; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 1.4; }
+.collaborationTitleRow { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.collaborationTitleRow span { padding: 2px 7px; border-radius: 5px; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); font-size: 11px; }
+.collaborationControl { display: flex; flex: none; align-items: center; gap: 9px; }
+.switch { flex: none; width: 38px; height: 22px; padding: 2px; border: 0; border-radius: 999px; background: var(--dsw-alias-label-dimmed); cursor: pointer; }
+.switch span { display: block; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform 120ms ease; }
+.switch[aria-checked='true'] { background: var(--dsw-alias-brand-primary); }
+.switch[aria-checked='true'] span { transform: translateX(16px); }
+.switch:disabled { cursor: default; opacity: .55; }
+.switch:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; }
+.collaborationStatus { color: var(--dsw-alias-label-primary); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.collaborationError { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; padding: 8px 10px; border-radius: 7px; color: #b42318; background: color-mix(in srgb, #d92d20 8%, transparent); font-size: 12px; }
+.collaborationError button { border: 1px solid currentColor; border-radius: 6px; color: inherit; background: transparent; cursor: pointer; }
+.collaborationAdvice { display: flex; gap: 10px; margin-top: 16px; padding: 12px 14px; border-radius: 10px; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); font-size: 12px; }
+.collaborationAdvice strong { flex: none; color: var(--dsw-alias-label-primary); }
 .tabs { display: flex; gap: 4px; max-width: 740px; margin: 0 auto 22px; padding: 4px; box-sizing: border-box; border-radius: 10px; background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l2); }
 .tabs button { flex: 1; padding: 7px 12px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 13px; cursor: pointer; }
 .tabs button[aria-selected='true'] { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); border-color: var(--dsw-alias-border-l2); font-weight: 600; box-shadow: 0 1px 2px #00000008; }
@@ -61,4 +82,8 @@
 .content button, .content input, .content select, .content textarea { transition-duration: 120ms; }
 .content :global([data-dock-save-bar]) { display: flex; flex-wrap: wrap; gap: 8px; }
 .page :global([data-dock-save-bar]) { position: sticky; bottom: -28px; z-index: 2; margin-top: 16px; padding: 12px 0; background: var(--dsw-alias-bg-layer-1); border-top: 1px solid var(--dsw-alias-border-l2); }
-@media (max-width: 540px) { .page { padding: 12px; } }
+@media (max-width: 540px) {
+  .page { padding: 12px; }
+  .collaborationCardHeader { align-items: flex-start; }
+  .collaborationControl { flex-direction: column-reverse; align-items: flex-end; }
+}

@@ -6,9 +6,9 @@ import test from 'node:test'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-test('packaging registers the bounded dsh protocol and .dshpreset association', async () => {
+test('packaging registers the bounded community protocol and .dshpreset association', async () => {
   const config = await readFile(join(root, 'electron-builder.yml'), 'utf8')
-  assert.match(config, /protocols:[\s\S]*schemes:[\s\S]*- dsh/u)
+  assert.match(config, /protocols:[\s\S]*schemes:[\s\S]*- dsh-community/u)
   assert.match(config, /fileAssociations:[\s\S]*ext: dshpreset/u)
   assert.match(config, /name: DeepSeek Harness Desktop Preset/u)
 })

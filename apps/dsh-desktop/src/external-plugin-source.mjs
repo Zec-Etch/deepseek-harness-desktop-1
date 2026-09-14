@@ -923,21 +923,26 @@ export async function stageExternalPluginSource(descriptor, { stagingDirectory }
   const stagedPath = join(root, original.sourceType === 'tarball' ? `${digest}.tgz` : digest)
   const sourcePath = original.canonicalPath
   await mkdir(root, { recursive: true, mode: 0o700 })
+  let created = false
   try {
-    // Never merge into a pre-existing staging target. A Free Mode session has
-    // a private root, so a collision indicates unexpected recovery state.
+    let existing = false
     await lstat(stagedPath).then(
-      () => { throw sourceError('external-plugin-source-staging-exists', 'external plugin staging target already exists') },
+      () => { existing = true },
       (error) => {
         if (error?.code !== 'ENOENT') throw error
       },
     )
-    if (original.sourceType === 'directory') {
-      await copyPluginEntry(sourcePath, stagedPath)
-    } else if (original.sourceType === 'tarball') {
-      await copyFile(sourcePath, stagedPath, 0)
-    } else {
-      throw sourceError('external-plugin-source-staging-unsupported', 'external plugin source type cannot be staged')
+    if (!existing) {
+      // Copying a directory can create a partial target before rejecting a
+      // linked entry, so cleanup ownership begins before the first write.
+      created = true
+      if (original.sourceType === 'directory') {
+        await copyPluginEntry(sourcePath, stagedPath)
+      } else if (original.sourceType === 'tarball') {
+        await copyFile(sourcePath, stagedPath, 0)
+      } else {
+        throw sourceError('external-plugin-source-staging-unsupported', 'external plugin source type cannot be staged')
+      }
     }
 
     const staged = await new ExternalPluginSourceResolver({ baseDir: root }).resolve(stagedPath)
@@ -946,18 +951,23 @@ export async function stageExternalPluginSource(descriptor, { stagingDirectory }
       || staged.contentFingerprint !== original.contentFingerprint
       || staged.package.name !== original.package.name
     ) {
-      throw sourceError('external-plugin-source-staging-mismatch', 'external plugin source changed while staging')
+      throw sourceError(
+        existing ? 'external-plugin-source-staging-collision' : 'external-plugin-source-staging-mismatch',
+        existing ? 'external plugin source cache does not match the selected content' : 'external plugin source changed while staging',
+      )
     }
-    // Retain the original source/candidate identity for the permission store,
-    // but make pnpm consume the verified staged copy. The renderer never sees
-    // either install spec or canonical path.
+    // This content-addressed target can already exist after a successful local
+    // installation. pnpm persists its file: address in the live profile, so an
+    // exact cached copy must be reusable by repeat and later registry installs.
+    // Retain the original source/candidate identity for the permission store;
+    // the renderer never sees either install spec or canonical path.
     return assertExternalPluginDescriptor(Object.freeze({
       ...original,
       installSpec: staged.installSpec,
       loader: Object.freeze({ ...original.loader, installSpec: staged.installSpec }),
     }))
   } catch (error) {
-    await rm(stagedPath, { recursive: true, force: true }).catch(() => {})
+    if (created) await rm(stagedPath, { recursive: true, force: true }).catch(() => {})
     throw error
   }
 }

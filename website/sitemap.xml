@@ -3,18 +3,18 @@
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://ningbainb.github.io/deepseek-harness-desktop/</loc>
-    <lastmod>2026-09-09</lastmod>
+    <lastmod>2026-09-15</lastmod>
     <image:image>
-      <image:loc>https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-extension-dock.webp</image:loc>
-      <image:title>DeepSeek Harness Desktop 3.5.0 拓展坞插件与设置界面</image:title>
+      <image:loc>https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-4.0.0-collaboration.webp</image:loc>
+      <image:title>DeepSeek Harness Desktop 4.0 模型协作与 Agent Team</image:title>
     </image:image>
     <image:image>
-      <image:loc>https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-3.3.0-memory.webp</image:loc>
-      <image:title>DeepSeek Harness Desktop 3.3.0 记忆设置</image:title>
+      <image:loc>https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-4.0.0-skills.webp</image:loc>
+      <image:title>DeepSeek Harness Desktop 4.0 会话 Skills 与技能中心</image:title>
     </image:image>
     <image:image>
-      <image:loc>https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-3.3.0-workspace.webp</image:loc>
-      <image:title>DeepSeek Harness Desktop 3.3.0 主工作区与 AI 编程入口</image:title>
+      <image:loc>https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-4.0.0-bai-models.webp</image:loc>
+      <image:title>DeepSeek Harness Desktop 4.0 bai 模型接入</image:title>
     </image:image>
     <image:image>
       <image:loc>https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-3.2.0-value-mode-setup.webp</image:loc>
@@ -31,6 +31,6 @@
   </url>
   <url>
     <loc>https://ningbainb.github.io/deepseek-harness-desktop/privacy.html</loc>
-    <lastmod>2026-09-09</lastmod>
+    <lastmod>2026-09-15</lastmod>
   </url>
 </urlset>

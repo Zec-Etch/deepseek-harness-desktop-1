@@ -102,6 +102,36 @@ test('PluginManager resolves offline in staging and atomically activates after v
   }
 })
 
+test('risk admission bypasses only the declared version mismatch and keeps the staged Runtime graph gate', async () => {
+  const name = '@community/risk-admitted'
+  const packageManifest = {
+    ...candidate(name, '2.0.0'),
+    dsh: {
+      bundle: { patch: './cordis.patch.yml' },
+      compatibility: { desktop: '>=99.0.0' },
+    },
+  }
+  let value
+  try {
+    value = await fixture({
+      registry: { fetchManifest: async () => packageManifest },
+      runner: async ({ args, profileDir }) => {
+        if (args[0] === 'add') await materializePackage(profileDir, packageManifest)
+      },
+      runtimeGraphValidator: async () => { throw new Error('protected Runtime graph conflict') },
+    })
+    const original = await readFile(join(value.profileDir, 'package.json'), 'utf8')
+    await assert.rejects(
+      value.manager.prepare(`${name}@2.0.0`, { allowIncompatible: true }),
+      /protected Runtime graph conflict/u,
+    )
+    assert.equal(await readFile(join(value.profileDir, 'package.json'), 'utf8'), original)
+    assert.equal((await value.stagingManager.list()).length, 0)
+  } finally {
+    if (value) await rm(value.root, { recursive: true, force: true })
+  }
+})
+
 test('a failed staged batch leaves the live profile byte-for-byte unchanged', async () => {
   const first = candidate('@community/first', '1.0.0', 'sha512-Zmlyc3Q=')
   const second = candidate('@community/second', '1.0.0', 'sha512-c2Vjb25k')
@@ -124,6 +154,33 @@ test('a failed staged batch leaves the live profile byte-for-byte unchanged', as
     )
     assert.equal(await readFile(join(value.profileDir, 'package.json'), 'utf8'), original)
     assert.equal((await value.stagingManager.list()).length, 0)
+  } finally {
+    if (value) await rm(value.root, { recursive: true, force: true })
+  }
+})
+
+test('legacy batch staging preserves enabled and disabled plugin state', async () => {
+  const enabled = candidate('@community/enabled', '1.0.0', 'sha512-ZW5hYmxlZA==')
+  const disabled = candidate('@community/disabled', '1.0.0', 'sha512-ZGlzYWJsZWQ=')
+  let value
+  try {
+    value = await fixture({
+      registry: { fetchManifest: async (name) => name === enabled.name ? enabled : disabled },
+      runner: async ({ args, profileDir }) => {
+        if (args[0] !== 'add') return
+        await materializePackage(profileDir, enabled)
+        await materializePackage(profileDir, disabled)
+        await writeFile(join(profileDir, 'pnpm-lock.yaml'), `lockfileVersion: '9.0'\n# ${enabled.dist.integrity}\n# ${disabled.dist.integrity}\n`)
+      },
+    })
+    const prepared = await value.manager.prepareMany([
+      `${enabled.name}@1.0.0`,
+      `${disabled.name}@1.0.0`,
+    ], { enabledNames: [enabled.name] })
+    const staged = JSON.parse(await readFile(join(prepared.staging.stageDir, 'package.json'), 'utf8'))
+    assert.equal(staged.dsh.profile.bundles.includes(enabled.name), true)
+    assert.equal(staged.dsh.profile.bundles.includes(disabled.name), false)
+    await prepared.staging.cancel()
   } finally {
     if (value) await rm(value.root, { recursive: true, force: true })
   }
@@ -201,6 +258,35 @@ test('full-access local plugins materialize and validate in staging before Runti
     assert.equal(JSON.parse(await readFile(join(value.profileDir, 'package.json'), 'utf8')).dependencies[name], '1.0.0')
     assert.equal(await transaction.rollback(), true)
     assert.equal(await readFile(join(value.profileDir, 'package.json'), 'utf8'), original)
+  } finally {
+    if (value) await rm(value.root, { recursive: true, force: true })
+  }
+})
+
+test('legacy Git staging binds the expected package identity and disabled state', async () => {
+  const name = '@external/legacy-plugin'
+  const packageManifest = candidate(name, '1.0.0')
+  let value
+  try {
+    value = await fixture({
+      runner: async ({ args, profileDir }) => {
+        if (args[0] === 'add') await materializePackage(profileDir, packageManifest)
+      },
+    })
+    const sourceDir = join(value.root, 'legacy-source')
+    await mkdir(sourceDir, { recursive: true })
+    await writeFile(join(sourceDir, 'package.json'), JSON.stringify(packageManifest))
+    await writeFile(join(sourceDir, 'cordis.patch.yml'), 'patch: []\n')
+    const descriptor = await resolveExternalPluginSource(sourceDir)
+
+    await assert.rejects(
+      value.manager.prepareFullAccessExternal(descriptor, { expectedName: '@external/changed' }),
+      /external plugin identity changed/u,
+    )
+    const prepared = await value.manager.prepareFullAccessExternal(descriptor, { expectedName: name, enabled: false })
+    const staged = JSON.parse(await readFile(join(prepared.staging.stageDir, 'package.json'), 'utf8'))
+    assert.equal(staged.dsh.profile.bundles.includes(name), false)
+    await prepared.staging.cancel()
   } finally {
     if (value) await rm(value.root, { recursive: true, force: true })
   }

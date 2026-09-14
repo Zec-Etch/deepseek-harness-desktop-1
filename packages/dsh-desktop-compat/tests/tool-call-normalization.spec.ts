@@ -6,6 +6,7 @@ import { validateJsonSchemaValue } from '@deepseek-ai/dsh-tools'
 
 import {
   installToolCallArgumentNormalization,
+  normalizeRedundantSandboxEscalation,
   normalizeToolCallArgumentStream,
   normalizeWrappedToolCallArguments,
 } from '../src/tool-call-normalization.ts'
@@ -29,6 +30,20 @@ const VALID_PWSH_ARGUMENTS = {
   command: 'Get-ChildItem',
   description: 'List the working directory',
 }
+
+const PWSH_SANDBOX_SCHEMA = {
+  ...PWSH_SCHEMA,
+  parameters: {
+    ...PWSH_SCHEMA.parameters,
+    properties: {
+      ...PWSH_SCHEMA.parameters.properties,
+      sandbox_permissions: {
+        type: 'string',
+        enum: ['read-only', 'workspace-write', 'danger-full-access'],
+      },
+    },
+  },
+} satisfies ToolSchema
 
 function request(tools: readonly ToolSchema[] = [PWSH_SCHEMA]): GenerateOptions {
   return {
@@ -65,6 +80,50 @@ function exactToolCallStream(raw: string): StreamChunk[] {
 }
 
 describe('schema-aware tool call argument recovery', () => {
+  it('removes a redundant sandbox escalation when Desktop already has full access', () => {
+    const raw = JSON.stringify({
+      ...VALID_PWSH_ARGUMENTS,
+      sandbox_permissions: 'danger-full-access',
+    })
+    const normalized = normalizeRedundantSandboxEscalation(raw, PWSH_SANDBOX_SCHEMA, 'danger-full-access')
+
+    expect(JSON.parse(normalized.arguments)).toEqual(VALID_PWSH_ARGUMENTS)
+    expect(normalized.diagnostic).toEqual({
+      outcome: 'normalized',
+      reason: 'redundant-full-access-escalation',
+    })
+  })
+
+  it('also removes a narrower escalation target but never changes a restricted Runtime call', () => {
+    const raw = JSON.stringify({
+      ...VALID_PWSH_ARGUMENTS,
+      sandbox_permissions: 'workspace-write',
+    })
+    expect(JSON.parse(normalizeRedundantSandboxEscalation(
+      raw,
+      PWSH_SANDBOX_SCHEMA,
+      'danger-full-access',
+    ).arguments)).toEqual(VALID_PWSH_ARGUMENTS)
+    expect(normalizeRedundantSandboxEscalation(raw, PWSH_SANDBOX_SCHEMA, 'workspace-write')).toEqual({
+      arguments: raw,
+    })
+  })
+
+  it('retains the field when a third-party tool schema requires it', () => {
+    const required = {
+      ...PWSH_SANDBOX_SCHEMA,
+      parameters: {
+        ...PWSH_SANDBOX_SCHEMA.parameters,
+        required: [...PWSH_SANDBOX_SCHEMA.parameters.required, 'sandbox_permissions'],
+      },
+    } satisfies ToolSchema
+    const raw = JSON.stringify({
+      ...VALID_PWSH_ARGUMENTS,
+      sandbox_permissions: 'danger-full-access',
+    })
+    expect(normalizeRedundantSandboxEscalation(raw, required, 'danger-full-access')).toEqual({ arguments: raw })
+  })
+
   it('unwraps an exact extra arguments envelope only when the nested object validates and the outer one does not', () => {
     const raw = wrapped(VALID_PWSH_ARGUMENTS)
     const result = normalizeWrappedToolCallArguments(raw, PWSH_SCHEMA)
@@ -163,6 +222,33 @@ describe('schema-aware tool call argument recovery', () => {
       source: 'block-end',
     }])
     expect(JSON.stringify(diagnostics)).not.toContain('must-not-appear-in-diagnostic')
+  })
+
+  it('normalizes redundant full-access escalation in the actual llm stream', async () => {
+    const raw = JSON.stringify({
+      ...VALID_PWSH_ARGUMENTS,
+      sandbox_permissions: 'workspace-write',
+    })
+    const diagnostics: ToolCallNormalizationDiagnostic[] = []
+    const chunks = await collect(normalizeToolCallArgumentStream(
+      request([PWSH_SANDBOX_SCHEMA]),
+      stream(exactToolCallStream(raw)),
+      event => diagnostics.push(event),
+      'danger-full-access',
+    ))
+    const assembler = new BlockAssembler()
+    for (const chunk of chunks) assembler.push(chunk)
+
+    expect(assembler.blocks()).toEqual([{
+      type: 'tool-call',
+      id: ToolCallId('call-pwsh'),
+      name: 'Pwsh',
+      arguments: JSON.stringify(VALID_PWSH_ARGUMENTS),
+    }])
+    expect(diagnostics).toEqual([expect.objectContaining({
+      outcome: 'normalized',
+      reason: 'redundant-full-access-escalation',
+    })])
   })
 
   it('uses the public llm/stream waterfall, not a model-specific prompt workaround', async () => {

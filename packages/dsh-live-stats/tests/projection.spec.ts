@@ -533,7 +533,7 @@ describe('liveTokenUsage projection', () => {
     expect(projected(ctx, session).uncachedInputTokens).toBe(22)
   })
 
-  it('replaces surface ranges and rejects invalid ranges', async () => {
+  it('replaces current surface ranges and degrades invalid historical ranges without blocking replay', async () => {
     const { ctx, session } = await harness()
     const first = session.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'one' }],
@@ -569,7 +569,9 @@ describe('liveTokenUsage projection', () => {
       } as unknown as SessionEvent)
     }
     append('one', 'append')
-    expect(() => { append('bad', { op: 'replace', startSeq: 5, endSeq: 2 }) }).toThrow('invalid current range')
+    expect(() => { append('bad', { op: 'replace', startSeq: 5, endSeq: 2 }) }).not.toThrow()
+    expect(definition.wire.view(state).estimated).toBe(true)
+    expect(definition.stateVersion).toBe(5)
   })
 
   it('incremental output pricing matches a straight rescan on a large sparse block index space', async () => {
@@ -789,10 +791,23 @@ describe('liveTokenUsage projection', () => {
       createUserMessage({ content: [{ type: 'text', text: 'three' }], source: { kind: 'user' } }),
       spec,
     ))
-    expect(() => definition.apply(state, surfaceEvent(4, 'bad', { op: 'replace', startSeq: 5, endSeq: 2 })))
-      .toThrow('invalid current range')
-    expect(() => definition.apply(state, surfaceEvent(4, 'bad', { op: 'replace', startSeq: 3, endSeq: 99 })))
-      .toThrow('invalid current range')
+    const beforeHistoricalReplace = state.surfaceTokens
+    state = definition.apply(state, surfaceEvent(5731, 'bad', { op: 'replace', startSeq: 905, endSeq: 905 }))
+    expect(state.surfaceTokens).toBe(beforeHistoricalReplace)
+    expect(state.surfaceEstimateDegraded).toBe(true)
+    expect(definition.wire.view(state).estimated).toBe(true)
+
+    state = definition.apply(state, {
+      type: 'compaction/summary',
+      seq: 5732,
+      time: 2,
+      data: { shadowedRange: { start: 906, end: 910 }, shadowedTokenCount: 3 },
+    } as unknown as SessionEvent)
+    const beforePricedReplace = state.surfaceTokens
+    state = definition.apply(state, surfaceEvent(5733, 'summary', { op: 'replace', startSeq: 906, endSeq: 910 }))
+    expect(state.surfaceTokens).toBeGreaterThanOrEqual(0)
+    expect(state.surfaceTokens).not.toBe(beforePricedReplace)
+    expect(state.surfaceClaim).toBeNull()
     expect(JSON.parse(JSON.stringify(state))).toEqual(state)
     expect(() => definition.stateSchema.parse(state)).not.toThrow()
   })

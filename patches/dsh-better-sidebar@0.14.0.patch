@@ -29,12 +29,19 @@ index 11cb963d54054e847a5b83d8b8222da13fc9630a..4dcb860e45c8b101146de143c022127c
  	/** Chunk script endpoint served by the plugin host half (src/bundle-route.ts). */
  	const CHUNK_URL = (name) => `/sidebar/bundle/${name}.js`;
 diff --git a/lib/client-registry.js b/lib/client-registry.js
-index bbc5eb1c5bc9ba6ed8b41fcfe340c5d1c063c318..19773f23d9bc435ec8654e63cf8a994837370fc1 100644
+index bbc5eb1c5bc9ba6ed8b41fcfe340c5d1c063c318..dfcd6e2289ccdb32408167ba9a6e8fdab087780b 100644
 --- a/lib/client-registry.js
 +++ b/lib/client-registry.js
-@@ -1162,6 +1162,16 @@ window.__ModuleLoader__.load({
- 			const openTab = (seed, scope) => {
- 				if (!isTabEnabled(seed.type)) {
+@@ -15,7 +15,7 @@ window.__ModuleLoader__.load({
+ 			autoOpenSubagent: true,
+ 			autoOpenJobs: true,
+ 			agentTerminalTools: false,
+-			bottomPanelAutoTerminal: true,
++			bottomPanelAutoTerminal: false,
+ 			terminalFontFamily: "",
+ 			terminalFontSize: 13,
+ 			interceptOpenPath: true,
+@@ -1164,6 +1164,16 @@ window.__ModuleLoader__.load({
  					console.warn(`[dsh-better-sidebar] tab type "${seed.type}" is disabled in the side card settings`);
  					return;
  				}
@@ -49,6 +56,8 @@ index bbc5eb1c5bc9ba6ed8b41fcfe340c5d1c063c318..19773f23d9bc435ec8654e63cf8a9948
 +					return;
 +				}
  				const descriptor = tabs.get(seed.type);
+ 				if (descriptor === void 0) return;
+ 				const targetSessionId = scope?.sessionId ?? store.getSnapshot().sessionId;
 @@ -1335,11 +1345,10 @@ window.__ModuleLoader__.load({
  		* CLIENT_EXTERNALS in tsdown.config.ts — the chunk builds keep these
  		* external and the loader resolves them here). A superset is safe: the
@@ -75,9 +84,15 @@ index bbc5eb1c5bc9ba6ed8b41fcfe340c5d1c063c318..19773f23d9bc435ec8654e63cf8a9948
  		];
  		/** Chunk script endpoint served by the plugin host half (src/bundle-route.ts). */
  		const CHUNK_URL = (name) => `/sidebar/bundle/${name}.js`;
-@@ -6586,1 +6594,1 @@ window.__ModuleLoader__.load({
+@@ -6583,7 +6591,7 @@ window.__ModuleLoader__.load({
+ 					title: () => t("terminal"),
+ 					icon: (size) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(IconTerminalOutline16, { size }),
+ 					order: 40,
 -					available: (_ctx, _scope, state) => uiTerminalCount(state) < 3,
 +					available: (_ctx, _scope, state) => (window.dshDesktop?.shellContext?.mode === "advanced" && typeof window.dshDesktop.toolAction === "function") || uiTerminalCount(state) < 3,
+ 					settings: { toggles: [
+ 						{
+ 							key: "agentTerminalTools",
 @@ -7384,11 +7392,12 @@ window.__ModuleLoader__.load({
  		function parseDesktopEnv() {
  			if (cached !== void 0) return cached;
@@ -149,12 +164,19 @@ index bbc5eb1c5bc9ba6ed8b41fcfe340c5d1c063c318..19773f23d9bc435ec8654e63cf8a9948
  			ctx.effect(() => {
  				const offZh = ctx.locale.register(LOCALE_NS, "zh", zh);
 diff --git a/lib/client.js b/lib/client.js
-index 70226f68ea5fcb478844c8366afe621665eeb907..de837f108a01cb061dfe57d16e2701712880b19e 100644
+index 70226f68ea5fcb478844c8366afe621665eeb907..d1f0d6f73335263ef51fcd758da434f2e7e7be6c 100644
 --- a/lib/client.js
 +++ b/lib/client.js
-@@ -1162,6 +1162,16 @@ window.__ModuleLoader__.load({
- 			const openTab = (seed, scope) => {
- 				if (!isTabEnabled(seed.type)) {
+@@ -15,7 +15,7 @@ window.__ModuleLoader__.load({
+ 			autoOpenSubagent: true,
+ 			autoOpenJobs: true,
+ 			agentTerminalTools: false,
+-			bottomPanelAutoTerminal: true,
++			bottomPanelAutoTerminal: false,
+ 			terminalFontFamily: "",
+ 			terminalFontSize: 13,
+ 			interceptOpenPath: true,
+@@ -1164,6 +1164,16 @@ window.__ModuleLoader__.load({
  					console.warn(`[dsh-better-sidebar] tab type "${seed.type}" is disabled in the side card settings`);
  					return;
  				}
@@ -169,6 +191,8 @@ index 70226f68ea5fcb478844c8366afe621665eeb907..de837f108a01cb061dfe57d16e270171
 +					return;
 +				}
  				const descriptor = tabs.get(seed.type);
+ 				if (descriptor === void 0) return;
+ 				const targetSessionId = scope?.sessionId ?? store.getSnapshot().sessionId;
 @@ -1335,11 +1345,10 @@ window.__ModuleLoader__.load({
  		* CLIENT_EXTERNALS in tsdown.config.ts — the chunk builds keep these
  		* external and the loader resolves them here). A superset is safe: the
@@ -195,9 +219,15 @@ index 70226f68ea5fcb478844c8366afe621665eeb907..de837f108a01cb061dfe57d16e270171
  		];
  		/** Chunk script endpoint served by the plugin host half (src/bundle-route.ts). */
  		const CHUNK_URL = (name) => `/sidebar/bundle/${name}.js`;
-@@ -6586,1 +6594,1 @@ window.__ModuleLoader__.load({
+@@ -6583,7 +6591,7 @@ window.__ModuleLoader__.load({
+ 					title: () => t("terminal"),
+ 					icon: (size) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(IconTerminalOutline16, { size }),
+ 					order: 40,
 -					available: (_ctx, _scope, state) => uiTerminalCount(state) < 3,
 +					available: (_ctx, _scope, state) => (window.dshDesktop?.shellContext?.mode === "advanced" && typeof window.dshDesktop.toolAction === "function") || uiTerminalCount(state) < 3,
+ 					settings: { toggles: [
+ 						{
+ 							key: "agentTerminalTools",
 @@ -7384,11 +7392,12 @@ window.__ModuleLoader__.load({
  		function parseDesktopEnv() {
  			if (cached !== void 0) return cached;
@@ -269,7 +299,7 @@ index 70226f68ea5fcb478844c8366afe621665eeb907..de837f108a01cb061dfe57d16e270171
  			ctx.effect(() => {
  				const offZh = ctx.locale.register(LOCALE_NS, "zh", zh);
 diff --git a/lib/index.js b/lib/index.js
-index 83aaac8d178f437ed3ba1f5d901687bb4e5eecc9..d926340ad81fd2946bebc15501a2458dcc1cf7f4 100644
+index 83aaac8d178f437ed3ba1f5d901687bb4e5eecc9..3ccd67f90d6f54e4ce0ab66959ab3ef9e264739d 100644
 --- a/lib/index.js
 +++ b/lib/index.js
 @@ -6,7 +6,7 @@ import z from "schemastery";
@@ -281,6 +311,15 @@ index 83aaac8d178f437ed3ba1f5d901687bb4e5eecc9..d926340ad81fd2946bebc15501a2458d
  import { chmodSync, existsSync, readFileSync, realpathSync } from "node:fs";
  import { homedir, userInfo } from "node:os";
  import { defineTool } from "@deepseek-ai/dsh-tools";
+@@ -62,7 +62,7 @@ const PrefsSchema = z.object({
+ 	autoOpenSubagent: z.boolean().default(true),
+ 	autoOpenJobs: z.boolean().default(true),
+ 	agentTerminalTools: z.boolean().default(false),
+-	bottomPanelAutoTerminal: z.boolean().default(true),
++	bottomPanelAutoTerminal: z.boolean().default(false),
+ 	terminalFontFamily: z.string().default(""),
+ 	terminalFontSize: z.number().step(1).min(9).max(32).default(13),
+ 	interceptOpenPath: z.boolean().default(true),
 @@ -2718,7 +2718,7 @@ function apply(ctx, config) {
  		}
  	};
@@ -333,7 +372,7 @@ index eebd7c2fffe354690443b595238492e4c70b9a6c..9a2eccdcf13aaddff93ed2a994a6047f
   * Geometry facts the sidebar adapts to (from the Electron runtime):
   * - win32 `advanced` mode draws the window controls in a 32px overlay strip
 diff --git a/package.json b/package.json
-index 5b4e0c9955c826edd4554de3cfad6a0ed5b96010..183da1be563d0d3e05be53f9a4f3260873b9595a 100644
+index 5b4e0c9955c826edd4554de3cfad6a0ed5b96010..3015363b47e04bc0785f793bf58d03d9a6d5346e 100644
 --- a/package.json
 +++ b/package.json
 @@ -45,9 +45,10 @@
@@ -382,6 +421,24 @@ index 887e3a34c0e38168faae55fdda33014841667e49..537318740bdc6732ecbbdcc4e660bbe1
        if (col === undefined) {
          if (centerColRef.current !== null) {
            centerColRef.current = null
+diff --git a/src/client/builtins/tabs.tsx b/src/client/builtins/tabs.tsx
+index c30007e71c0ef1c78f95801deb33d127074a357d..03683648e9b24e3822aaa969734907d394b8a569 100644
+--- a/src/client/builtins/tabs.tsx
++++ b/src/client/builtins/tabs.tsx
+@@ -170,7 +170,12 @@ export function builtinTabs(ctx: Context, options: BuiltinTabOptions = {}): read
+       title: () => t('terminal'),
+       icon: (size: number) => <IconTerminalOutline16 size={size} />,
+       order: 40,
+-      available: (_ctx, _scope, state) => uiTerminalCount(state) < TERMINAL_LIMIT,
++      available: (_ctx, _scope, state) => {
++        const desktop = (window as Window & { dshDesktop?: {
++          shellContext?: { mode?: string }; toolAction?: unknown
++        } }).dshDesktop
++        return (desktop?.shellContext?.mode === 'advanced' && typeof desktop.toolAction === 'function') || uiTerminalCount(state) < TERMINAL_LIMIT
++      },
+       // Declarative settings: the model-facing terminal tools switch, the
+       // bottom-panel first-expansion auto-terminal switch, and the custom
+       // font family/size rows render under this card in the Side card
 diff --git a/src/client/chunk-loader.ts b/src/client/chunk-loader.ts
 index 30f0a9afa1297470ae7ed106137f1ee2a03e6152..b33f97065a9bbf2c82b663b91837e4caf0973f63 100644
 --- a/src/client/chunk-loader.ts
@@ -520,6 +577,44 @@ index c87fbd16ec7565826faa0409ebb26b06142246ea..726a7c5ab4182dc730fce2d18a1a6e25
    // The sidebar follows the DSH i18n system: attach the locale service so
    // the module-level t()/isZh() resolve the Host-backed language preference
    // (and switch live — the Sidebar root subscribes to it), and register the
+diff --git a/src/client/service.ts b/src/client/service.ts
+index 13f193479b7a04855df413b7aaf8865c399f4fe0..b8b9caf36a8acee8337b094f8441b159b8963de3 100644
+--- a/src/client/service.ts
++++ b/src/client/service.ts
+@@ -602,6 +602,20 @@ export function createBetterSidebarService(store: SidebarStore): BetterSidebarSe
+       console.warn(`[dsh-better-sidebar] tab type "${seed.type}" is disabled in the side card settings`)
+       return
+     }
++    // UI terminal entries use Desktop's one native surface. Agent terminals
++    // and requests targeting an inactive session keep the plugin's PTY.
++    const desktop = (window as Window & { dshDesktop?: {
++      shellContext?: { mode?: string }
++      toolAction?: (action: string) => Promise<unknown>
++    } }).dshDesktop
++    if (seed.type === 'terminal' && !seed.id?.startsWith('agent:') &&
++      desktop?.shellContext?.mode === 'advanced' && typeof desktop.toolAction === 'function' &&
++      (scope === undefined || scope.sessionId === store.getSnapshot().sessionId)) {
++      void Promise.resolve().then(() => desktop.toolAction!('terminal-open')).catch(() => {
++        window.alert('无法打开桌面终端，请通过“工具 > 内置终端”重试。')
++      })
++      return
++    }
+     const descriptor = tabs.get(seed.type)
+     if (descriptor === undefined) return
+     // A scope targets another session: the open lands in THAT session's
+diff --git a/src/config.ts b/src/config.ts
+index 5baa59053f9a799af3f68eb0facacdfbc0f5a5de..a047dbbbb1b97ede512260beb12965a96213f588 100644
+--- a/src/config.ts
++++ b/src/config.ts
+@@ -117,7 +117,7 @@ export const PrefsSchema: z<SidebarPrefs> = z.object({
+   autoOpenSubagent: z.boolean().default(true),
+   autoOpenJobs: z.boolean().default(true),
+   agentTerminalTools: z.boolean().default(false),
+-  bottomPanelAutoTerminal: z.boolean().default(true),
++  bottomPanelAutoTerminal: z.boolean().default(false),
+   terminalFontFamily: z.string().default(''),
+   terminalFontSize: z.number().step(1).min(TERMINAL_FONT_SIZE_MIN).max(TERMINAL_FONT_SIZE_MAX).default(TERMINAL_FONT_SIZE_DEFAULT),
+   interceptOpenPath: z.boolean().default(true),
 diff --git a/src/index.ts b/src/index.ts
 index baeb387e4e68d4e879ebf49f2c105d8c4b112f30..d1beeb168a3dd8bd4e1bda1aee4b40931ff5142e 100644
 --- a/src/index.ts
@@ -542,38 +637,16 @@ index baeb387e4e68d4e879ebf49f2c105d8c4b112f30..d1beeb168a3dd8bd4e1bda1aee4b4093
      // The structural settings mirror types `schema` as unknown, so the
      // generic is not inferred here; the real service resolves it from the
      // schemastery schema (PrefsSchema) — narrow the owner scope explicitly.
-diff --git a/src/client/service.ts b/src/client/service.ts
---- a/src/client/service.ts
-+++ b/src/client/service.ts
-@@ -603,6 +603,20 @@
-       console.warn(`[dsh-better-sidebar] tab type "${seed.type}" is disabled in the side card settings`)
-       return
-     }
-+    // UI terminal entries use Desktop's one native surface. Agent terminals
-+    // and requests targeting an inactive session keep the plugin's PTY.
-+    const desktop = (window as Window & { dshDesktop?: {
-+      shellContext?: { mode?: string }
-+      toolAction?: (action: string) => Promise<unknown>
-+    } }).dshDesktop
-+    if (seed.type === 'terminal' && !seed.id?.startsWith('agent:') &&
-+      desktop?.shellContext?.mode === 'advanced' && typeof desktop.toolAction === 'function' &&
-+      (scope === undefined || scope.sessionId === store.getSnapshot().sessionId)) {
-+      void Promise.resolve().then(() => desktop.toolAction!('terminal-open')).catch(() => {
-+        window.alert('无法打开桌面终端，请通过“工具 > 内置终端”重试。')
-+      })
-+      return
-+    }
-     const descriptor = tabs.get(seed.type)
-     if (descriptor === undefined) return
-     // A scope targets another session: the open lands in THAT session's
-diff --git a/src/client/builtins/tabs.tsx b/src/client/builtins/tabs.tsx
---- a/src/client/builtins/tabs.tsx
-+++ b/src/client/builtins/tabs.tsx
-@@ -173,1 +173,6 @@
--      available: (_ctx, _scope, state) => uiTerminalCount(state) < TERMINAL_LIMIT,
-+      available: (_ctx, _scope, state) => {
-+        const desktop = (window as Window & { dshDesktop?: {
-+          shellContext?: { mode?: string }; toolAction?: unknown
-+        } }).dshDesktop
-+        return (desktop?.shellContext?.mode === 'advanced' && typeof desktop.toolAction === 'function') || uiTerminalCount(state) < TERMINAL_LIMIT
-+      },
+diff --git a/src/prefs-shared.ts b/src/prefs-shared.ts
+index a9f5514801a361010df8ed4fa6aad0e51570448b..d6ca377220b282705c2b31764f3fc23bcc6328cc 100644
+--- a/src/prefs-shared.ts
++++ b/src/prefs-shared.ts
+@@ -199,7 +199,7 @@ export const SIDEBAR_PREFS_DEFAULTS: SidebarPrefs = {
+   autoOpenSubagent: true,
+   autoOpenJobs: true,
+   agentTerminalTools: false,
+-  bottomPanelAutoTerminal: true,
++  bottomPanelAutoTerminal: false,
+   terminalFontFamily: '',
+   terminalFontSize: TERMINAL_FONT_SIZE_DEFAULT,
+   interceptOpenPath: true,

@@ -144,6 +144,12 @@ test('direct startup keeps full profile materialization inside the coordinator-o
   assert.match(source, /const ensureProfile = \(\) => ensureProfileForMode\('full'\)/u)
 })
 
+test('runtime transport telemetry shares the Electron startup scope', async () => {
+  const source = await readFile(new URL('../src/electron-app.mjs', import.meta.url), 'utf8')
+  assert.match(source, /\n  const runtimeTransport = desktopRuntimeHost === undefined \? 'pipe' : 'http'\n  const createPrimaryRuntimeController/u)
+  assert.match(source, /productMetrics\.observeRuntimeStatus\(status, runtimeTransport\)/u)
+})
+
 test('runtime boot begins while the startup shell is still loading', async () => {
   const started = []
   let finishShell

@@ -133,7 +133,7 @@ export class ProductMetricsRecorder {
     return this.#record('surface_opened', { outcome: 'opened', detail, bucket: 'none' })
   }
 
-  observeRuntimeStatus(status) {
+  observeRuntimeStatus(status, transport) {
     if (status?.state === 'starting') {
       if (this.runtimeStartedAt === undefined) this.runtimeStartedAt = this.now()
       return
@@ -143,7 +143,9 @@ export class ProductMetricsRecorder {
     this.runtimeStartedAt = undefined
     this.#record('runtime_start_result', {
       outcome: status.state === 'ready' ? 'ready' : 'failed',
-      detail: status.state === 'ready' ? 'none' : classifyRuntimeStartFailure(status),
+      detail: status.state === 'ready' && ['http', 'pipe'].includes(transport)
+        ? transport
+        : status.state === 'ready' ? 'none' : classifyRuntimeStartFailure(status),
       bucket: startupDurationBucket(duration),
     })
   }

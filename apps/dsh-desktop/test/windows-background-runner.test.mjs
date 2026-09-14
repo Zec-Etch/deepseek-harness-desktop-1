@@ -15,9 +15,11 @@ test('repeated official Windows Job children create no visible console under Ele
   const observer = await startWindowsConsoleObserver()
   let result
   let observation
+  let invocation
   try {
-    const invocation = createRuntimeInvocation({
-      executable: require('electron'),
+    const electronExecutable = process.env.DSH_DESKTOP_E2E_EXECUTABLE || require('electron')
+    invocation = createRuntimeInvocation({
+      executable: electronExecutable,
       cliPath: fileURLToPath(new URL('./fixtures/windows-background-runner.mjs', import.meta.url)),
     })
     result = spawnSync(invocation.executable, invocation.args, {
@@ -29,6 +31,9 @@ test('repeated official Windows Job children create no visible console under Ele
     })
   } finally { observation = await observer.stop() }
   assert.equal(result.status, 0, `${result.error ?? ''}\n${result.stderr}\n${result.stdout}`)
+  if (process.env.DSH_DESKTOP_E2E_EXECUTABLE) {
+    assert.equal(invocation.args.some((argument) => argument === process.env.DSH_DESKTOP_E2E_EXECUTABLE), false)
+  }
   const match = /^DSH_CONSOLE_PROBE=(.+)$/mu.exec(result.stdout)
   assert.ok(match, result.stdout)
   const { runtimePid, runtimeConsole, results: probes } = JSON.parse(match[1])

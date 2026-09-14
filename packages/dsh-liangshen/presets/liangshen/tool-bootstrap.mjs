@@ -6,7 +6,8 @@
  * - tool catalog: one platform shell plus `commonTools`
  * - prompt sections: only the persona section (all other sections,
  *   including plan-mode's `plan:policy`, return after promotion)
- * - runtime contexts: emptied (no sandbox/approval snapshot)
+ * - runtime contexts: keep only the sandbox policy snapshot so shell calls do
+ *   not request redundant escalation; all unrelated contexts stay quarantined
  * - pre-step messages: only explicit user messages pass
  *
  * Promotion opens the full tool catalog and restores runtime contexts and all
@@ -57,6 +58,9 @@ const DEFAULT_MESSAGE_SOURCES = ['user']
 
 /** Message-source kinds delayed after promotion. */
 const DEFAULT_DEFERRED_SOURCES = []
+
+/** Runtime context required to form a valid first shell call. */
+const BOOTSTRAP_CONTEXT_NAMES = new Set(['sandbox:policy'])
 
 function stringList(value, field, fallback) {
   if (value === undefined) return [...fallback]
@@ -189,7 +193,7 @@ function decidePromotion(state, config) {
 
 /** Scan newly appended session events and update promotion state. */
 function scanEvents(state, session) {
-  const events = session.events
+  const events = session.snapshotEvents()
   for (; state.next < events.length; state.next += 1) {
     const event = events[state.next]
     if (event === undefined) continue
@@ -304,7 +308,9 @@ export function apply(ctx, config) {
     return {
       ...assembled,
       tools: assembled.tools.filter(tool => bootstrap.has(tool.name)),
-      contexts: [],
+      contexts: Array.isArray(assembled.contexts)
+        ? assembled.contexts.filter(context => BOOTSTRAP_CONTEXT_NAMES.has(context?.name))
+        : [],
       ...(Array.isArray(assembled.sections)
         ? { sections: assembled.sections.filter(section => PERSONA_SECTION_NAMES.has(section?.name)) }
         : {}),

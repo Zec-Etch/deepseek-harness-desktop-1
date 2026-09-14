@@ -2,7 +2,7 @@
 
 中文 | [English](README.en.md)
 
-> **支持项目持续开发**：如果 DeepSeek Harness Desktop 对你有帮助，欢迎在[爱发电支持作者](https://www.ifdian.net/a/ningbai)。你的支持将用于服务器、测试环境和后续维护。
+> **项目由 ningbai牛逼 维护**：如果 DeepSeek Harness Desktop 对你有帮助，欢迎在[爱发电支持 ningbai牛逼](https://www.ifdian.net/a/ningbai)。你的支持将用于服务器、测试环境和后续维护。
 >
 > 扫码支持：
 >
@@ -34,7 +34,7 @@ QQ 群：**1105158177**
 
 **DeepSeek Harness Desktop** 是社区维护的开源 Windows AI 编程桌面客户端。
 
-它将 **DeepSeek Harness Web、DSH 本地运行环境、Skills、插件、任务自动化、Git、远程开发与桌面扩展能力** 集成到一个 Windows 应用中，让你无需复杂配置，就能获得完整的 Harness AI 编程体验。
+DeepSeek 官方尚未正式发布独立 Desktop 产品；本项目已经把公开的官方 **DSH Runtime、Web UI 与官方仓库中的 Desktop 能力边界** 融合为可安装的 Windows 应用，并在独立社区宿主中补齐插件、Skills、任务自动化、Git、远程开发和桌面体验。它不是 DeepSeek 官方客户端，也不使用或覆盖未来官方 Desktop 的应用身份、数据目录与更新源。
 
 支持 **Windows 10 / 11 x64**，采用 **BSD-3-Clause** 许可证。
 
@@ -42,16 +42,19 @@ QQ 群：**1105158177**
 
 [产品介绍](https://ningbainb.github.io/deepseek-harness-desktop/) · [下载最新版](https://github.com/ningbainb/deepseek-harness-desktop/releases/latest) · [使用文档](docs/desktop.md) · [更新日志](CHANGELOG.md)
 
-### 最新版本：3.5.0
+### 4.0.0-rc.3：正式发布前候选
 
-- **插件更新更安全**：安装、更新、卸载和 Preset 导入先在隔离环境完成兼容性、来源与依赖图校验，再原子激活；失败自动回滚，用户插件归档损坏也不会再阻断普通模式和安全模式启动。
-- **拓展坞更紧凑**：插件管理收敛为“已安装”“发现”“设置”，模型接入、性价比模式、个性化 Prompt、记忆、粒子主题与图像理解继续保留，设置页一次只展开一个侧栏表单。
-- **匿名指标更清楚**：管理看板明确区分 UTC 当日 DAU、滚动 7 日 WAU 和滚动 30 日 MAU，增加前期对比、粘性、覆盖范围和趋势；高频聚合不携带实例标识。
-- **升级与反馈**：升级到 3.5.0 后每个本机用户显示一次 Star 提示，关闭并重启后不重复；正式包只发送固定词表的匿名结果统计，不采集对话、文件内容、路径或密钥，详见 [隐私政策](PRIVACY.md)。
+当前公开稳定版仍为 3.5.0；`main` 已进入 4.0 普通版发布候选阶段。
 
-![DeepSeek Harness Desktop 3.5.0 拓展坞插件管理](docs/screenshots/desktop-3.5.0-extension-dock.png)
+- **官方 Desktop 能力已融合**：精确锁定公开的官方 DSH 0.1.5-rc.2 Runtime 与拆分 SDK，并对照官方仓库 Desktop 边界完成生命周期、窗口、协议、更新和数据隔离适配；社区应用身份保持独立。
+- **3.5 覆盖升级更可靠**：旧插件清单只读扫描并按精确版本恢复；历史会话投影异常降级而不阻断正文；宠物设置保存、本地 `.tgz` 重复安装和 Git 市场失败分类已修复。
+- **模型协作更容易找到**：会话左侧栏新增固定入口，Agent Team 与性价比模式合并到同一页面且可独立开启；bai 供应商在相关模型选择器中统一置顶。
+- **Skills 与桌面交互统一**：技能中心和会话技能菜单指向同一 DSH Home；底部面板不再隐式启动终端，窗口控件和隐藏控制台行为完成回归。
+- **埋点更有用也更克制**：增加 Skills、Agent Team 和局域网访问的固定结果事件，并保留会话导入入口与插件操作的粗粒度信号；仍不采集对话、Prompt、文件内容、路径、模型名、Token 或密钥，详见 [隐私政策](PRIVACY.md)。
 
-![DeepSeek Harness Desktop 3.5.0 紧凑拓展坞设置](docs/screenshots/desktop-3.5.0-extension-dock-compact.png)
+![DeepSeek Harness Desktop 4.0.0-rc.3 模型协作](docs/screenshots/desktop-4.0.0-rc.3/model-collaboration.png)
+
+![DeepSeek Harness Desktop 4.0.0-rc.3 会话 Skills 与桌面入口](docs/screenshots/desktop-4.0.0-rc.3/conversation-skills.png)
 
 ### 持续提供的核心能力
 
@@ -64,31 +67,29 @@ QQ 群：**1105158177**
 
 ---
 
-## 模型协作、用量与项目导入
+## 模型协作、Skills 与模型接入
 
-以下三张截图为 3.2.0 历史实机参考；3.5.0 的设置入口与布局以拓展坞为准，功能继续保留。
+以下截图来自 4.0.0-rc.3 真实 Electron 验收环境。
 
-### 性价比模式：专家做决策，副模型做执行
+### 模型协作：Agent Team 与性价比模式放在同一处
 
-选择 **性价比模式** 后，桌面端会立即打开配置引导：默认模型会自动预选为 **专家主控模型**，用户再选择一个更省或更快的 **副模型 / 子代理执行模型**，最后选择“更省 / 智能平衡 / 更强”策略。配置完整后才会启用，不会留下半配置状态。
+会话侧栏的“模型协作”会直接打开唯一的拓展坞窗口并进入协作页。Agent Team 负责多角色协作，性价比模式负责主控与执行模型分工；两者互不排斥，可独立开启或同时使用。
 
-专家主控可以直接完成简单任务，也可以按需派发并行子任务；副模型的子代理深度固定为 1，不递归派发、不调用重复的“专家分析”路径。每个会话的主控调用和副模型调用都能在界面与埋点中区分。
+![DeepSeek Harness Desktop 4.0.0-rc.3 模型协作页面](docs/screenshots/desktop-4.0.0-rc.3/model-collaboration.png)
 
-![DeepSeek Harness Desktop 3.2.0 性价比模式三步配置引导与专家主控](docs/screenshots/3.2.0-value-mode-setup.webp)
+### Skills：会话菜单与技能中心使用同一目录
 
-### 大模型用量看板：看清每一次消耗
+4.0 统一扫描项目 `.dsh/skills`、用户 DSH Skills 与用户 Agents Skills。会话输入框可搜索并插入技能，技能中心显示相同来源及作用域，不再出现“侧栏能看到、技能中心看不到”的路径分裂。
 
-会话状态行和用量看板集中呈现 Input / Output Token、上下文占用、Cache 命中、LLM 延迟、估算费用、当前生成速度与步骤内峰值。生成速度只来自有效流式增量：同毫秒批次先合并，在每个时间点统计过去 1 秒窗口；最终 usage 只修正账单 Token，不制造虚假瞬时峰值。
+![DeepSeek Harness Desktop 4.0.0-rc.3 会话 Skills 菜单](docs/screenshots/desktop-4.0.0-rc.3/conversation-skills.png)
 
-![DeepSeek Harness Desktop 3.2.0 大模型用量看板与滚动 1 秒峰值](docs/screenshots/3.2.0-usage-dashboard.webp)
+### bai 供应商：在模型入口中统一优先显示
 
-### Claude Code 与 Codex：把已有工作接着做
+聊天模型、模型设置以及协作页的主控与执行模型选择器共用排序规则：用户手动置顶优先，其次是 bai 供应商，再保留其余供应商的既有顺序。
 
-选择本机的 Claude Code 或 Codex 数据目录，按项目查看可导入的历史会话，确认后生成真正的 Harness 工作区和会话。导入是只读、幂等、可恢复的：API Key、Token、Cookie、路径等敏感字段会脱敏，外部工具调用以历史记录保存且不可执行。
+![DeepSeek Harness Desktop 4.0.0-rc.3 bai 模型接入](docs/screenshots/desktop-4.0.0-rc.3/bai-models.png)
 
-![DeepSeek Harness Desktop 3.2.0 Claude Code 与 Codex 项目导入扫描和会话预览](docs/screenshots/3.2.0-project-import-preview.webp)
-
-详细边界见 [外部会话导入说明](docs/external-conversation-import.md)；模型角色与路由见 [性价比模式插件](packages/dsh-value-mode/README.zh.md)；峰值算法见 [实时用量看板](packages/dsh-live-stats/README.zh.md)。
+详细边界见 [桌面架构与能力](docs/desktop.md)、[升级与回滚指南](docs/upgrade-and-rollback.md) 和 [4.0 发布说明](docs/launch/release-notes.md)。
 
 
 ## 为什么选择 DeepSeek Harness Desktop

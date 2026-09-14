@@ -40,6 +40,7 @@ import {
 const dock = await getDockEntryState()
 if (dock.available) {
   await openDesktopSurface('extensions')
+  await openDesktopSurface('extensions', { setting: 'value-mode' }) // Open Model collaboration directly
 }
 
 const gateway = await getLocalLanGatewayStatus()

@@ -8,7 +8,7 @@ import { promisify } from 'node:util'
 import { parseDocument } from 'yaml'
 
 import { DESKTOP_API_VERSION } from './desktop-contract.mjs'
-import { normalizeUpdateChannel } from './release-channel.mjs'
+import { isPrereleaseVersion, normalizeUpdateChannel } from './release-channel.mjs'
 
 const executeFile = promisify(execFile)
 const APP_DIRECTORY = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -460,7 +460,14 @@ export async function writeReleaseManifest(directory, manifest) {
   return path
 }
 
-const DEFAULT_CHANNEL_FROM_ENV = normalizeUpdateChannel(process.env.DSH_DESKTOP_UPDATE_CHANNEL)
+const DEFAULT_CHANNEL_FROM_ENV = process.env.DSH_DESKTOP_UPDATE_CHANNEL
+
+export function defaultReleaseChannel({ version, configuredChannel } = {}) {
+  if (typeof configuredChannel === 'string' && configuredChannel.trim().length > 0) {
+    return normalizeUpdateChannel(configuredChannel)
+  }
+  return isPrereleaseVersion(version) ? 'beta' : 'stable'
+}
 
 export async function defaultReleaseMetadata({ channel = DEFAULT_CHANNEL_FROM_ENV } = {}) {
   const [desktopManifestText, supportText] = await Promise.all([
@@ -471,7 +478,7 @@ export async function defaultReleaseMetadata({ channel = DEFAULT_CHANNEL_FROM_EN
   const support = JSON.parse(supportText)
   return normalizedMetadata({
     version: desktopManifest.version,
-    channel: normalizeUpdateChannel(channel),
+    channel: defaultReleaseChannel({ version: desktopManifest.version, configuredChannel: channel }),
     runtime: {
       version: support?.runtime?.version,
       integrity: support?.runtime?.integrity,

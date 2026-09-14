@@ -64,11 +64,8 @@ async function main() {
     readFile(packagePath, 'utf8'),
   ])
   const candidateVersion = JSON.parse(manifestText).version
-  const publishedVersion = /^# DeepSeek Harness Desktop (\d+\.\d+\.\d+)$/mu.exec(notes)?.[1]
-  const version = candidateVersion.includes('-') ? publishedVersion : candidateVersion
-  if (version === undefined) throw new Error('prerelease builds require release notes for the current stable release')
-  assertBilingualReleaseNotes(notes, version)
-  console.log(`validated bilingual release notes for ${version}`)
+  assertBilingualReleaseNotes(notes, candidateVersion)
+  console.log(`validated bilingual release notes for ${candidateVersion}`)
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

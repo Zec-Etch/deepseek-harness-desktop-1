@@ -89,8 +89,8 @@ export function collectEvidence(input: EvidenceCollectorInput): Evidence {
     resultStatus: input.resultStatus,
     startedAt: input.startedAt,
     ...(input.finishedAt === undefined ? {} : { finishedAt: input.finishedAt }),
-    sessionDeepLink: input.sessionId === undefined ? undefined : `dsh://session/${input.sessionId}`,
-    worktreeDeepLink: input.worktreeId === undefined ? undefined : `dsh://run/${input.runId}`,
+    sessionDeepLink: input.sessionId === undefined ? undefined : `dsh-community://session/${input.sessionId}`,
+    worktreeDeepLink: input.worktreeId === undefined ? undefined : `dsh-community://run/${input.runId}`,
     diffSource: diff === undefined ? 'unavailable' : 'git-graph',
     ...(diff === undefined ? {} : {
       diffCache: {

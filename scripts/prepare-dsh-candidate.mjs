@@ -317,7 +317,7 @@ async function main() {
     await runPnpm([
       ...pnpmPrefix,
       '--filter',
-      '@deepseek-ai/dsh-desktop',
+      '@linxin666/dsh-desktop',
       'add',
       ...plan.peers.map((peer) => peer.spec),
       '--save-exact',

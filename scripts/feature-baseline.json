@@ -27,7 +27,8 @@
         "latest-settings-write-wins-with-revision-fence",
         "chatgpt-login-polls-until-terminal-state",
         "cancelled-login-response-isolation",
-        "same-field-draft-preserved-during-save"
+        "same-field-draft-preserved-during-save",
+        "conversation-collaboration-entry"
       ],
       "requiredInAggregate": true,
       "requiredInCordisPatch": true,
@@ -154,6 +155,11 @@
       "path": "packages/dsh-pet",
       "description": "桌面小宠物与挂件互动",
       "patchId": "pet",
+      "features": [
+        "settings-mutate-void-contract",
+        "settings-save-always-settles",
+        "failed-save-preserves-draft"
+      ],
       "requiredInAggregate": true,
       "requiredInCordisPatch": true,
       "requiredInDesktop": false
@@ -201,7 +207,8 @@
         "distinct-rolling-and-peak-throughput",
         "balance-follows-native-model-selection",
         "provider-key-cache-isolation",
-        "relay-balance-and-site-quota"
+        "relay-balance-and-site-quota",
+        "projection-v5-invalid-history-replace-degrades-without-blocking"
       ]
     },
     {
@@ -273,11 +280,13 @@
     "@linxin666/dsh-value-mode",
     "dsh-better-sidebar",
     "@linxin666/dsh-web-ui-all",
+    "@linxin666/dsh-client-ui-skill-explorer",
     "@tencent-connect/dsh-qqbot",
     "reasoning-slider",
     "@linxin666/dsh-client-ui-model-capabilities",
     "@linxin666/dsh-usage",
-    "@linxin666/dsh-session-archive"
+    "@linxin666/dsh-session-archive",
+    "@deepseek-ai/dsh-experimental-agent-team-profile"
   ],
   "desktopSurfaces": [
     {
@@ -290,7 +299,8 @@
         "agent-and-background-session-pty-isolation",
         "current-frame-and-legacy-layout",
         "preserve-sidebar-tabs-width-and-default-open-settings",
-        "panel-controls-remain-on-owning-surfaces"
+        "panel-controls-remain-on-owning-surfaces",
+        "bottom-panel-no-implicit-terminal"
       ]
     },
     {
@@ -311,6 +321,7 @@
         "native-browser-close-owner-with-legacy-and-keyboard-fallback",
         "incremental-modal-layer-tracking-with-document-lifecycle",
         "native-panel-control-remains-on-sidebar-surface",
+        "neutral-compact-native-layout-toggle-cluster",
         "compatibility-panels-retain-handlers-tabs-and-terminal-lifetime",
         "bottom-panel-measures-current-frame-in-empty-conversations",
         "tools-menu-has-no-panel-layout-duplicates"
@@ -325,6 +336,20 @@
       ],
       "name": "设置窗口与导航标签系统",
       "e2eScript": "scripts/verify-settings-window.mjs"
+    },
+    {
+      "id": "skill-discovery",
+      "name": "扩展坞与技能中心共享用户技能目录",
+      "uiSelector": "[data-dsh-skill-explorer-entry], [data-dsh-skill-explorer-view]",
+      "e2eScript": "scripts/verify-skill-discovery.mjs",
+      "features": [
+        "skill-center-mounted-from-reviewed-direct-bundle",
+        "extension-dock-and-skill-center-share-dsh-home-skills",
+        "user-skill-visible-through-desktop-inventory-and-runtime-route",
+        "conversation-skill-menu-supports-dsh4-composer",
+        "anonymous-conversation-skill-funnel-metrics",
+        "conversation-import-surface-metric"
+      ]
     },
     {
       "id": "conversation-scroll-navigation",
@@ -364,8 +389,10 @@
         "unified-protected-package-ownership",
         "main-process-plugin-compatibility-admission",
         "unknown-plugin-requires-explicit-confirmation",
-        "incompatible-plugin-rejected-before-prefetch",
+        "incompatible-plugin-requires-explicit-risk-confirmation",
+        "incompatible-plugin-hard-safety-gates-remain-enforced",
         "same-volume-plugin-staging-profile",
+        "durable-content-addressed-local-plugin-source",
         "persistent-single-writer-plugin-transaction",
         "runtime-stop-failure-abandons-prepared-staging",
         "durable-plugin-transaction-journal",
@@ -377,6 +404,11 @@
         "atomic-node-modules-activation-with-archive-rollback",
         "staged-atomic-plugin-removal",
         "full-access-git-local-staging-with-protected-graph-policy",
+        "legacy-profile-plugin-manifest-recovery",
+        "legacy-npm-enable-state-preserved",
+        "legacy-git-commit-and-package-identity-binding",
+        "git-market-preflight-before-profile-activation",
+        "git-market-structured-failure-category",
         "structured-pnpm-v9-lock-graph-validation",
         "protected-runtime-link-source-validation",
         "protected-transitive-version-conflict-rejection",
@@ -389,7 +421,10 @@
         "startup-token-cookie-isolation",
         "windows-hidden-subprocess",
         "electron-job-runner-console-preload-propagation",
+        "danger-full-access-redundant-escalation-normalization",
+        "liangshen-bootstrap-preserves-sandbox-policy",
         "real-windows-background-console-regression",
+        "packaged-windows-background-console-regression",
         "quit-invalidates-pending-runtime-presentation",
         "private-runtime-graceful-shutdown-with-force-fallback",
         "bounded-shutdown-waits-for-inflight-http-responses",
@@ -398,7 +433,7 @@
     },
     {
       "id": "preset-deep-link",
-      "name": "预设与协议唤起处理 (dsh://)",
+      "name": "预设与协议唤起处理 (dsh-community://)",
       "e2eScript": "scripts/verify-preset-deep-link.mjs",
       "features": [
         "normal-packaged-protocol-registration",
@@ -529,7 +564,8 @@
         "catalog-refresh-on-runtime-and-provider-changes",
         "real-expert-worker-selection-and-timeout-retry",
         "verified-settings-write-before-success",
-        "failed-guide-save-preserves-selection"
+        "failed-guide-save-preserves-selection",
+        "bai-first-in-collaboration-pickers"
       ]
     },
     {
@@ -571,7 +607,9 @@
         "close-save-waits-for-new-draft",
         "plugin-update-refresh-outside-mutation-lock",
         "plugin-repair-retry-within-active-operation",
-        "plugin-diagnostics-use-loaded-inventory"
+        "plugin-diagnostics-use-loaded-inventory",
+        "collaboration-deep-link-single-window",
+        "collaboration-unified-page"
       ],
       "settings": [
         "value-mode",

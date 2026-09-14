@@ -1,7 +1,10 @@
 const POLICIES = Object.freeze({
   project: { outcomes: ['started', 'succeeded', 'failed'], details: ['create', 'connect'] },
   attachment: { outcomes: ['started', 'succeeded', 'failed', 'cancelled'], details: ['file'] },
+  skill: { outcomes: ['opened', 'succeeded', 'failed'], details: ['conversation-menu', 'conversation-insert'] },
   'dock-setting': { outcomes: ['opened', 'failed'], details: ['relay', 'value-mode', 'personal-prompt', 'memory', 'particle-theme', 'describe-image'] },
+  'agent-team': { outcomes: ['succeeded', 'failed'], details: ['enable', 'disable'] },
+  'local-lan': { outcomes: ['succeeded', 'failed', 'cancelled'], details: ['enable', 'disable', 'reconfigure'] },
 })
 
 export function normalizeFeatureEvent(value) {

@@ -109,6 +109,45 @@ html[data-dsh-desktop-chrome-theme="dark"] {
 html[data-dsh-desktop-chrome-theme="light"] {
   --dsh-desktop-chrome-bg: #f7f8fa;
   --dsh-desktop-chrome-menu-hover: rgba(15, 23, 42, 0.06);
+  --dsh-desktop-layout-cluster-bg: rgba(15, 23, 42, 0.035);
+  --dsh-desktop-layout-cluster-border: rgba(15, 23, 42, 0.09);
+}
+
+html[data-dsh-desktop-chrome-theme="dark"] {
+  --dsh-desktop-layout-cluster-bg: rgba(255, 255, 255, 0.055);
+  --dsh-desktop-layout-cluster-border: rgba(255, 255, 255, 0.11);
+}
+
+/* DSH owns these layout buttons; Desktop only tones down the container that
+   sits beside the native caption area. Keep every control and its active
+   state, while replacing the heavy cyan group outline with a compact neutral
+   segmented surface and an accessible per-button keyboard focus ring. */
+html[data-dsh-desktop-window-chrome="true"] [class*="_toggleCluster"] {
+  gap: 2px !important;
+  box-sizing: border-box !important;
+  padding: 2px !important;
+  border: 1px solid var(--dsh-desktop-layout-cluster-border) !important;
+  border-radius: 9px !important;
+  outline: none !important;
+  background: var(--dsh-desktop-layout-cluster-bg) !important;
+  box-shadow: none !important;
+}
+
+html[data-dsh-desktop-window-chrome="true"] [class*="_toggleCluster"]:focus,
+html[data-dsh-desktop-window-chrome="true"] [class*="_toggleCluster"]:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+html[data-dsh-desktop-window-chrome="true"] [class*="_toggleCluster"] > button {
+  margin: 0 !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+
+html[data-dsh-desktop-window-chrome="true"] [class*="_toggleCluster"] > button:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary, #416bd4) !important;
+  outline-offset: 0 !important;
 }
 
 html[data-dsh-desktop-window-chrome="true"] .dsh-desktop-modal-layer {

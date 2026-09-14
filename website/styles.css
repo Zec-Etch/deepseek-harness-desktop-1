@@ -57,12 +57,13 @@ h1, h2, h3, p { margin-top: 0; }
 .nav-download svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 .hero { position: relative; min-height: 900px; overflow: hidden; isolation: isolate; }
-.hero-backdrop { position: absolute; inset: 0; z-index: -2; background: linear-gradient(90deg, rgba(14,27,44,.84), rgba(25,67,113,.38)), url("assets/desktop-3.3.0-workspace.webp") center 35% / cover; opacity: .9; }
+.hero-backdrop { position: absolute; inset: 0; z-index: -2; background: linear-gradient(90deg, rgba(14,27,44,.88), rgba(25,67,113,.36)), url("assets/desktop-4.0.0-collaboration.webp") center 30% / cover; opacity: .9; }
 .hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(circle at 22% 25%, rgba(235,226,188,.23), transparent 17%), radial-gradient(circle at 63% 25%, rgba(228,223,201,.22), transparent 18%), linear-gradient(180deg, rgba(16,42,75,.05) 0%, rgba(9,13,18,.3) 55%, var(--bg) 100%); }
 .hero-inner { min-height: 900px; padding-top: 190px; display: grid; grid-template-columns: 1.05fr .95fr; gap: 90px; align-items: center; }
 .hero-copy { padding-bottom: 34px; }
 .overline { margin-bottom: 8px; font-size: 17px; font-weight: 600; }
 h1 { margin-bottom: 28px; font-family: var(--display); font-size: clamp(46px, 5vw, 64px); font-weight: 500; line-height: 1.17; letter-spacing: -.035em; }
+.hero-current { display: inline-block; margin-top: 14px; color: rgba(223,231,244,.72); font-family: var(--mono); font-size: .28em; font-weight: 500; letter-spacing: .04em; }
 .hero-summary { max-width: 610px; margin-bottom: 8px; color: rgba(239,243,248,.63); font-size: 16px; line-height: 1.75; }
 .hero-buttons { margin-top: 38px; display: flex; flex-wrap: wrap; gap: 10px; }
 .btn { min-height: 42px; padding: 0 17px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid rgba(255,255,255,.15); border-radius: 23px; background: rgba(255,255,255,.07); color: rgba(255,255,255,.88); font-size: 14px; transition: transform .18s ease, background .18s ease, color .18s ease; }

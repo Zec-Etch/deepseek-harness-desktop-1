@@ -8,11 +8,63 @@ import { runInNewContext } from 'node:vm'
 
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const appRequire = createRequire(resolve(appDir, 'package.json'))
+const sharedRequire = createRequire(resolve(appDir, '../../shared/package.json'))
 const packageDir = dirname(appRequire.resolve('@linxin666/dsh-pet/package.json'))
 const localRequire = createRequire(resolve(appDir, '../../packages/dsh-pet/package.json'))
 const { JSDOM } = localRequire('jsdom')
+const ts = sharedRequire('typescript')
 const client = await readFile(resolve(packageDir, 'lib/client.js'), 'utf8')
 const flush = async () => { for (let index = 0; index < 12; index += 1) await Promise.resolve() }
+
+async function loadInstalledSettingsForm() {
+  const source = await readFile(resolve(packageDir, 'src/client/settings-form.ts'), 'utf8')
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    fileName: 'settings-form.ts',
+  }).outputText
+  const module = { exports: {} }
+  const createSnapshotStore = initial => {
+    let value = initial
+    return { getSnapshot: () => value, set: next => { value = next }, subscribe: () => () => {} }
+  }
+  runInNewContext(compiled, {
+    module,
+    exports: module.exports,
+    require: id => {
+      if (id === '@deepseek-ai/dsh-client-store') return { createSnapshotStore }
+      throw new Error(`Unexpected settings-form dependency: ${id}`)
+    },
+  }, { filename: 'installed-settings-form.js' })
+  return module.exports
+}
+
+function makeBatchedScope(initial, mutate) {
+  let user = {}
+  const base = { ...initial }
+  return {
+    getSnapshot: () => ({
+      status: 'ready',
+      writable: true,
+      value: { ...base, ...user },
+      base,
+      user,
+    }),
+    subscribe: () => () => {},
+    mutate: async writes => {
+      await mutate?.(writes)
+      for (const write of writes) {
+        if (write.op === 'set') user = { ...user, [write.field]: write.value }
+        else {
+          const next = { ...user }
+          delete next[write.field]
+          user = next
+        }
+      }
+    },
+    set: async () => assert.fail('batched scope must not use per-field set'),
+    unset: async () => assert.fail('batched scope must not use per-field unset'),
+  }
+}
 
 function setup(t) {
   t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] })
@@ -85,6 +137,75 @@ test('installed multi-pet client and workspace use the same tested polling imple
   assert.equal(JSON.parse(await readFile(resolve(packageDir, 'package.json'), 'utf8')).version, '0.2.5')
   assert.equal(await readFile(resolve(packageDir, 'src/client/poll-request.ts'), 'utf8'),
     await readFile(resolve(appDir, '../../packages/dsh-pet/src/client/poll-request.ts'), 'utf8'))
+})
+
+test('installed pet settings patch follows the void mutate contract and always settles saving state', async () => {
+  const source = await readFile(resolve(packageDir, 'src/client/settings-form.ts'), 'utf8')
+  const runtime = await readFile(resolve(packageDir, 'lib/client.js'), 'utf8')
+  assert.match(source, /mutate: \(writes: BatchedWrite\[\]\) => Promise<void>/u)
+  assert.match(source, /await batch\.mutate\(plannedWrites\)/u)
+  assert.doesNotMatch(source, /result\.ok/u)
+  assert.match(source, /finally \{[\s\S]*this\.saving = false[\s\S]*this\.failed = landed\.size !== pending\.size/u)
+  assert.match(source, /catch \(error\)[\s\S]*this\.failedReason/u)
+  assert.match(runtime, /await batch\.mutate\(plannedWrites\)/u)
+  assert.match(runtime, /finally \{[\s\S]*this\.saving = false/u)
+})
+
+test('installed pet settings form saves display, size, and position through a void batch mutation', async () => {
+  const { CardForm, booleanField, numberField } = await loadInstalledSettingsForm()
+  const mutations = []
+  const scope = makeBatchedScope({ visible: false, size: 96, right: 12 }, writes => { mutations.push(writes) })
+  const form = new CardForm(scope, [
+    booleanField('visible'),
+    numberField('size', { integer: true, min: 32 }),
+    numberField('right', { integer: true, min: 0 }),
+  ])
+  form.actions().edit('visible', 'true')
+  form.actions().edit('size', '160')
+  form.actions().edit('right', '672')
+
+  await form.save()
+
+  assert.equal(mutations.length, 1)
+  assert.deepEqual(JSON.parse(JSON.stringify(mutations[0])), [
+    { field: 'visible', op: 'set', value: true },
+    { field: 'size', op: 'set', value: 160 },
+    { field: 'right', op: 'set', value: 672 },
+  ])
+  assert.deepEqual(JSON.parse(JSON.stringify(form.shell())), {
+    available: true, exposed: true, writable: true, dirty: false,
+    invalid: false, saving: false, failed: false,
+  })
+  assert.equal(form.field('size').text, '160')
+  assert.equal(form.field('right').text, '672')
+})
+
+test('installed pet settings form retains drafts after failure and exits saving before retry', async () => {
+  const { CardForm, numberField } = await loadInstalledSettingsForm()
+  let attempts = 0
+  const scope = makeBatchedScope({ size: 96 }, async () => {
+    attempts += 1
+    if (attempts === 1) throw new Error('fixture write rejected')
+  })
+  const form = new CardForm(scope, [numberField('size', { integer: true, min: 32 })])
+  form.actions().edit('size', '160')
+
+  await form.save()
+  const failed = JSON.parse(JSON.stringify(form.shell()))
+  assert.deepEqual({ ...failed, failedReason: undefined }, {
+    available: true, exposed: true, writable: true, dirty: true,
+    invalid: false, saving: false, failed: true, failedReason: undefined,
+  })
+  assert.match(failed.failedReason, /fixture write rejected/u)
+  assert.equal(form.field('size').text, '160')
+
+  await form.save()
+  assert.equal(attempts, 2)
+  assert.deepEqual(JSON.parse(JSON.stringify(form.shell())), {
+    available: true, exposed: true, writable: true, dirty: false,
+    invalid: false, saving: false, failed: false,
+  })
+  assert.equal(form.field('size').text, '160')
 })
 
 test('installed bundle bounds state and registry reads while preserving multi-pet features', async t => {

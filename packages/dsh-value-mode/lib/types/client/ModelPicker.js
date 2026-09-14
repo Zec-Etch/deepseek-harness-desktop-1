@@ -5,6 +5,14 @@ import { en, zh } from "./locales.js";
 import styles from './value-mode.module.css';
 import layout from './value-mode-polish.module.css';
 import picker from './value-mode-picker.module.css';
+export const BAI_PROVIDER_ID = 'project-relay';
+/** Keep the Desktop-recommended bai provider first without disturbing the catalog's remaining order. */
+export function sortValueModeProviderGroups(groups) {
+    return groups
+        .map((group, index) => ({ group, index }))
+        .sort((left, right) => Number(right.group.id === BAI_PROVIDER_ID) - Number(left.group.id === BAI_PROVIDER_ID) || left.index - right.index)
+        .map(item => item.group);
+}
 function catalogText(key) {
     return (typeof document !== 'undefined' && document.documentElement.lang.startsWith('en') ? en : zh)[key];
 }
@@ -74,7 +82,7 @@ export const ModelPicker = ({ title, current, onSelect, onClose, fetchModels }) 
         void Promise.resolve().then(() => fetchModels()).then((result) => {
             if (!active)
                 return;
-            setGroups(result.groups ?? []);
+            setGroups(sortValueModeProviderGroups(result.groups ?? []));
             setFailures(result.failures ?? []);
             setLoading(false);
         }).catch((reason) => {

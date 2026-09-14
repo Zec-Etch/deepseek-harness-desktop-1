@@ -1,6 +1,6 @@
-appId: ai.deepseek.harness.desktop
+appId: com.ningbainb.deepseek-harness.desktop
 productName: DeepSeek Harness Desktop
-copyright: Copyright (c) 2026 DeepSeek Harness Desktop contributors
+copyright: Copyright (c) 2026 ningbai牛逼 and DeepSeek Harness Desktop contributors
 
 asar: true
 asarUnpack:
@@ -58,6 +58,8 @@ win:
   verifyUpdateCodeSignature: true
 
 nsis:
+  # Fixed community-owned identity. The legacy GUID is migrated by installer.nsh.
+  guid: 88abe781-9bbf-5b27-9200-c24696774d39
   include: build/installer.nsh
   artifactName: DeepSeek-Harness-Desktop-Setup-${version}-${arch}.${ext}
   oneClick: false
@@ -103,7 +105,7 @@ publish:
 protocols:
   - name: DeepSeek Harness Desktop
     schemes:
-      - dsh
+      - dsh-community
 
 fileAssociations:
   - ext: dshpreset

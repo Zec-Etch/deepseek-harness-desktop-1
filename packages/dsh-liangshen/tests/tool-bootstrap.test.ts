@@ -38,8 +38,8 @@ function listener(listeners: Map<string, { listener: Listener, options: any }>, 
   return entry!.listener
 }
 
-function session(events: unknown[] = [], cwd: string | undefined = '/workspace') {
-  return { events, header: cwd === undefined ? {} : { cwd } }
+function session(events: unknown[] = [], cwd: string | null | undefined = '/workspace') {
+  return { snapshotEvents: () => events, header: cwd === null ? {} : { cwd } }
 }
 
 function agentOf(events: unknown[] = [], cwd?: string) {
@@ -92,6 +92,23 @@ function turnEndEvent(turn = 1) {
 }
 
 describe('anchored-tool-bootstrap', () => {
+  test('reads events through the current Session snapshot contract', async () => {
+    const currentSession = session()
+    const result = await listener(register(), 'system-prompt/assemble')(
+      undefined,
+      { agent: { session: currentSession } },
+      async () => ({
+        system: 'minimal persona',
+        tools: [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }],
+        contexts: [],
+        sections: SECTIONS,
+      }),
+    )
+
+    expect('events' in currentSession).toBe(false)
+    expect(result.tools.map((tool: any) => tool.name)).toEqual(['bash', 'read'])
+  })
+
   test('current SDK persona prefix and suffix survive bootstrap and promotion', async () => {
     const sections = [
       { name: PERSONA_PREFIX_SECTION, text: SECTIONS[0].text },
@@ -102,7 +119,7 @@ describe('anchored-tool-bootstrap', () => {
     const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
     const first = await assemble(assembleListener, [], tools, undefined, sections)
     expect(first.sections).toEqual([sections[0], sections[2]])
-    expect(first.contexts).toEqual([])
+    expect(first.contexts).toEqual([{ name: 'sandbox:policy', text: 'Current DSH file policy: workspace-write.' }])
     const promoted = await assemble(assembleListener, [{ type: 'tool/call' }], tools, undefined, sections)
     expect(promoted.sections).toEqual([
       { ...sections[0], text: `${sections[0].text}\n\nYour working directory is /workspace.` },
@@ -123,14 +140,19 @@ describe('anchored-tool-bootstrap', () => {
     expect(listeners.get('agent/pre-step')?.options).toMatchObject({ prepend: true })
   })
 
-  test('first request exposes one platform shell and read, empties contexts, and keeps only the persona section', async () => {
+  test('first request exposes one platform shell and read, keeps only sandbox policy context, and keeps only the persona section', async () => {
     const result = await assemble(listener(register(), 'system-prompt/assemble'), [], [
       { name: 'pwsh' },
       { name: 'read' },
       { name: 'edit' },
+    ], [
+      { name: 'sandbox:policy', text: 'Current DSH file policy: danger-full-access.' },
+      { name: 'unrelated', text: 'Hidden until promotion.' },
     ])
     expect(result.tools.map((tool: any) => tool.name)).toEqual(['pwsh', 'read'])
-    expect(result.contexts).toEqual([])
+    expect(result.contexts).toEqual([
+      { name: 'sandbox:policy', text: 'Current DSH file policy: danger-full-access.' },
+    ])
     expect(result.sections.map((section: any) => section.name)).toEqual(['deployment:persona'])
     expect(result.sections[0].text).toBe(SECTIONS[0].text)
   })
@@ -140,7 +162,7 @@ describe('anchored-tool-bootstrap', () => {
     const tools = [{ name: 'bash' }, { name: 'read' }]
     const promoted = await assembleListener(
       undefined,
-      { agent: { session: { events: [{ type: 'tool/call' }], header: { cwd: '/Users/zcl/code/demo' } } } },
+      { agent: { session: session([{ type: 'tool/call' }], '/Users/zcl/code/demo') } },
       async () => ({ system: 'minimal persona', tools, contexts: [], sections: SECTIONS }),
     )
     expect(promoted.sections[0].text).toBe(`${SECTIONS[0].text}\n\nYour working directory is /Users/zcl/code/demo.`)
@@ -152,7 +174,7 @@ describe('anchored-tool-bootstrap', () => {
     const tools = [{ name: 'bash' }, { name: 'read' }]
     const promoted = await assembleListener(
       undefined,
-      { agent: { session: { events: [{ type: 'tool/call' }] } } },
+      { agent: { session: session([{ type: 'tool/call' }], null) } },
       async () => ({ system: 'minimal persona', tools, contexts: [], sections: SECTIONS }),
     )
     expect(promoted.sections).toEqual(SECTIONS)
@@ -235,7 +257,7 @@ describe('anchored-tool-bootstrap', () => {
     const preStepListener = listener(listeners, 'agent/pre-step')
     const assembleListener = listener(listeners, 'system-prompt/assemble')
     const sessionEvents = [{ type: 'tool/call' }]
-    const sessionObj = { events: sessionEvents }
+    const sessionObj = session(sessionEvents)
     await assembleListener(undefined, { agent: { session: sessionObj } }, async () => ({
       system: 'minimal persona',
       tools: [{ name: 'bash' }, { name: 'read' }],
@@ -292,7 +314,7 @@ describe('anchored-tool-bootstrap', () => {
     const assembleListener = listener(listeners, 'system-prompt/assemble')
     const preStepListener = listener(listeners, 'agent/pre-step')
     const events: unknown[] = []
-    const sessionObj = { events, header: { cwd: '/workspace' } }
+    const sessionObj = session(events)
     const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
     const messages = [message('user', 'user'), message('agent-instructions', 'instructions')]
 
@@ -338,7 +360,7 @@ describe('anchored-tool-bootstrap', () => {
     const assembleListener = listener(listeners, 'system-prompt/assemble')
     const preStepListener = listener(listeners, 'agent/pre-step')
     const events: unknown[] = []
-    const sessionObj = { events, header: { cwd: '/workspace' } }
+    const sessionObj = session(events)
     const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
     const messages = [message('user', 'user'), message('agent-instructions', 'instructions')]
 
@@ -389,7 +411,7 @@ describe('anchored-tool-bootstrap', () => {
     const preStepListener = listener(listeners, 'agent/pre-step')
     const assembleListener = listener(listeners, 'system-prompt/assemble')
     const sessionEvents = [{ type: 'tool/call' }]
-    const sessionObj = { events: sessionEvents }
+    const sessionObj = session(sessionEvents)
     const tools = [{ name: 'bash' }, { name: 'read' }]
     await assembleListener(undefined, { agent: { session: sessionObj } }, async () => ({ system: 'minimal persona', tools }))
 
@@ -441,7 +463,7 @@ describe('anchored-tool-bootstrap', () => {
     const listeners = register({ promotedPresentation: 'code', anchorGate: true })
     const assembleListener = listener(listeners, 'system-prompt/assemble')
     const calls: string[] = []
-    const sessionObj = { events: [stepEvent(), reasoningEvent('We need inspect the repo.'), { type: 'tool/call' }] }
+    const sessionObj = session([stepEvent(), reasoningEvent('We need inspect the repo.'), { type: 'tool/call' }])
     const agent = { session: sessionObj, ctx: { tools: { presentAs: (mode: string) => calls.push(mode) } } }
     const tools = [{ name: 'bash' }, { name: 'read' }, { name: 'edit' }]
 
@@ -455,14 +477,15 @@ describe('anchored-tool-bootstrap', () => {
     const assembleListener = listener(listeners, 'system-prompt/assemble')
     const eventListener = listener(listeners, 'session/event')
     const calls: string[] = []
-    const sessionObj = { events: [] }
+    const sessionEvents: unknown[] = []
+    const sessionObj = session(sessionEvents)
     const agent = { session: sessionObj, ctx: { tools: { presentAs: (mode: string) => calls.push(mode) } } }
     const tools = [{ name: 'bash' }, { name: 'read' }]
 
     await assembleListener(undefined, { agent }, async () => ({ system: 'minimal persona', tools, contexts: [], sections: SECTIONS }))
     expect(calls).toEqual([])
 
-    sessionObj.events.push(stepEvent(), reasoningEvent('We need inspect the repo.'), { type: 'tool/call' })
+    sessionEvents.push(stepEvent(), reasoningEvent('We need inspect the repo.'), { type: 'tool/call' })
     await eventListener(sessionObj, { type: 'tool/call' })
     expect(calls).toEqual([])
 

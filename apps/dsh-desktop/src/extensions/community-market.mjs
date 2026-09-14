@@ -132,6 +132,7 @@ function projectPlugin(value) {
     deprecated: value.deprecated === true,
     replacement,
     sourceKind,
+    verification: sourceKind === 'npm' ? 'registry' : 'required',
     installSpec,
   })
 }
@@ -157,7 +158,7 @@ function projectCatalog(value) {
     const plugin = projectPlugin(candidate)
     if (plugin === undefined || installById.has(plugin.id)) continue
     plugins.push(plugin)
-    installById.set(plugin.id, plugin.installSpec)
+    installById.set(plugin.id, plugin)
   }
   if (plugins.length === 0) throw new TypeError('community market catalog contains no installable plugins')
 
@@ -207,6 +208,18 @@ export function createCommunityMarketService({
 
   let served
   let inFlight
+  const verificationById = new Map()
+
+  function presentCatalog(catalog) {
+    if (verificationById.size === 0) return catalog
+    return Object.freeze({
+      ...catalog,
+      plugins: Object.freeze(catalog.plugins.map((plugin) => {
+        const verification = verificationById.get(plugin.id)
+        return verification === undefined ? plugin : Object.freeze({ ...plugin, ...verification })
+      })),
+    })
+  }
 
   async function fetchCatalog() {
     const headers = { accept: 'application/json' }
@@ -233,7 +246,7 @@ export function createCommunityMarketService({
     if (response.status === 304) {
       if (served === undefined) throw new Error('community market catalog returned 304 without cached data')
       served.servedAt = now()
-      return served.publicCatalog
+      return presentCatalog(served.publicCatalog)
     }
     if (!response.ok) throw new Error(`community market catalog request failed with HTTP ${response.status}`)
 
@@ -264,13 +277,13 @@ export function createCommunityMarketService({
       lastModified: responseHeader(response, 'last-modified'),
       servedAt: now(),
     }
-    return served.publicCatalog
+    return presentCatalog(served.publicCatalog)
   }
 
   function list({ force = false } = {}) {
     if (typeof force !== 'boolean') throw new TypeError('community market force flag is invalid')
     if (!force && served !== undefined && now() - served.servedAt <= cacheTtlMs) {
-      return Promise.resolve(served.publicCatalog)
+      return Promise.resolve(presentCatalog(served.publicCatalog))
     }
     if (inFlight !== undefined) return inFlight
     inFlight = fetchCatalog().finally(() => { inFlight = undefined })
@@ -278,14 +291,37 @@ export function createCommunityMarketService({
   }
 
   async function resolveInstall(id) {
+    return (await resolveInstallEntry(id)).installSpec
+  }
+
+  async function resolveInstallEntry(id) {
     if (typeof id !== 'string' || !OPAQUE_ID_PATTERN.test(id)) {
       throw new TypeError('invalid community market plugin identifier')
     }
     if (served === undefined) await list()
-    const installSpec = served.installById.get(id)
-    if (installSpec === undefined) throw new TypeError('invalid community market plugin identifier')
-    return installSpec
+    const plugin = served.installById.get(id)
+    if (plugin === undefined) throw new TypeError('invalid community market plugin identifier')
+    return Object.freeze({
+      id: plugin.id,
+      name: plugin.npm ?? plugin.name,
+      sourceKind: plugin.sourceKind,
+      installSpec: plugin.installSpec,
+    })
   }
 
-  return Object.freeze({ list, resolveInstall })
+  function recordVerification(id, { verification, failureCategory } = {}) {
+    if (typeof id !== 'string' || !OPAQUE_ID_PATTERN.test(id) || served?.installById.has(id) !== true) {
+      throw new TypeError('invalid community market plugin identifier')
+    }
+    if (!['required', 'passed', 'incompatible', 'failed'].includes(verification)) {
+      throw new TypeError('invalid community market verification state')
+    }
+    verificationById.set(id, Object.freeze({
+      verification,
+      ...(typeof failureCategory === 'string' ? { failureCategory } : {}),
+    }))
+    return verificationById.get(id)
+  }
+
+  return Object.freeze({ list, resolveInstall, resolveInstallEntry, recordVerification })
 }

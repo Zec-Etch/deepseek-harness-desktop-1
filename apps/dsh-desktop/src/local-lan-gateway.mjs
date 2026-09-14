@@ -381,6 +381,7 @@ export class DesktopLanGateway {
     createHttpServer = handler => createServer(handler),
     interfacesProvider = networkInterfaces,
     log = async () => {},
+    recordFeatureEvent = () => false,
   } = {}) {
     if (typeof store?.save !== 'function') throw new TypeError('LAN gateway store is required')
     if (typeof getProvider !== 'function') throw new TypeError('LAN gateway provider getter is required')
@@ -389,6 +390,7 @@ export class DesktopLanGateway {
     this.createHttpServer = createHttpServer
     this.interfacesProvider = interfacesProvider
     this.log = log
+    this.recordFeatureEvent = recordFeatureEvent
     this.config = normalizeDesktopLanGatewayConfig(initialConfig)
     this.phase = 'stopped'
     this.errorCode = undefined
@@ -431,15 +433,26 @@ export class DesktopLanGateway {
   }
 
   async configure(input) {
-    const next = normalizeDesktopLanGatewayConfig(input, {
-      availableAddresses: this.availableAddresses,
-      requireAvailable: input?.enabled === true,
-    })
-    await this.stop()
-    this.config = await this.store.save(next)
-    if (this.config.enabled) await this.start()
-    else this.#publish()
-    return this.status
+    const detail = input?.enabled === true
+      ? this.config.enabled ? 'reconfigure' : 'enable'
+      : 'disable'
+    try {
+      const next = normalizeDesktopLanGatewayConfig(input, {
+        availableAddresses: this.availableAddresses,
+        requireAvailable: input?.enabled === true,
+      })
+      await this.stop()
+      this.config = await this.store.save(next)
+      if (this.config.enabled) await this.start()
+      else this.#publish()
+      const status = this.status
+      const outcome = status.state === 'error' ? 'failed' : 'succeeded'
+      try { this.recordFeatureEvent({ feature: 'local-lan', outcome, detail }) } catch {}
+      return status
+    } catch (error) {
+      try { this.recordFeatureEvent({ feature: 'local-lan', outcome: 'failed', detail }) } catch {}
+      throw error
+    }
   }
 
   async start() {

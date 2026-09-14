@@ -195,6 +195,7 @@ export function createDesktopWindowFactory({
   if (typeof getMainWindow !== 'function') throw new TypeError('desktop main-window getter is required')
 
   const windows = new Map()
+  const dockSettingsWebContents = new Set()
   let communityWindowPromise
   let dockSettings
 
@@ -287,7 +288,12 @@ export function createDesktopWindowFactory({
     browserWindow.once('closed', () => mainWindow?.removeListener('closed', closeWithMain))
     if (WebContentsView) {
       setWindowChromeTheme(browserWindow, chromeTheme)
-      dockSettings = createDockSettingsView({ WebContentsView, window: browserWindow, mainWindow, getRuntimeOrigin, dialog, runtimePreload, openExternal: url => shell.openExternal(url) })
+      dockSettings = createDockSettingsView({
+        WebContentsView, window: browserWindow, mainWindow, getRuntimeOrigin, dialog, runtimePreload,
+        onWebContentsCreated: contents => dockSettingsWebContents.add(contents),
+        onWebContentsDisposed: contents => dockSettingsWebContents.delete(contents),
+        openExternal: url => shell.openExternal(url),
+      })
       browserWindow.once('closed', () => { dockSettings = undefined })
     }
     installWindowMotion(browserWindow, active => {
@@ -408,6 +414,7 @@ export function createDesktopWindowFactory({
       if (!dockSettings) throw new Error('拓展坞设置尚未就绪，请重新打开拓展坞。')
       return dockSettings.select(id)
     },
+    isDockSettingsSender: sender => dockSettingsWebContents.has(sender),
     createHandoffWindow,
     createCommunityWindow,
     syncTheme,

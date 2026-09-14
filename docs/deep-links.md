@@ -4,7 +4,7 @@ Desktop-aware plugins create allowlisted links through `@linxin666/dsh-desktop-c
 
 ## Deep-link allowlist
 
-Desktop accepts only `dsh://extensions`, `dsh://updates`, `dsh://task/<safe-id>`, `dsh://session/<safe-id>`, `dsh://run/<safe-id>`, and `dsh://preset/preview`. Safe identifiers contain lowercase ASCII letters, digits, dot, underscore, or hyphen and are at most 128 characters.
+Desktop registers only its community-owned `dsh-community://` scheme. It accepts only `dsh-community://extensions`, `dsh-community://updates`, `dsh-community://task/<safe-id>`, `dsh-community://session/<safe-id>`, `dsh-community://run/<safe-id>`, and `dsh-community://preset/preview`. Safe identifiers contain lowercase ASCII letters, digits, dot, underscore, or hyphen and are at most 128 characters. The main process still accepts the historical `dsh://` forms from an already running 3.x instance and canonicalizes them to `dsh-community://`; the installer does not register or take ownership of `dsh://`.
 
 Credentials, ports, fragments, queries, traversal, percent-encoded separators, unknown routes, commands, paths, URLs, and package specifications are rejected before dispatch. Links are normalized into structured records, queued in a bounded list until Runtime is ready, deduplicated for the application lifetime, and dispatched once.
 
@@ -16,6 +16,6 @@ The installer registers `.dshpreset` with DeepSeek Harness Desktop. Initial laun
 
 Desktop Contract `notifications.show` accepts structured `category`, `id`, `title`, `body`, and optional allowlisted `deepLink`. Categories are `task`, `run`, `plugin-recovery`, `update`, and `preset`. Unknown fields and unsafe links are rejected.
 
-The notification service deduplicates IDs, applies a per-category minimum interval, and suppresses native notifications while a Desktop window is focused. A click routes only the already validated structured deep link. Task surfaces may report completion or failure through the Contract; run notifications open the Task Board through `dsh://run/<safe-id>`; the main process reports same-Home built-ins fallback, downloaded updates, and Preset import completion or restoration.
+The notification service deduplicates IDs, applies a per-category minimum interval, and suppresses native notifications while a Desktop window is focused. A click routes only the already validated structured deep link. Task surfaces may report completion or failure through the Contract; run notifications open the Task Board through `dsh-community://run/<safe-id>`; the main process reports same-Home built-ins fallback, downloaded updates, and Preset import completion or restoration.
 
 The canonical interchange validation is [Deep Link v1](schemas/dsh-deep-link-v1.schema.json). For capability detection and SDK usage, see [Desktop Client SDK quickstart](sdk-quickstart.md).

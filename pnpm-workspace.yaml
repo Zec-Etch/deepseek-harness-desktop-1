@@ -42,7 +42,7 @@ peerDependencyRules:
 # It compares resolved versions rather than specifiers, so cases B and C stay
 # clean even when two importers declare different ranges.
 
-patchedDependencies: { '@linxin666/dsh-chat-recovery@0.2.5': patches/@linxin666__dsh-chat-recovery@0.2.5.patch, '@linxin666/dsh-client-ui-model-capabilities@0.3.20': patches/@linxin666__dsh-client-ui-model-capabilities@0.3.20.patch, '@linxin666/dsh-client-ui-skin-center@0.2.5': patches/@linxin666__dsh-client-ui-skin-center@0.2.5.patch, '@linxin666/dsh-liangshen@0.2.5': patches/@linxin666__dsh-liangshen@0.2.5.patch, '@linxin666/dsh-pet@0.2.5': patches/@linxin666__dsh-pet@0.2.5.patch, '@linxin666/dsh-web-ui-all@0.2.5': patches/@linxin666__dsh-web-ui-all@0.2.5.patch, 'dsh-better-sidebar@0.14.0': patches/dsh-better-sidebar@0.14.0.patch }
+patchedDependencies: { '@linxin666/dsh-chat-recovery@0.2.5': patches/@linxin666__dsh-chat-recovery@0.2.5.patch, '@linxin666/dsh-client-ui-model-capabilities@0.3.20': patches/@linxin666__dsh-client-ui-model-capabilities@0.3.20.patch, '@linxin666/dsh-client-ui-skin-center@0.2.5': patches/@linxin666__dsh-client-ui-skin-center@0.2.5.patch, '@linxin666/dsh-liangshen@0.2.5': patches/@linxin666__dsh-liangshen@0.2.5.patch, '@linxin666/dsh-pet@0.2.5': patches/@linxin666__dsh-pet@0.2.5.patch, '@linxin666/dsh-web-ui-all@0.2.5': patches/@linxin666__dsh-web-ui-all@0.2.5.patch, dsh-better-sidebar@0.14.0: patches/dsh-better-sidebar@0.14.0.patch }
 
 # Desktop pins the published aggregate at 0.2.5, while selected dependencies
 # use reviewed workspace builds for Desktop-owned fixes and security

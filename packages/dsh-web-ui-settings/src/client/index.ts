@@ -20,7 +20,7 @@ import { WebUiSettingsBinder } from './compat-settings-scope.ts'
 import { ChatGptAuthSection } from './ChatGptAuthSection.tsx'
 import { WebUIPluginsSection } from './WebUIPluginsCard.tsx'
 import { RelayOnboardingCard } from './RelayOnboardingCard.tsx'
-import { DesktopExtensionDockEntry } from './desktop-extension-dock.tsx'
+import { DesktopCollaborationEntry, DesktopExtensionDockEntry } from './desktop-extension-dock.tsx'
 import { DockSettingsPage, dockSettingFromUrl } from './DockSettingsPage.tsx'
 import { projectCopy } from './ProjectDialog.tsx'
 import { installBrowserClose, installProjectDialog } from './desktop-interactions.tsx'
@@ -134,6 +134,13 @@ export function apply(ctx: ClientContext): void {
   // The highest ordered footer action sits immediately before Settings.
   // Ordinary Web hosts receive no button because the component requires the
   // narrow Desktop `extensions.open` capability before rendering.
+  ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
+    name: 'sidebar.footer.action',
+    id: 'desktop-model-collaboration',
+    order: 99,
+    locale: 'web-ui-plugins',
+  }, DesktopCollaborationEntry))
+
   ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
     name: 'sidebar.footer.action',
     id: 'desktop-extension-dock',

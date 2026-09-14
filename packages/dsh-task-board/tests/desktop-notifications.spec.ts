@@ -19,7 +19,7 @@ describe('Desktop run notifications', () => {
       id: 'run:schedule-host-1:failed',
       title: 'Task failed',
       body: 'Host scheduled task: provider stopped',
-      deepLink: 'dsh://run/schedule-host-1',
+      deepLink: 'dsh-community://run/schedule-host-1',
     })
   })
 

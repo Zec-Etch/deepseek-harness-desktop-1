@@ -88,7 +88,7 @@ export function sessionRecoveryNotification(skippedCount = 1) {
   })
 }
 
-export function normalizeDesktopNotification(value) {
+export function normalizeDesktopNotification(value, protocol = 'dsh') {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError('invalid desktop notification')
   }
@@ -104,7 +104,7 @@ export function normalizeDesktopNotification(value) {
   if (title.length === 0 || title.length > 160 || body.length === 0 || body.length > 1_000) {
     throw new TypeError('desktop notification title or body is invalid')
   }
-  const deepLink = value.deepLink === undefined ? undefined : normalizeDeepLink(value.deepLink)
+  const deepLink = value.deepLink === undefined ? undefined : normalizeDeepLink(value.deepLink, protocol)
   return Object.freeze({
     category: value.category,
     id: value.id,
@@ -121,6 +121,7 @@ export class DesktopNotificationService {
     routeDeepLink = async () => {},
     now = () => Date.now(),
     minimumIntervalMs = 15_000,
+    protocol = 'dsh',
   } = {}) {
     if (typeof showNative !== 'function') throw new TypeError('notification service requires a native presenter')
     this.showNative = showNative
@@ -128,12 +129,13 @@ export class DesktopNotificationService {
     this.routeDeepLink = routeDeepLink
     this.now = now
     this.minimumIntervalMs = minimumIntervalMs
+    this.protocol = protocol
     this.ids = new Map()
     this.categories = new Map()
   }
 
   async show(value, { force = false } = {}) {
-    const notification = normalizeDesktopNotification(value)
+    const notification = normalizeDesktopNotification(value, this.protocol)
     const now = this.now()
     if (!force && this.isForeground()) return Object.freeze({ shown: false, reason: 'foreground' })
     if (this.ids.has(notification.id)) return Object.freeze({ shown: false, reason: 'duplicate' })

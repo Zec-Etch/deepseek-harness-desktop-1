@@ -20,6 +20,7 @@ test('normal installed card is quiet and exceptional states remain visible', () 
   assert.deepEqual(pluginCardPresentation({ status: 'normal', statusLabel: '' }), { label: '', tone: 'quiet' })
   assert.deepEqual(pluginCardPresentation({ status: 'update-available', statusLabel: '可更新' }), { label: '可更新', tone: 'quiet' })
   assert.deepEqual(pluginCardPresentation({ status: 'needs-attention', statusLabel: '需要处理' }), { label: '需要处理', tone: 'danger' })
+  assert.deepEqual(pluginCardPresentation({ status: 'risk-running', statusLabel: '风险运行' }), { label: '风险运行', tone: 'warning' })
 })
 
 test('installing state stays compact and switches to plain language after delay', () => {
@@ -35,8 +36,11 @@ test('unknown and incompatible dialogs use user-facing admission language', () =
   assert.equal(unknown.confirmLabel, '仍然安装')
   assert.equal(unknown.cancelHidden, false)
   const incompatible = compatibilityDialogPresentation('incompatible')
-  assert.equal(incompatible.title, '此插件暂不兼容')
-  assert.equal(incompatible.cancelHidden, true)
+  assert.equal(incompatible.title, '这个插件尚未适配当前版本')
+  assert.equal(incompatible.confirmLabel, '风险安装')
+  assert.equal(incompatible.cancelLabel, '取消安装')
+  assert.equal(incompatible.cancelHidden, false)
+  assert.match(incompatible.description, /自动恢复原插件环境/u)
 })
 
 test('full access warning is brief and requires an explicit action', () => {

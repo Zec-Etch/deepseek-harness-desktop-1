@@ -15,7 +15,7 @@ export function pluginCardPresentation(plugin) {
   if (!plugin.statusLabel || plugin.status === 'normal') return Object.freeze({ label: '', tone: 'quiet' })
   const tone = plugin.status === 'needs-attention'
     ? 'danger'
-    : plugin.status === 'update-incompatible'
+    : plugin.status === 'update-incompatible' || plugin.status === 'risk-running'
       ? 'warning'
       : 'quiet'
   return Object.freeze({ label: String(plugin.statusLabel), tone })
@@ -44,10 +44,11 @@ export function compatibilityDialogPresentation(kind) {
   }
   if (kind === 'incompatible') {
     return Object.freeze({
-      title: '此插件暂不兼容',
-      description: '插件需要的 DeepSeek Harness Runtime 与当前 Desktop 版本不一致。为了避免影响应用稳定性，本次安装已停止。',
-      confirmLabel: '知道了',
-      cancelHidden: true,
+      title: '这个插件尚未适配当前版本',
+      description: '插件声明的 Runtime 版本与当前 Desktop 不一致，可能无法运行或导致界面异常。Desktop 会先在隔离环境中验证，启动失败时自动恢复原插件环境。',
+      confirmLabel: '风险安装',
+      cancelLabel: '取消安装',
+      cancelHidden: false,
     })
   }
   if (kind === 'full-access') {

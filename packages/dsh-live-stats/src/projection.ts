@@ -117,6 +117,26 @@ interface SettledSample {
   rateAlgorithmVersion?: number
 }
 
+interface SurfaceShadowPrice {
+  start: number
+  end: number
+  tokens: number
+}
+
+function surfaceShadowPrice(event: SessionEvent): SurfaceShadowPrice | null {
+  const candidate = event as unknown as {
+    type?: unknown
+    data?: { shadowedRange?: { start?: unknown; end?: unknown }; shadowedTokenCount?: unknown }
+  }
+  if (candidate.type !== 'compaction/summary' && candidate.type !== 'compaction/prune') return null
+  const start = candidate.data?.shadowedRange?.start
+  const end = candidate.data?.shadowedRange?.end
+  const tokens = candidate.data?.shadowedTokenCount
+  if (![start, end, tokens].every(Number.isSafeInteger)) return null
+  if ((start as number) < 0 || (end as number) < (start as number) || (tokens as number) < 0) return null
+  return { start: start as number, end: end as number, tokens: tokens as number }
+}
+
 /** Plain-JSON fold state persisted by the DSH 0.1.5 projection cache. */
 export interface LiveTokenUsageState {
   settled: TokenUsageProjection
@@ -125,6 +145,10 @@ export interface LiveTokenUsageState {
   /** Surface message seq -> estimated tokens, kept in increasing seq order. */
   surface: Record<string, number>
   surfaceTokens: number
+  /** Adjacent compaction price used when a historical replace range is absent. */
+  surfaceClaim: SurfaceShadowPrice | null
+  /** True after replay had to keep a historical surface replacement neutral. */
+  surfaceEstimateDegraded: boolean
   headerTokens: number
   active: ActiveStep | null
 }
@@ -176,12 +200,19 @@ const settledSampleSchema = z.object({
   peakTokensPerSecond: z.number().nonnegative().optional(),
   rateAlgorithmVersion: z.number().int().positive().optional(),
 }).strict()
+const surfaceShadowPriceSchema = z.object({
+  start: z.number().int().nonnegative(),
+  end: z.number().int().nonnegative(),
+  tokens: z.number().int().nonnegative(),
+}).strict()
 const stateSchema = z.object({
   settled: tokenBucketsSchema,
   settledEstimates: z.number().int().nonnegative(),
   last: settledSampleSchema.nullable(),
   surface: sequenceTableSchema,
   surfaceTokens: z.number().int().nonnegative(),
+  surfaceClaim: surfaceShadowPriceSchema.nullable(),
+  surfaceEstimateDegraded: z.boolean(),
   headerTokens: z.number().int().nonnegative(),
   active: activeStepSchema.nullable(),
 }).strict() as unknown as z.ZodType<LiveTokenUsageState>
@@ -202,7 +233,7 @@ function applySurface(
   state: State,
   event: SurfaceEvent,
   spec: EstimatorSpec,
-): Pick<State, 'surface' | 'surfaceTokens'> {
+): Pick<State, 'surface' | 'surfaceTokens' | 'surfaceClaim' | 'surfaceEstimateDegraded'> {
   const message = surfaceMessage(event)
   const tokens = event.type === 'system/message'
     ? estimateSystemMessageTokens(message, spec)
@@ -212,16 +243,35 @@ function applySurface(
     return {
       surface: state.surface,
       surfaceTokens: state.surfaceTokens + tokens,
+      surfaceClaim: null,
+      surfaceEstimateDegraded: state.surfaceEstimateDegraded,
     }
   }
   const operation = event.surfaceOp
-  if (!Object.hasOwn(state.surface, operation.startSeq)
-    || !Object.hasOwn(state.surface, operation.endSeq)
-    || operation.startSeq > operation.endSeq) {
-    throw new Error(
-      'live-stats: replace at seq ' + event.seq + ' has invalid current range '
-      + operation.startSeq + '-' + operation.endSeq,
-    )
+  const rangePresent = Object.hasOwn(state.surface, operation.startSeq)
+    && Object.hasOwn(state.surface, operation.endSeq)
+    && operation.startSeq <= operation.endSeq
+  if (!rangePresent) {
+    // Old sessions can name endpoints this optional estimator did not retain.
+    // Consume an adjacent compaction price when available; otherwise keep the
+    // scalar total neutral. In both cases history remains readable.
+    const claim = state.surfaceClaim
+    const priced = claim !== null
+      && claim.start === operation.startSeq
+      && claim.end === operation.endSeq
+    for (const sequence of Object.keys(state.surface)) {
+      const seq = Number(sequence)
+      if (seq >= operation.startSeq && seq <= operation.endSeq) delete state.surface[sequence]
+    }
+    state.surface[event.seq] = tokens
+    return {
+      surface: state.surface,
+      surfaceTokens: priced
+        ? Math.max(0, state.surfaceTokens - claim.tokens + tokens)
+        : state.surfaceTokens,
+      surfaceClaim: null,
+      surfaceEstimateDegraded: true,
+    }
   }
   // Integer object keys enumerate in increasing order. This keeps the state
   // plain JSON for DSH 0.1.5 checkpoint persistence without losing the early exit.
@@ -237,6 +287,8 @@ function applySurface(
   return {
     surface: state.surface,
     surfaceTokens: state.surfaceTokens - removed + tokens,
+    surfaceClaim: null,
+    surfaceEstimateDegraded: state.surfaceEstimateDegraded,
   }
 }
 
@@ -445,7 +497,7 @@ function view(state: State, pricing: PricingSpec, showCost: boolean): LiveTokenU
   const cost = showCost ? estimateTokenCost(buckets, pricing) : undefined
   return {
     ...buckets,
-    estimated: estimates > 0,
+    estimated: estimates > 0 || state.surfaceEstimateDegraded,
     ...(rate === undefined ? {} : { tokensPerSecond: rate }),
     ...(peak === undefined ? {} : { peakTokensPerSecond: peak }),
     ...(cost === undefined ? {} : {
@@ -474,11 +526,22 @@ export function createLiveTokenUsageProjectionDefinition(
       last: null,
       surface: {},
       surfaceTokens: 0,
+      surfaceClaim: null,
+      surfaceEstimateDegraded: false,
       headerTokens: 0,
       active: null,
     }),
     apply: (state, event: SessionEvent) => {
       let next = state
+      const shadowPrice = surfaceShadowPrice(event)
+      if (shadowPrice !== null) {
+        next = {
+          ...next,
+          surfaceClaim: shadowPrice,
+        }
+      } else if (!isSurfaceEvent(event) && next.surfaceClaim !== null) {
+        next = { ...next, surfaceClaim: null }
+      }
       const legacyChunk = legacyAssistantChunk(event)
       if (event.type === 'step/start') {
         next = {
@@ -575,6 +638,6 @@ export function createLiveTokenUsageProjectionDefinition(
       viewSchema: projectionSchema,
       view: state => view(state, pricing, showCost),
     },
-    stateVersion: 4,
+    stateVersion: 5,
   }
 }

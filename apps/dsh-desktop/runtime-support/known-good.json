@@ -10,8 +10,8 @@
     "clientSlotScan": "scripts/audit-dsh-coupling.mjs"
   },
   "desktop": {
-    "version": "4.0.0-rc.2",
-    "rootVersion": "4.0.0-rc.2",
+    "version": "4.0.0-rc.3",
+    "rootVersion": "4.0.0-rc.3",
     "nodeEngine": "^22.19.0 || >=24.0.0",
     "packageManager": "pnpm@11.22.0"
   },
@@ -31,7 +31,7 @@
   },
   "lockfile": {
     "path": "pnpm-lock.yaml",
-    "sha256": "35ec70efa169b3ac467fb5abc39fa7932baf69c090cf8f9564e1c1823f546585"
+    "sha256": "b1002a9363cd80b67e81be2abd9c783cdc1aacf3b4053f608d4c1b1e8be5c235"
   },
   "provider": {
     "providerId": "dsh-cli-provider-v1",
@@ -82,7 +82,7 @@
   },
   "compatPatches": {
     "registry": "packages/dsh-desktop-compat/src/patch-registry.ts",
-    "sha256": "427a650e7a376713ab1bf24f143ae140e495c73310de1aea5afd1a293f02be3e",
+    "sha256": "e1a32a3cbd87da42b49c493f864f2d9586f4fb18bb8fe359d92c72ca23c0b2b6",
     "ids": [
       "cancellation-presentation",
       "desktop-skin-profile-isolation",

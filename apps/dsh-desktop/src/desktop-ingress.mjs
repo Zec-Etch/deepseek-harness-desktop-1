@@ -12,11 +12,11 @@ export function registerDesktopProtocolClient({ app, protocol, env = process.env
  * Keep this helper in the ingress module so the same validation is used by
  * argv, second-instance, and macOS open-url events.
  */
-export function desktopDeepLinkFrom(commandLine = [], protocol = 'dsh') {
+export function desktopDeepLinkFrom(commandLine = [], protocol = 'dsh', legacyProtocols = []) {
   for (const value of commandLine) {
     if (typeof value !== 'string' || value.length > 4_096) continue
     try {
-      return normalizeDeepLink(value, protocol).href
+      return normalizeDeepLink(value, protocol, legacyProtocols).href
     } catch {
       // Ordinary executable arguments are not URLs.
     }
@@ -34,6 +34,7 @@ export function desktopDeepLinkFrom(commandLine = [], protocol = 'dsh') {
 export function createDesktopIngress({
   app,
   protocol = 'dsh',
+  legacyProtocols = [],
   initialCommandLine = [],
   onUpdateShutdownRequest = () => {},
   getMainWindow = () => undefined,
@@ -41,6 +42,9 @@ export function createDesktopIngress({
 } = {}) {
   if (!app || typeof app.on !== 'function') throw new TypeError('desktop ingress requires an Electron app')
   if (typeof protocol !== 'string' || protocol.length === 0) throw new TypeError('desktop ingress protocol is required')
+  if (!Array.isArray(legacyProtocols) || legacyProtocols.some((value) => typeof value !== 'string' || value.length === 0)) {
+    throw new TypeError('desktop ingress legacy protocols must be an array of names')
+  }
   if (!Array.isArray(initialCommandLine)) throw new TypeError('desktop ingress command line must be an array')
   if (typeof onUpdateShutdownRequest !== 'function') throw new TypeError('desktop ingress update handler must be a function')
   if (typeof getMainWindow !== 'function') throw new TypeError('desktop ingress main-window getter must be a function')
@@ -54,6 +58,7 @@ export function createDesktopIngress({
   const pendingPresetFiles = new Set()
   const deepLinkRouter = new DeepLinkRouter({
     protocol,
+    legacyProtocols,
     dispatch: (link) => {
       if (typeof deepLinkDispatch !== 'function') return undefined
       return deepLinkDispatch(link)
@@ -76,7 +81,7 @@ export function createDesktopIngress({
 
   const enqueueCommandLineIngress = (commandLine) => {
     if (!Array.isArray(commandLine)) return Object.freeze({ deepLink: undefined, preset: undefined })
-    const deepLink = desktopDeepLinkFrom(commandLine, protocol)
+    const deepLink = desktopDeepLinkFrom(commandLine, protocol, legacyProtocols)
     const deepLinkResult = deepLink ? deepLinkRouter.enqueue(deepLink) : undefined
     let presetResult
     const presetPath = presetFileFrom(commandLine)
@@ -106,7 +111,7 @@ export function createDesktopIngress({
 
   const handleOpenUrl = (event, url) => {
     event?.preventDefault?.()
-    const deepLink = desktopDeepLinkFrom([url], protocol)
+    const deepLink = desktopDeepLinkFrom([url], protocol, legacyProtocols)
     if (!deepLink) return Object.freeze({ accepted: false, reason: 'invalid' })
     return deepLinkRouter.enqueue(deepLink)
   }

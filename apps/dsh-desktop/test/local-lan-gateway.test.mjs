@@ -114,6 +114,7 @@ test('LAN gateway lifecycle binds one exact private interface and reports stable
     closeAllConnections() {}
   }
   const saved = []
+  const telemetry = []
   const server = new FakeServer()
   const gateway = new DesktopLanGateway({
     store: { save: async value => { saved.push(value); return value } },
@@ -121,12 +122,14 @@ test('LAN gateway lifecycle binds one exact private interface and reports stable
     getProvider: () => ({ status: { state: 'ready' }, fetch }),
     createHttpServer: () => server,
     interfacesProvider: () => ({ Ethernet: [{ family: 'IPv4', internal: false, address: '192.168.1.8' }] }),
+    recordFeatureEvent: event => { telemetry.push(event); throw new Error('telemetry unavailable') },
   })
   assert.equal((await gateway.start()).state, 'running')
   assert.deepEqual(server.listenOptions, { host: '192.168.1.8', port: 45126, exclusive: true })
   assert.equal(gateway.status.url, 'http://192.168.1.8:45126')
   assert.equal((await gateway.configure({ enabled: false, port: 45126 })).state, 'stopped')
   assert.deepEqual(saved, [{ schemaVersion: 1, enabled: false, port: 45126 }])
+  assert.deepEqual(telemetry, [{ feature: 'local-lan', outcome: 'succeeded', detail: 'disable' }])
 
   class FailedServer extends FakeServer {
     listen() { queueMicrotask(() => this.emit('error', Object.assign(new Error('busy'), { code: 'EADDRINUSE' }))) }
@@ -137,8 +140,9 @@ test('LAN gateway lifecycle binds one exact private interface and reports stable
     getProvider: () => ({ status: { state: 'ready' }, fetch }),
     createHttpServer: () => new FailedServer(),
     interfacesProvider: () => ({ Ethernet: [{ family: 'IPv4', internal: false, address: '192.168.1.8' }] }),
+    recordFeatureEvent: event => telemetry.push(event),
   })
-  assert.deepEqual(await failed.start(), {
+  assert.deepEqual(await failed.configure({ enabled: true, address: '192.168.1.8', port: 45127 }), {
     state: 'error',
     enabled: true,
     address: '192.168.1.8',
@@ -146,6 +150,7 @@ test('LAN gateway lifecycle binds one exact private interface and reports stable
     availableAddresses: ['192.168.1.8'],
     errorCode: 'port-in-use',
   })
+  assert.deepEqual(telemetry.at(-1), { feature: 'local-lan', outcome: 'failed', detail: 'reconfigure' })
 })
 
 test('LAN gateway forwards allowlisted requests and rejects host, origin and full API access', async () => {

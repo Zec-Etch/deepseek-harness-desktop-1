@@ -1,58 +1,30 @@
-# DeepSeek Harness Desktop 3.5.0
+# DeepSeek Harness Desktop 4.0.0-rc.3
 
 ## 中文
 
 ### 本次亮点
 
-插件更自由，Desktop 更稳定。
+DeepSeek 官方尚未正式发布独立 Desktop 产品；4.0 普通版候选已经把公开的官方 DSH Runtime、Web UI、拆分 SDK 与官方仓库可见的 Desktop 能力边界融合进可安装的 Windows 社区应用。这里的“融合”是基于公开代码和 NPM 包的兼容适配，不代表获得未公开私有源码；社区版继续使用独立应用身份、数据目录、协议、安装器和更新源，并非 DeepSeek 官方客户端。
 
-DeepSeek Harness Desktop 3.5.0 重构了插件安装与运行机制。插件现在会先在独立环境中完成兼容性和依赖验证，再安全应用到 Desktop。
+本候选重点解决从 3.5 覆盖升级后的插件与历史会话可靠性，并把模型协作、技能和桌面常用能力整理成更容易找到的入口。旧 Desktop Profile 只读扫描，精确版本的 Registry 插件可安全恢复；Git 插件固定旧提交后等待用户确认，任何恢复失败都不会阻断启动。
 
-如果插件与当前 Runtime 不兼容，它会在安装前被阻止，不会影响现有环境。即使安装、更新、卸载或启动失败，Desktop 也会自动恢复到操作前状态。
+会话左侧栏新增“模型协作”，可直接打开唯一的拓展坞窗口并进入协作页面。Agent Team 与性价比模式在同一页独立配置，bai 供应商在相关模型选择器中统一置顶。技能中心与会话技能菜单使用同一 DSH Home，并兼容 DSH 4 的富文本输入框。底部面板展开不再隐式启动终端，桌面窗口控件也完成了视觉与行为整理。
 
-### 更安心的插件安装
-
-- 安装、更新、卸载、批量操作和 Preset 导入统一使用事务流程，要么完整成功，要么环境保持不变。
-- 插件不能替换 Desktop 管理的 Runtime、内置组件或兼容桥接包；直接和隐藏的依赖冲突都会提前停止。
-- 未声明兼容范围的插件会先询问用户，明确不兼容的插件不会继续安装。
-- 新版插件不兼容时保留并继续使用当前版本，不会为了更新而破坏已有插件。
-- 插件代码与聊天、设置、Memory、Personal Prompt、Workspace 和插件配置分开管理，修复依赖环境不会删除个人数据。
-
-### 更简洁的插件管理
-
-Extension Dock 的插件页面收敛为“已安装”“发现”“设置”三个区域。正常插件不再长期显示无意义的兼容标记，只有可更新、已停用或需要处理时才出现状态提示。
-
-插件详情集中显示启用、版本、更新、权限和卸载操作。Runtime 范围、包来源和完整性等技术信息放在“高级信息”中，需要时再查看。安装过程只展示简短状态，不把 pnpm、lockfile 或依赖图暴露给普通用户。
-
-### 旧版本自动迁移
-
-从 3.4.0 升级时，Desktop 会在本地检查旧 Profile。能够确认安全的依赖漂移会自动修复；无法自动确认时只提示“插件环境需要修复”。聊天、设置、API Provider、API Key、Memory、Personal Prompt、Workspace、插件配置和用户文件均保持原位。
-
-如果用户插件归档的 `node_modules` 完整性检查失败，3.5.0 会保留用户数据，记录明确的启动阶段与恢复结果，并回退到同一 DSH Home 中可用的内置插件。归档损坏不再同时阻断普通模式和安全模式。
-
-### Runtime 与日常体验
-
-Desktop 继续使用官方 DSH `0.1.5-rc.1` Runtime，并保留 3.4.0 对 DeepSeek V4.1 Flash、原生文件上传、侧栏预览、历史会话、模型目录、终端、余额、拓展坞和 Windows 覆盖升级的适配。插件架构升级不会改变正常的会话、Agent、设置和内置功能入口。
-
-### 隐私与诊断
-
-匿名统计继续采用高频行为聚合、低频关键事件保留的方式；统计失败不影响软件功能。事务日志只记录操作阶段和有界结果，不记录 API Key、Prompt、对话正文、文件内容、插件私有配置或绝对路径。诊断包仍由用户主动导出并在本地脱敏。
+插件安装继续以稳定性为底线，同时保留用户选择权。明确不匹配的第三方插件默认劝退，但用户可在风险说明后主动尝试；安装仍必须通过隔离 staging、Bundle、完整性、受保护依赖图和 Runtime 启动检查。重复安装本地 `.tgz` 使用内容寻址缓存，不再因临时文件被清理而报 `ENOENT`，失败会回滚且不污染后续 Registry 安装。
 
 ### 验证
 
-3.5.0 源码检查覆盖 Runtime 基线、插件兼容准入、依赖图保护、事务提交与回滚、崩溃恢复、3.4.0 迁移、匿名统计边界和发布资料。本次正式候选的 Desktop 主套件为 1157 项，其中 1155 项通过、2 项因 Windows 未开启符号链接权限跳过、0 项失败；仓库脚本套件 194/194 通过。安装包大小与 SHA-256 以本次正式发布同一提交的验证记录和 GitHub Release 资产为准。
+候选版覆盖 3.5 插件恢复、历史会话重开、新会话关闭后重载、桌宠保存终态、Git 与 Registry 市场安装、本地 `.tgz` 重复安装、梁神模式权限参数、Windows 隐藏控制台、模型协作深链、技能发现、底栏、窗口、DPI、亮色与暗色布局。源码单元、机器基线、共享文件一致性、真实 Electron 和打包应用回归均作为发布门禁，任何未通过项必须在发布报告中明确列出。
 
-产品数据看板现在明确区分 UTC 当日 DAU、滚动 7 日 WAU 和滚动 30 日 MAU，展示此前非重叠窗口对比、DAU/MAU 与 WAU/MAU 粘性、数据覆盖天数、DAU 趋势和滚动 MAU 趋势。高频事件只进入无实例标识的聚合层；精确活跃与留存仍由有界的启动集合计算。
+匿名埋点新增会话技能打开与插入漏斗，并修复会话导入事件被白名单静默丢弃的问题。高频成功事件只进入无实例标识的聚合层；失败诊断保持有界，不记录 API Key、Prompt、对话正文、项目名、会话内容、技能名称、文件路径、局域网地址或插件私有配置。埋点失败不影响产品功能。
 
 ### 下载与校验
 
-从本次 GitHub Release 下载 `DeepSeek-Harness-Desktop-Setup-3.5.0-x64.exe`，并使用同一 Release 的 `SHA256SUMS.txt` 核对完整性。可在 PowerShell 中运行 `Get-FileHash -Algorithm SHA256`。
+本地候选安装包名为 `DeepSeek-Harness-Desktop-Setup-4.0.0-rc.3-x64.exe`。正式发布时应从 `ningbainb/deepseek-harness-desktop` 的同版本 GitHub Release 下载安装包与校验文件，并使用 PowerShell `Get-FileHash -Algorithm SHA256` 核对。安装包哈希、大小和签名状态必须来自最终同一构建产物，不能沿用旧候选结果。
 
 ### 说明
 
-本项目是社区开源桌面端，并非 DeepSeek 官方客户端。模型通过服务商 API 使用，费用与可用性以服务商为准。升级前仍建议备份重要会话。
-
-已知问题：部分多显示器或 DPI 缩放场景下，窗口恢复位置可能偏移；维护者已确认该问题不阻塞 3.5.0。
+这是普通版候选构建，与标书版目录、分支及交付物分开，构建流程不得混入标书专属内容。本项目由 ningbai牛逼 维护，是社区开源桌面端，并非 DeepSeek 官方客户端；模型通过服务商 API 使用，价格和可用性以服务商为准。覆盖升级前仍建议备份重要会话和配置，无法兼容的旧 Git 插件会保留在待恢复清单中，不会伪装为安装成功。
 
 [项目与反馈](https://github.com/ningbainb/deepseek-harness-desktop) · [爱发电支持](https://afdian.com/a/ningbai)
 
@@ -60,54 +32,26 @@ Desktop 继续使用官方 DSH `0.1.5-rc.1` Runtime，并保留 3.4.0 对 DeepSe
 
 ### Highlights
 
-Freer plugins, a more stable Desktop.
+DeepSeek has not yet released a standalone official Desktop product. The 4.0 standard-edition candidate already combines the public official DSH Runtime, Web UI, split SDK packages, and the Desktop boundaries visible in the official repository into an installable community Windows application. “Integrated” means compatibility work based on public code and NPM packages, not access to unreleased private source. The community edition keeps its own application identity, data home, protocol, installer, and update feed and is not an official DeepSeek client.
 
-DeepSeek Harness Desktop 3.5.0 rebuilds plugin installation and runtime safety. A plugin is now resolved and validated in an isolated staging environment before its dependency environment can become active.
+This candidate focuses on reliable upgrades from 3.5, especially installed plugins and historical conversations, while making collaboration, skills, and common Desktop capabilities easier to discover. The legacy Desktop Profile is scanned read-only. Exact Registry versions can be restored transactionally, while Git plugins remain pinned to their previous commit and wait for explicit confirmation. A failed recovery item never blocks Desktop startup.
 
-An incompatible plugin is stopped before installation and cannot change the existing Desktop. If installation, update, removal, or Runtime startup fails, Desktop restores the previous environment automatically.
+The conversation sidebar now includes a Model Collaboration entry that focuses the single Extension Dock window and opens the collaboration page directly. Agent Team and Value Mode remain independently configurable on that page, and the bai provider is ordered consistently near the top of the related model pickers. The Skill Center and conversation skill menu share the same DSH Home and support the DSH 4 rich-text composer. Expanding the bottom panel no longer starts a terminal implicitly, and native window controls have received a visual and behavioral cleanup.
 
-### Safer plugin changes
-
-- Install, update, remove, batch operations, and Preset import use one transactional lifecycle: either the whole change succeeds or the environment stays unchanged.
-- Plugins cannot replace Desktop-owned Runtime, built-in, support, or compatibility packages. Direct and transitive conflicts are rejected.
-- Plugins without compatibility metadata require an explicit user decision. Known incompatible plugins cannot proceed.
-- An incompatible update leaves the currently installed version available and enabled.
-- Plugin code is separated from conversations, settings, Memory, Personal Prompt, Workspace content, and plugin configuration. Dependency repair does not delete personal data.
-
-### A quieter Extension Dock
-
-Plugin management now has three top-level areas: Installed, Discover, and Settings. Healthy plugins stay visually quiet; only updates, disabled state, or required attention are surfaced.
-
-Plugin details collect enablement, version, update, permissions, and removal in one place. Runtime ranges, package sources, and integrity evidence remain available under Advanced Information. Installation progress uses short product language instead of exposing package-manager internals.
-
-### Automatic upgrade migration
-
-When upgrading from 3.4.0, Desktop audits the existing Profile locally. Safe dependency drift is repaired silently. If automatic repair cannot be proven safe, Desktop offers a focused plugin-environment repair action. Conversations, settings, providers, API keys, Memory, Personal Prompt, Workspaces, plugin configuration, and user files remain in place.
-
-If the user-plugin archive fails its `node_modules` integrity check, 3.5.0 preserves user data, records the bounded startup stage and recovery result, and falls back to usable built-ins in the same DSH Home. A damaged archive no longer blocks both normal and safe startup.
-
-### Runtime and existing workflows
-
-Desktop continues to use the official DSH `0.1.5-rc.1` Runtime and retains the 3.4.0 adaptations for DeepSeek V4.1 Flash, native uploads, sidebar previews, historical sessions, model catalog loading, terminals, provider balances, the Extension Dock, and Windows overlay upgrades. The plugin-platform change does not replace normal conversation, Agent, Settings, or built-in feature workflows.
-
-### Privacy and diagnostics
-
-Anonymous metrics keep high-frequency behavior aggregated and low-frequency critical outcomes bounded. Metrics failure never blocks product behavior. Transaction journals exclude API keys, prompts, conversation bodies, file contents, private plugin configuration, and absolute paths. Diagnostic archives remain user-initiated and locally redacted.
+Plugin installation keeps a stable default without removing informed choice. A plugin with a declared version mismatch is discouraged by default, but a user may explicitly request a risk install after reading the warning. Every attempt must still pass isolated staging, Bundle validation, integrity checks, protected dependency graph checks, and Runtime startup validation. Local `.tgz` sources use a content-addressed cache so repeat installation cannot lose its archive and poison later Registry operations.
 
 ### Verification
 
-The 3.5.0 source gates cover the immutable Runtime baseline, compatibility admission, protected dependency graphs, transactional commit and rollback, crash recovery, migration from 3.4.0, anonymous measurement boundaries, and release documentation. The formal candidate Desktop suite contains 1,157 tests: 1,155 passed, two were skipped because Windows symbolic-link privileges were unavailable, and none failed; the repository script suite passed 194 of 194. Installer size and SHA-256 are reported from the same commit used by this formal release and its GitHub Release assets.
+Release gates cover legacy plugin recovery, historical session reopening, reopening newly created sessions after restart, pet setting terminal states, Git and Registry installs, repeat local archive installs, Liangshen sandbox argument handling, hidden Windows console behavior, collaboration deep links, skill discovery, bottom-panel behavior, window controls, DPI scaling, and light and dark responsive layouts. Source tests, machine-readable baselines, shared-file consistency, real Electron checks, and packaged application regression are all required. Any exception must be listed explicitly in the final release report.
 
-The product dashboard now distinguishes current UTC-day DAU, rolling 7-day WAU, and rolling 30-day MAU. It shows non-overlapping prior-window comparisons, DAU/MAU and WAU/MAU stickiness, coverage age, DAU trend, and rolling-MAU trend. High-frequency events enter an actor-free aggregate plane; exact activity and retention still come from bounded launch-presence tables.
+Anonymous measurement now includes the conversation-skill open and insertion funnel, and the previously dropped conversation-import surface event is admitted by the allowlist. High-frequency success signals remain in an actor-free aggregate plane. Bounded failures exclude API keys, prompts, conversation text, project and session content, skill names, file paths, LAN addresses, and private plugin configuration. Telemetry delivery failure never blocks product behavior.
 
 ### Download and verification
 
-Download `DeepSeek-Harness-Desktop-Setup-3.5.0-x64.exe` and `SHA256SUMS.txt` from the same GitHub Release. Verify the installer with PowerShell `Get-FileHash -Algorithm SHA256`.
+The local candidate artifact is named `DeepSeek-Harness-Desktop-Setup-4.0.0-rc.3-x64.exe`. For a public release, download the installer and checksum file from the matching GitHub Release in `ningbainb/deepseek-harness-desktop`, then verify it with PowerShell `Get-FileHash -Algorithm SHA256`. The reported hash, size, and signature status must come from the exact final artifact and must not be copied from an earlier candidate.
 
 ### Notice
 
-This is a community-maintained open-source desktop application, not an official DeepSeek client. Models are accessed through provider APIs, and pricing and availability depend on the provider. Back up important conversations before upgrading.
-
-Known issue: restored window positions can shift in some multi-monitor or DPI-scaling configurations. The maintainer has accepted this as non-blocking for 3.5.0.
+This is the standard-edition candidate and is kept separate from the tender-edition directory, branch, and deliverables. The project is maintained by ningbai牛逼 as a community open-source desktop application and is not an official DeepSeek client. Model access, pricing, and availability depend on the selected provider. Back up important conversations and configuration before an overlay upgrade. Incompatible legacy Git plugins remain visible as pending recovery items instead of being reported as installed.
 
 [Project and feedback](https://github.com/ningbainb/deepseek-harness-desktop) · [Sponsor on Afdian](https://afdian.com/a/ningbai)

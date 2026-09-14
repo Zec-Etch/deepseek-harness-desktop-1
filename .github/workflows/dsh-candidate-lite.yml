@@ -140,11 +140,11 @@ jobs:
         env:
           DSH_CANDIDATE_VERSION: ${{ needs.resolve-candidate.outputs.candidate_version }}
         run: |
-          pnpm --filter @deepseek-ai/dsh-desktop exec playwright install chromium
-          pnpm --filter @deepseek-ai/dsh-desktop test:runtime-provider:e2e
-          pnpm --filter @deepseek-ai/dsh-desktop test:directory-picker:e2e
-          pnpm --filter @deepseek-ai/dsh-desktop test:task-board-worktree:e2e
-          pnpm --filter @deepseek-ai/dsh-desktop test:preset-deep-link:e2e
+          pnpm --filter @linxin666/dsh-desktop exec playwright install chromium
+          pnpm --filter @linxin666/dsh-desktop test:runtime-provider:e2e
+          pnpm --filter @linxin666/dsh-desktop test:directory-picker:e2e
+          pnpm --filter @linxin666/dsh-desktop test:task-board-worktree:e2e
+          pnpm --filter @linxin666/dsh-desktop test:preset-deep-link:e2e
 
       - name: Package candidate then smoke upgrade and shutdown checks without touching Stable
         id: package
@@ -156,11 +156,11 @@ jobs:
         shell: pwsh
         run: |
           pnpm desktop:pack
-          pnpm --filter @deepseek-ai/dsh-desktop pack:verify
-          pnpm --filter @deepseek-ai/dsh-desktop pack:smoke
+          pnpm --filter @linxin666/dsh-desktop pack:verify
+          pnpm --filter @linxin666/dsh-desktop pack:smoke
           $env:DSH_DESKTOP_E2E_EXECUTABLE = (Resolve-Path 'apps/dsh-desktop/dist/win-unpacked/DeepSeek Harness Desktop.exe').Path
-          pnpm --filter @deepseek-ai/dsh-desktop test:profile-migration:e2e
-          pnpm --filter @deepseek-ai/dsh-desktop test:update-shutdown:e2e
+          pnpm --filter @linxin666/dsh-desktop test:profile-migration:e2e
+          pnpm --filter @linxin666/dsh-desktop test:update-shutdown:e2e
 
       - name: Exercise deterministic candidate CWD and event fixture
         id: execution

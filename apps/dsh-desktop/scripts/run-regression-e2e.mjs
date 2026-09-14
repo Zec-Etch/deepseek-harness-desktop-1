@@ -66,6 +66,16 @@ const CORE_SUITES = [
     args: [],
   },
   {
+    name: 'Shared Skill Discovery Root & Skill Center Mount',
+    script: 'scripts/verify-skill-discovery.mjs',
+    args: [],
+  },
+  {
+    name: 'Conversation Skill Menu, Search & Keyboard Selection',
+    script: 'scripts/verify-conversation-skills.mjs',
+    args: [],
+  },
+  {
     name: 'Selected Model Balance & Provider Credential Isolation',
     script: 'scripts/verify-selected-balance.mjs',
     args: [],
@@ -169,6 +179,10 @@ const PACKAGED_SUITES = [
   ...(process.platform === 'win32' ? [{
     name: 'Compiled NSIS Upgrade & Rollback Lifecycle',
     script: 'scripts/verify-installer-lifecycle.mjs',
+    args: [],
+  }, {
+    name: 'Compiled NSIS Community Identity Migration',
+    script: 'scripts/verify-installer-identity-migration.mjs',
     args: [],
   }] : []),
   {

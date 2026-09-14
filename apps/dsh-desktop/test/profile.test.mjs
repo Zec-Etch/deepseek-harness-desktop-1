@@ -12,6 +12,9 @@ import { runtimeEntryPath } from '../src/runtime-controller.mjs'
 
 import {
   AGGREGATED_BUNDLES,
+  AGENT_TEAM_PROFILE_BUNDLE,
+  AGENT_TEAM_RUNTIME_PACKAGES,
+  AGENT_TEAM_VERSION,
   BUILTIN_BUNDLES,
   BUILTIN_SKIN_IDS,
   classifyDesktopProfileBootstrapFailure,
@@ -30,11 +33,13 @@ import {
   createDesktopProfileManifest,
   ensureDesktopProfile,
   isSemanticallyEmptyPatch,
+  readAgentTeamProfileEnabled,
   mergeDesktopPatch,
   materializeFilesystemPath,
   packagePathSegments,
   resolveRuntimePackages,
   resolveDshCliPath,
+  setAgentTeamProfileEnabled,
 } from '../src/profile.mjs'
 
 test('Desktop aggregate ships the current conversation navigator build', async () => {
@@ -282,6 +287,8 @@ test('profile manifest removes bundles already supplied by the web UI aggregate'
   assert.equal(AGGREGATED_BUNDLES.includes('@linxin666/dsh-client-ui-git-graph'), true)
   assert.equal(AGGREGATED_BUNDLES.includes('@linxin666/dsh-client-ui-community-plugins'), true)
   assert.equal(AGGREGATED_BUNDLES.includes('@linxin666/dsh-client-ui-mode-switcher'), false)
+  assert.equal(BUILTIN_BUNDLES.includes('@linxin666/dsh-client-ui-skill-explorer'), true)
+  assert.equal(AGGREGATED_BUNDLES.includes('@linxin666/dsh-client-ui-skill-explorer'), false)
   assert.equal(AGGREGATED_BUNDLES.includes('@linxin666/dsh-client-ui-skin-center'), true)
   assert.equal(AGGREGATED_BUNDLES.includes('@linxin666/dsh-liangshen'), true)
   assert.equal(AGGREGATED_BUNDLES.includes('@linxin666/dsh-tool-describe-image'), true)
@@ -347,6 +354,54 @@ test('desktop profile directly includes Value Mode as a first-class builtin bund
   assert.equal(MANAGED_RUNTIME_PACKAGES.includes('@linxin666/dsh-value-mode'), true)
   assert.equal(AGGREGATED_BUNDLES.includes('@linxin666/dsh-value-mode'), false)
   assert.equal(DEPENDENCY_ONLY_BUNDLES.includes('@linxin666/dsh-value-mode'), false)
+})
+
+test('Agent Team ships as an exact built-in runtime but stays opt-in in the desktop profile', () => {
+  const desktopManifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+  const disabled = createDesktopProfileManifest()
+  assert.equal(disabled.dsh.profile.bundles.includes(AGENT_TEAM_PROFILE_BUNDLE), false)
+  for (const packageName of AGENT_TEAM_RUNTIME_PACKAGES) {
+    assert.equal(MANAGED_RUNTIME_PACKAGES.includes(packageName), true)
+    assert.equal(desktopManifest.dependencies[packageName], AGENT_TEAM_VERSION)
+  }
+
+  const enabled = createDesktopProfileManifest({
+    dsh: { profile: { bundles: [AGENT_TEAM_PROFILE_BUNDLE, '@community/example'] } },
+  })
+  assert.deepEqual(enabled.dsh.profile.bundles, [
+    ...BUILTIN_BUNDLES,
+    '@community/example',
+    AGENT_TEAM_PROFILE_BUNDLE,
+  ])
+})
+
+test('Agent Team profile switch persists without changing unrelated manifest fields', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-agent-team-toggle-'))
+  const profileDir = join(root, 'profiles', 'desktop')
+  try {
+    await mkdir(profileDir, { recursive: true })
+    await writeFile(join(profileDir, 'package.json'), `${JSON.stringify({
+      name: 'dsh-profile-desktop',
+      private: true,
+      userMetadata: { keep: true },
+      dsh: { profile: { bundles: [...BUILTIN_BUNDLES, '@community/example'] } },
+    }, null, 2)}\n`)
+
+    assert.equal(await readAgentTeamProfileEnabled({ profileDir }), false)
+    assert.deepEqual(await setAgentTeamProfileEnabled({ profileDir, enabled: true }), { enabled: true, changed: true })
+    assert.equal(await readAgentTeamProfileEnabled({ profileDir }), true)
+    const enabled = JSON.parse(await readFile(join(profileDir, 'package.json'), 'utf8'))
+    assert.deepEqual(enabled.userMetadata, { keep: true })
+    assert.equal(enabled.dsh.profile.bundles.at(-1), AGENT_TEAM_PROFILE_BUNDLE)
+
+    assert.deepEqual(await setAgentTeamProfileEnabled({ profileDir, enabled: false }), { enabled: false, changed: true })
+    assert.equal(await readAgentTeamProfileEnabled({ profileDir }), false)
+    const disabled = JSON.parse(await readFile(join(profileDir, 'package.json'), 'utf8'))
+    assert.equal(disabled.dsh.profile.bundles.includes(AGENT_TEAM_PROFILE_BUNDLE), false)
+    assert.equal(disabled.dsh.profile.bundles.includes('@community/example'), true)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })
 
 test('desktop profile directly mounts better sidebar for DSH 0.1.5 bundle composition', () => {
@@ -1179,6 +1234,24 @@ test('desktop runtime launcher composes the isolated desktop profile', async () 
     assert.match(result.stdout, /- id: reasoning-slider/)
     assert.match(result.stdout, /- id: im-qqbot[\s\S]*?disabled: true/)
     assert.doesNotMatch(result.stdout, /dsh-host-directory-picker-native/)
+
+    const profileDir = join(root, 'profiles', 'desktop')
+    await setAgentTeamProfileEnabled({ profileDir, enabled: true })
+    await ensureDesktopProfile({ dshHome: root })
+    const agentTeamResult = spawnSync(
+      process.execPath,
+      [runtimeEntryPath(isolatedCliPath), '--dsh-cli', isolatedCliPath, '--profile', 'desktop', '--dump-config'],
+      {
+        encoding: 'utf8',
+        env: { ...process.env, DSH_HOME: root },
+        timeout: 20_000,
+      },
+    )
+    assert.equal(agentTeamResult.status, 0, agentTeamResult.stderr)
+    assert.match(agentTeamResult.stdout, /- id: agent-team/u)
+    assert.match(agentTeamResult.stdout, /- id: tool-agent-team/u)
+    assert.match(agentTeamResult.stdout, /- id: tool-subagent-control[\s\S]*?disabled: true/u)
+    assert.equal(await readAgentTeamProfileEnabled({ profileDir }), true)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

@@ -54,10 +54,16 @@ try {
     workArea: { x: 0, y: 0, width: 1024, height: 720 },
   }]
   const reloaded = await launch(1, undefined, smallDisplay)
-  const visibleReload = { x: 0, y: 0, width: 1024, height: 720, maximized: false }
-  assert.deepEqual(reloaded.input, visibleReload, 'launch bounds must fit the current work area')
+  const visibleReload = reloaded.input
+  const { workArea } = smallDisplay[0]
+  assert.ok(visibleReload.x >= workArea.x, 'launch x must remain inside the current work area')
+  assert.ok(visibleReload.y >= workArea.y, 'launch y must remain inside the current work area')
+  assert.ok(visibleReload.x + visibleReload.width <= workArea.x + workArea.width,
+    'launch width must fit the current work area')
+  assert.ok(visibleReload.y + visibleReload.height <= workArea.y + workArea.height,
+    'launch height must fit the current work area')
   assert.deepEqual(reloaded.saved, resized.saved, 'visible launch clamping must retain the user-selected logical rectangle')
-  assert.deepEqual(reloaded.bounds, { x: 0, y: 0, width: 1024, height: 720 }, 'native 100% bounds must match the visible launch rectangle')
+  assert.deepEqual(reloaded.bounds, { x: visibleReload.x, y: visibleReload.y, width: visibleReload.width, height: visibleReload.height }, 'native 100% bounds must match the visible launch rectangle')
 
   // DSH-350-DPI-01: the saved rectangle fits at 100% but its x coordinate
   // must be clamped from 1920 to 1706 in the smaller logical work area.

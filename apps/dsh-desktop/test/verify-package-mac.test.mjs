@@ -21,13 +21,13 @@ import {
   verifyMacPackagedSurface,
 } from '../scripts/verify-package-mac.mjs'
 
-const APP_ID = 'ai.deepseek.harness.desktop'
+const APP_ID = 'com.ningbainb.deepseek-harness.desktop'
 const appDirectory = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 function sampleInfoPlist({
   identifier = APP_ID,
   productName = PRODUCT_FILENAME,
-  urlScheme = 'dsh',
+  urlScheme = 'dsh-community',
   documentExtension = 'dshpreset',
 } = {}) {
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -233,16 +233,16 @@ test('mac locales map electronLanguages to .lproj directories and keep gender va
   assert.equal(isAllowedMacLocaleDirectory('en-US.pak', mapped), false)
 })
 
-test('Info.plist must identify the app and register dsh plus dshpreset', () => {
+test('Info.plist must identify the app and register dsh-community plus dshpreset', () => {
   const xml = sampleInfoPlist()
   assert.doesNotThrow(() => assertMacInfoPlist(xml, { appId: APP_ID, productName: PRODUCT_FILENAME }))
-  assert.equal(plistArrayContains(xml, 'CFBundleURLSchemes', 'dsh'), true)
+  assert.equal(plistArrayContains(xml, 'CFBundleURLSchemes', 'dsh-community'), true)
   assert.throws(
     () => assertMacInfoPlist(sampleInfoPlist({ urlScheme: 'https' }), {
       appId: APP_ID,
       productName: PRODUCT_FILENAME,
     }),
-    /dsh URL scheme/u,
+    /dsh-community URL scheme/u,
   )
   assert.throws(
     () => assertMacInfoPlist(sampleInfoPlist({ documentExtension: 'txt' }), {
@@ -359,7 +359,7 @@ test('mac packaged surface rejects a bundle that is missing Info.plist keys', as
     })
     await assert.rejects(
       verifyMacPackagedSurface({ ...fixture, appId: APP_ID }),
-      /dsh URL scheme/u,
+      /dsh-community URL scheme/u,
     )
   } finally {
     await rm(root, { recursive: true, force: true })

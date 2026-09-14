@@ -27,6 +27,20 @@ test('Extension Dock exposes only installed discover and settings as plugin top-
   assert.doesNotMatch(group, />内置能力 /u)
 })
 
+test('Extension Dock moves Agent Team into the unified collaboration page', async () => {
+  const [html, script, collaboration] = await Promise.all([
+    readFile(new URL('../src/ui/extensions.html', import.meta.url), 'utf8'),
+    readFile(new URL('../src/ui/extensions.mjs', import.meta.url), 'utf8'),
+    readFile(new URL('../../../packages/dsh-web-ui-settings/src/client/AgentTeamSettingsCard.tsx', import.meta.url), 'utf8'),
+  ])
+  assert.doesNotMatch(html, /id="agent-team-enabled"/u)
+  assert.match(script, /packageName: '@deepseek-ai\/dsh-experimental-agent-team-profile'/u)
+  assert.match(collaboration, /role="switch"/u)
+  assert.match(collaboration, /setAgentTeamEnabled\(target\)/u)
+  assert.match(collaboration, /共享任务板/u)
+  assert.match(collaboration, /会话、草稿和项目文件不会被删除/u)
+})
+
 test('Extension Dock keeps healthy plugin state quiet and technical fields inside advanced information', async () => {
   const script = await readFile(new URL('../src/ui/extensions.mjs', import.meta.url), 'utf8')
   assert.match(script, /if \(presentation\.label === ''\) return ''/u)

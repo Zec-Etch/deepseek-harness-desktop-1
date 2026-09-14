@@ -21,6 +21,7 @@ export interface ToolCallNormalizationDiagnostic {
 /** Reasons an exact one-key `arguments` envelope was accepted or left intact. */
 export type ToolCallNormalizationReason =
   | 'schema-validated-envelope'
+  | 'redundant-full-access-escalation'
   | 'unknown-tool'
   | 'duplicate-tool-schema'
   | 'unsupported-tool-schema'
@@ -152,6 +153,40 @@ function normalizeWrappedToolCallArgumentsWithLookup(
   }
 }
 
+const SANDBOX_PERMISSION_LEVELS = new Set(['read-only', 'workspace-write', 'danger-full-access'])
+
+/**
+ * Desktop's trusted Runtime already runs with the permission selected by the
+ * host. Some models still copy an escalation field into shell calls. When the
+ * current mode is `danger-full-access`, every declared sandbox target is equal
+ * or narrower and therefore cannot be an escalation. Remove only that one
+ * optional field, and only when the advertised tool schema still accepts the
+ * resulting arguments. All commands, paths, and other options remain exact.
+ */
+export function normalizeRedundantSandboxEscalation(
+  raw: string,
+  tool: ToolSchema | undefined,
+  currentMode: string | undefined,
+): ToolCallArgumentNormalization {
+  if (currentMode !== 'danger-full-access' || tool === undefined) return { arguments: raw }
+  const value = parseObject(raw)
+  if (value === undefined || !Object.hasOwn(value, 'sandbox_permissions')) return { arguments: raw }
+  if (typeof value.sandbox_permissions !== 'string' || !SANDBOX_PERMISSION_LEVELS.has(value.sandbox_permissions)) {
+    return { arguments: raw }
+  }
+  const normalized = { ...value }
+  delete normalized.sandbox_permissions
+  try {
+    if (validateJsonSchemaValue(tool.parameters as never, normalized).length > 0) return { arguments: raw }
+  } catch {
+    return { arguments: raw }
+  }
+  return {
+    arguments: JSON.stringify(normalized),
+    diagnostic: { outcome: 'normalized', reason: 'redundant-full-access-escalation' },
+  }
+}
+
 function addDiagnostic(
   callback: ((diagnostic: ToolCallNormalizationDiagnostic) => void) | undefined,
   options: GenerateOptions,
@@ -179,8 +214,16 @@ function normalizeToolCall(
   options: GenerateOptions,
   lookup: ReadonlyMap<string, ToolSchemaLookup>,
   diagnostic: ((diagnostic: ToolCallNormalizationDiagnostic) => void) | undefined,
+  permissionMode: string | undefined,
 ): string {
-  const normalization = normalizeWrappedToolCallArgumentsWithLookup(raw, lookup.get(name) ?? { kind: 'missing' })
+  const tool = lookup.get(name) ?? { kind: 'missing' }
+  const envelope = normalizeWrappedToolCallArgumentsWithLookup(raw, tool)
+  const sandbox = tool.kind === 'found'
+    ? normalizeRedundantSandboxEscalation(envelope.arguments, tool.schema, permissionMode)
+    : envelope
+  const normalization = sandbox.diagnostic === undefined && envelope.diagnostic !== undefined
+    ? { ...sandbox, diagnostic: envelope.diagnostic }
+    : sandbox
   addDiagnostic(diagnostic, options, name, id, source, normalization)
   return normalization.arguments
 }
@@ -211,6 +254,7 @@ function* flushBufferedToolCall(
   options: GenerateOptions,
   lookup: ReadonlyMap<string, ToolSchemaLookup>,
   diagnostic: ((diagnostic: ToolCallNormalizationDiagnostic) => void) | undefined,
+  permissionMode: string | undefined,
 ): Generator<StreamChunk> {
   const pending = buffered.get(index)
   if (pending === undefined) return
@@ -229,6 +273,7 @@ function* flushBufferedToolCall(
     options,
     lookup,
     diagnostic,
+    permissionMode,
   )
   if (normalized === pending.arguments) {
     yield* pending.chunks
@@ -264,6 +309,7 @@ export async function* normalizeToolCallArgumentStream(
   options: GenerateOptions,
   source: AsyncIterable<StreamChunk>,
   diagnostic?: (diagnostic: ToolCallNormalizationDiagnostic) => void,
+  permissionMode: string | undefined = process.env.DSH_PERMISSION_MODE,
 ): AsyncGenerator<StreamChunk> {
   const lookup = buildToolSchemaLookup(options.tools)
   const buffered = new Map<number, BufferedToolCall>()
@@ -288,6 +334,7 @@ export async function* normalizeToolCallArgumentStream(
             options,
             lookup,
             diagnostic,
+            permissionMode,
           )
           yield {
             ...chunk,
@@ -296,7 +343,7 @@ export async function* normalizeToolCallArgumentStream(
           continue
         }
 
-        yield* flushBufferedToolCall(chunk.index, buffered, options, lookup, diagnostic)
+        yield* flushBufferedToolCall(chunk.index, buffered, options, lookup, diagnostic, permissionMode)
         yield chunk
         continue
       }
@@ -306,7 +353,7 @@ export async function* normalizeToolCallArgumentStream(
         // delta-only adapter is allowed to assign sparse indexes, and the
         // assistant message must preserve first-seen tool-call ordering.
         for (const index of [...buffered.keys()]) {
-          yield* flushBufferedToolCall(index, buffered, options, lookup, diagnostic)
+          yield* flushBufferedToolCall(index, buffered, options, lookup, diagnostic, permissionMode)
         }
         yield chunk
         continue
@@ -318,7 +365,7 @@ export async function* normalizeToolCallArgumentStream(
     // Do not turn an adapter failure into a silent truncation. Consumers still
     // receive every complete pending call before the original failure bubbles.
     for (const index of [...buffered.keys()]) {
-      yield* flushBufferedToolCall(index, buffered, options, lookup, diagnostic)
+      yield* flushBufferedToolCall(index, buffered, options, lookup, diagnostic, permissionMode)
     }
     throw error
   }
@@ -327,7 +374,7 @@ export async function* normalizeToolCallArgumentStream(
   // invariant report that protocol violation, but do not silently discard a
   // pending argument payload on the way there.
   for (const index of [...buffered.keys()]) {
-    yield* flushBufferedToolCall(index, buffered, options, lookup, diagnostic)
+    yield* flushBufferedToolCall(index, buffered, options, lookup, diagnostic, permissionMode)
   }
 }
 

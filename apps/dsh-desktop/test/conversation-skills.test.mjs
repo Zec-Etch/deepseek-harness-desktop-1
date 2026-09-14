@@ -63,6 +63,34 @@ test('skill trigger inserts at the current selection and emits a native input ev
   assert.equal(textarea.selectionStart, '先分析\n使用 code 技能：\n'.length)
 })
 
+test('skill trigger uses the native contenteditable insertion path used by DSH 4', () => {
+  const previousWindow = globalThis.window
+  const previousDocument = globalThis.document
+  const selection = { rangeCount: 1, anchorNode: {}, removeAllRanges() {}, addRange() {} }
+  globalThis.window = { getSelection: () => selection }
+  globalThis.document = { execCommand(command, _showUi, value) {
+    assert.equal(command, 'insertText')
+    editor.textContent += value
+    return true
+  } }
+  const editor = {
+    isContentEditable: true,
+    textContent: '已有内容',
+    contains: () => true,
+    focus() { this.focused = true },
+  }
+  try {
+    assert.deepEqual(insertSkillTrigger(editor, 'code'), {
+      inserted: true,
+      value: '已有内容\n使用 code 技能：',
+    })
+    assert.equal(editor.focused, true)
+  } finally {
+    globalThis.window = previousWindow
+    globalThis.document = previousDocument
+  }
+})
+
 test('skills surface exposes accessible menu, search, keyboard, and theme rules', () => {
   assert.match(CONVERSATION_SKILLS_CSS, /max-height: 320px/u)
   assert.match(CONVERSATION_SKILLS_CSS, /overflow-y: auto/u)
@@ -74,6 +102,9 @@ test('skills surface exposes accessible menu, search, keyboard, and theme rules'
   assert.match(CONVERSATION_SKILLS_SCRIPT, /Escape/u)
   assert.match(CONVERSATION_SKILLS_SCRIPT, /MutationObserver/u)
   assert.match(CONVERSATION_SKILLS_SCRIPT, /listSkills/u)
+  assert.match(CONVERSATION_SKILLS_SCRIPT, /aria-label="指令"/u)
+  assert.match(CONVERSATION_SKILLS_SCRIPT, /aria-label="命令"/u)
+  assert.match(CONVERSATION_SKILLS_SCRIPT, /aria-label="Commands"/u)
   assert.doesNotMatch(CONVERSATION_SKILLS_SCRIPT, /innerHTML\s*=/u)
 })
 

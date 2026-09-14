@@ -55,8 +55,8 @@ export async function runPresetDeepLinkE2E({ appDir, executablePath, electronPat
     app = await electron.launch({
       executablePath: executablePath || electronPath,
       args: executablePath
-        ? [presetPath, 'dsh://extensions']
-        : [join(appDir, 'src', 'main.mjs'), presetPath, 'dsh://extensions'],
+        ? [presetPath, 'dsh-community://extensions']
+        : [join(appDir, 'src', 'main.mjs'), presetPath, 'dsh-community://extensions'],
       cwd: appDir,
       env: {
         ...process.env,
@@ -85,7 +85,7 @@ export async function runPresetDeepLinkE2E({ appDir, executablePath, electronPat
       timeout: timeoutMs,
     })
     assert.equal(await extensionPage.locator('#plugins-tab').getAttribute('aria-selected'), 'true')
-    console.log('verified .dshpreset preview-only ingress and queued dsh://extensions dispatch after Runtime readiness')
+    console.log('verified .dshpreset preview-only ingress and queued dsh-community://extensions dispatch after Runtime readiness')
   } catch (error) {
     const runtimeLog = await readFile(join(userData, 'logs', 'runtime.log'), 'utf8').catch(() => '')
     if (runtimeLog) console.error(`recent Runtime log:\n${runtimeLog.slice(-4_000)}`)

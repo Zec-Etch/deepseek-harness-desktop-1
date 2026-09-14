@@ -57,6 +57,21 @@ function setNativeInputValue(element, value) {
 export function insertSkillTrigger(textarea, name) {
   if (!textarea || textarea.readOnly || textarea.disabled) return { inserted: false }
   const trigger = buildSkillTrigger(name)
+  if (textarea.isContentEditable) {
+    textarea.focus?.()
+    const selection = window.getSelection?.()
+    if (!selection || selection.rangeCount === 0 || !textarea.contains(selection.anchorNode)) {
+      const range = document.createRange()
+      range.selectNodeContents(textarea)
+      range.collapse(false)
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+    }
+    const current = String(textarea.textContent ?? '')
+    const insertion = `${current !== '' && !/\s$/u.test(current) ? '\n' : ''}${trigger}`
+    const inserted = document.execCommand?.('insertText', false, insertion) === true
+    return { inserted, value: String(textarea.textContent ?? '') }
+  }
   const value = String(textarea.value ?? '')
   const start = Number.isInteger(textarea.selectionStart) ? textarea.selectionStart : value.length
   const end = Number.isInteger(textarea.selectionEnd) ? textarea.selectionEnd : start
@@ -126,6 +141,13 @@ function installConversationSkillsPage() {
     window.setTimeout(() => toast.remove(), 2600)
   }
 
+  function recordSkillFeature(outcome, detail) {
+    try {
+      const pending = window.dshDesktop?.recordFeatureEvent?.({ feature: 'skill', outcome, detail })
+      if (typeof pending?.catch === 'function') void pending.catch(() => {})
+    } catch { /* anonymous product metrics must never interrupt the composer */ }
+  }
+
   function closeMenu({ restoreFocus = false } = {}) {
     if (!state.menu) return
     state.open = false
@@ -177,6 +199,7 @@ function installConversationSkillsPage() {
   function selectSkill(skill) {
     remember(skill.name)
     const result = insertSkillTrigger(state.textarea, skill.name)
+    recordSkillFeature(result.inserted ? 'succeeded' : 'failed', 'conversation-insert')
     closeMenu()
     if (!result.inserted) showToast('请先选择工作区，再使用技能')
   }
@@ -277,6 +300,7 @@ function installConversationSkillsPage() {
 
   function openMenu() {
     if (!state.menu || !state.button) return
+    recordSkillFeature('opened', 'conversation-menu')
     state.open = true
     state.menu.hidden = false
     state.button.setAttribute('aria-expanded', 'true')
@@ -373,8 +397,12 @@ function installConversationSkillsPage() {
   function mount() {
     state.scheduled = false
     const composer = visibleComposer()
-    const commandButton = composer?.querySelector('button[aria-label="命令"]')
-    const textarea = composer?.querySelector('textarea')
+    const commandButton = composer?.querySelector([
+      'button[aria-label="指令"]',
+      'button[aria-label="命令"]',
+      'button[aria-label="Commands"]',
+    ].join(','))
+    const textarea = composer?.querySelector('textarea, [role="textbox"][contenteditable]:not([contenteditable="false"])')
     if (!composer || !commandButton || !textarea) {
       if (state.composer && !state.composer.isConnected) closeMenu()
       return false

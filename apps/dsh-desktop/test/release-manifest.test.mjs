@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
 import {
@@ -10,6 +11,7 @@ import {
   collectReleaseArtifactNames,
   collectWindowsExecutablePaths,
   createReleaseManifest,
+  defaultReleaseChannel,
   defaultReleaseMetadata,
   releaseSigningConfiguration,
   verifyReleaseManifest,
@@ -17,6 +19,8 @@ import {
   verifyWindowsExecutableSignatures,
   verifyWindowsSignature,
 } from '../src/release-manifest.mjs'
+
+const appDirectory = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const metadata = {
   version: '3.0.0',
@@ -288,6 +292,18 @@ test('default release metadata uses the packaged runtime support matrix referenc
   assert.equal(resolved.matrixArtifact, 'runtime-support/supported-runtimes.json')
   assert.match(resolved.runtime.integrity, /^sha512-/u)
   assert.equal(resolved.provider, 'dsh-cli-provider-v1')
+})
+
+test('release metadata defaults prereleases to beta without changing stable releases', () => {
+  assert.equal(defaultReleaseChannel({ version: '4.0.0-rc.2' }), 'beta')
+  assert.equal(defaultReleaseChannel({ version: '4.0.0' }), 'stable')
+  assert.equal(defaultReleaseChannel({ version: '4.0.0-rc.2', configuredChannel: 'stable' }), 'stable')
+})
+
+test('Windows packaging gives electron-builder and the release manifest one explicit channel', async () => {
+  const source = await readFile(join(appDirectory, 'scripts', 'package-win.mjs'), 'utf8')
+  assert.match(source, /--config\.publish\.channel=\$\{UPDATER_CHANNEL\}/u)
+  assert.match(source, /--channel', RELEASE_CHANNEL/u)
 })
 
 test('Windows signature verification is injectable and requires signer plus timestamp for signed artifacts', async () => {

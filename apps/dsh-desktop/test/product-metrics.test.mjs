@@ -27,9 +27,9 @@ test('runtime failure classification emits only fixed privacy-safe categories', 
 
 test('runtime attempts produce one bounded result without raw errors', () => {
   const { events, recorder } = createRecorder({ times: [0, 1_000, 4_200, 10_000, 11_000] })
-  recorder.observeRuntimeStatus({ state: 'starting' })
-  recorder.observeRuntimeStatus({ state: 'ready', url: 'http://127.0.0.1:34115/' })
-  recorder.observeRuntimeStatus({ state: 'ready', url: 'http://127.0.0.1:34115/' })
+  recorder.observeRuntimeStatus({ state: 'starting' }, 'pipe')
+  recorder.observeRuntimeStatus({ state: 'ready', url: 'dsh-runtime://app/' }, 'pipe')
+  recorder.observeRuntimeStatus({ state: 'ready', url: 'dsh-runtime://app/' }, 'pipe')
   recorder.observeRuntimeStatus({ state: 'starting' })
   recorder.observeRuntimeStatus({ state: 'crashed', error: 'listen EADDRINUSE C:\\private\\file' })
 
@@ -37,7 +37,7 @@ test('runtime attempts produce one bounded result without raw errors', () => {
     {
       name: 'runtime_start_result',
       outcome: 'ready',
-      detail: 'none',
+      detail: 'pipe',
       bucket: '2-5s',
     },
     {

@@ -476,6 +476,20 @@
   transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
 
+.dockEntry[data-wide='wide'] .dockTrigger {
+  width: auto;
+  min-width: 36px;
+  gap: 8px;
+  padding: 0 10px;
+  border-radius: 9px;
+}
+
+.dockTriggerLabel {
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1;
+}
+
 .dockTrigger:hover:not(:disabled) {
   background: var(--dsw-alias-interactive-bg-hover);
   color: var(--dsw-alias-label-primary);

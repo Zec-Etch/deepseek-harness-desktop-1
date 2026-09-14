@@ -342,12 +342,12 @@ export function publicSchemaFixtures() {
       }],
     },
     deepLinks: [
-      'dsh://extensions',
-      'dsh://updates',
-      'dsh://preset/preview',
-      'dsh://task/task-1',
-      'dsh://session/session_1',
-      'dsh://run/run.1',
+      'dsh-community://extensions',
+      'dsh-community://updates',
+      'dsh-community://preset/preview',
+      'dsh-community://task/task-1',
+      'dsh-community://session/session_1',
+      'dsh-community://run/run.1',
     ],
     preset: {
       formatVersion: 1,

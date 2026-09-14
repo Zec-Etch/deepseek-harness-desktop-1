@@ -2,7 +2,7 @@
 
 [中文](README.md) | English
 
-> **Support ongoing development**: If DeepSeek Harness Desktop helps you, consider [supporting the project on Afdian](https://www.ifdian.net/a/ningbai). Your support helps fund servers, testing, and continued maintenance.
+> **Maintained by ningbai牛逼**: If DeepSeek Harness Desktop helps you, consider [supporting ningbai牛逼 on Afdian](https://www.ifdian.net/a/ningbai). Your support helps fund servers, testing, and continued maintenance.
 >
 > Scan to support the project:
 >
@@ -34,7 +34,7 @@ Join the community to discuss:
 
 **DeepSeek Harness Desktop** is a community-maintained, open-source Windows AI coding client.
 
-It brings **DeepSeek Harness Web, the local DSH runtime, Skills, plugins, task automation, Git, remote development, and desktop extensions** together in one Windows application, giving you a complete Harness AI coding experience without complicated setup.
+DeepSeek has not yet released a standalone official Desktop product. This project already combines the public official **DSH Runtime, Web UI, and the Desktop boundaries visible in the official repository** into an installable Windows application, then adds community plugins, Skills, task automation, Git, remote development, and desktop integration. It is not an official DeepSeek client and does not reuse or overwrite a future official Desktop identity, data directory, protocol, or update feed.
 
 Supports **Windows 10 / 11 x64** and is released under the **BSD-3-Clause** license.
 
@@ -42,16 +42,19 @@ The installer includes the main runtime components, so you do not need to separa
 
 [Product Site](https://ningbainb.github.io/deepseek-harness-desktop/) · [Download Latest](https://github.com/ningbainb/deepseek-harness-desktop/releases/latest) · [Documentation](docs/desktop.md) · [Changelog](CHANGELOG.md)
 
-### Latest Release: 3.5.0
+### 4.0.0-rc.3: pre-release candidate
 
-- **Safer plugin updates**: Installs, updates, removals, and Preset imports validate compatibility, source, and dependency graphs in isolation before atomic activation. Failures roll back automatically, and a damaged user-plugin archive no longer blocks both normal and safe startup.
-- **A more compact Dock**: Plugin management is organized as Installed, Discover, and Settings. Model connection, Value Mode, Personal Prompt, Memory, particle theme, and image understanding remain available, with one active sidebar form at a time.
-- **Clearer anonymous metrics**: The admin dashboard distinguishes current UTC-day DAU, rolling 7-day WAU, and rolling 30-day MAU, with prior-period comparisons, stickiness, coverage, and trends. High-frequency aggregates carry no installation actor.
-- **Upgrade and feedback**: Each local user upgrading to 3.5.0 sees the Star prompt once; closing it and restarting does not repeat it. Official builds send only fixed-vocabulary anonymous outcomes and exclude conversations, file contents, paths, and credentials. See the [privacy policy](PRIVACY.md).
+The current public stable release remains 3.5.0; `main` is now the 4.0 standard-edition release candidate.
 
-![DeepSeek Harness Desktop 3.5.0 Extension Dock plugin management](docs/screenshots/desktop-3.5.0-extension-dock.png)
+- **Official Desktop capabilities integrated early**: exact-pinned public DSH 0.1.5-rc.2 Runtime and split SDK packages are integrated against the official repository's Desktop boundaries, while the community app keeps an independent identity and update path.
+- **Reliable upgrades from 3.5**: legacy plugins are discovered read-only and restored by exact version; broken history projections degrade without blocking transcripts; pet settings, repeated local `.tgz` installs, and Git marketplace failure categories are fixed.
+- **Discoverable model collaboration**: the session sidebar links directly to one collaboration page for Agent Team and Value Mode; bai is consistently promoted in related model pickers.
+- **Unified Skills and desktop behavior**: Skill Center and the conversation skill menu share the same DSH Home; expanding the bottom panel no longer starts a terminal implicitly, and window controls plus hidden-console behavior have regression coverage.
+- **More useful, still minimal metrics**: fixed-result events cover Skills, Agent Team, and local-LAN outcomes, while conversation-import entry and plugin operations retain coarse signals. No conversations, prompts, file contents, paths, model names, token counts, or credentials are collected. See the [privacy policy](PRIVACY.md).
 
-![DeepSeek Harness Desktop 3.5.0 compact Dock settings](docs/screenshots/desktop-3.5.0-extension-dock-compact.png)
+![DeepSeek Harness Desktop 4.0.0-rc.3 model collaboration](docs/screenshots/desktop-4.0.0-rc.3/model-collaboration.png)
+
+![DeepSeek Harness Desktop 4.0.0-rc.3 conversation Skills and desktop entry points](docs/screenshots/desktop-4.0.0-rc.3/conversation-skills.png)
 
 ### Continuing core capabilities
 
@@ -64,31 +67,29 @@ The installer includes the main runtime components, so you do not need to separa
 
 ---
 
-## Model collaboration, usage, and project import
+## Model collaboration, Skills, and model access
 
-The following three screenshots are historical 3.2.0 captures. These capabilities remain available; use the Dock for the current 3.5.0 settings navigation and layout.
+The screenshots below come from the real 4.0.0-rc.3 Electron acceptance environment.
 
-### Value Mode: let the expert decide, let the worker execute
+### Model collaboration: Agent Team and Value Mode in one place
 
-When you select **Value Mode**, the desktop client opens a setup guide immediately. Your current default model is preselected as the **expert controller** when no explicit controller exists; you then choose a cheaper or faster **subagent worker model** and a Saver, Balanced, or Powerful strategy. The mode is enabled only after the complete configuration is committed.
+The session sidebar opens the existing Extension Dock window directly on Model Collaboration. Agent Team handles multi-role coordination, while Value Mode separates controller and worker models. They remain independent and may be enabled separately or together.
 
-The expert controller can handle simple work directly or delegate parallel subtasks when useful. Worker depth is capped at one level, so workers do not recursively delegate or invoke a duplicate expert-analysis path. Controller and worker calls remain distinguishable in the session UI and product metrics.
+![DeepSeek Harness Desktop 4.0.0-rc.3 Model Collaboration page](docs/screenshots/desktop-4.0.0-rc.3/model-collaboration.png)
 
-![DeepSeek Harness Desktop 3.2.0 Value Mode three-step setup and expert controller](docs/screenshots/3.2.0-value-mode-setup.webp)
+### Skills: one directory model across the conversation and Skill Center
 
-### Large-model usage dashboard: make every token explainable
+Desktop 4 scans project `.dsh/skills`, user DSH Skills, and user Agents Skills through one discovery contract. The composer can search and insert the same skills shown by Skill Center, including their source and scope.
 
-The session status row and usage dashboard show input/output tokens, context usage, cache hits, LLM latency, estimated cost, current generation speed, and per-step peak speed. Streaming increments are merged by millisecond and evaluated in a rolling one-second window; final usage only corrects billed totals and cannot create a fake instantaneous peak.
+![DeepSeek Harness Desktop 4.0.0-rc.3 conversation Skills menu](docs/screenshots/desktop-4.0.0-rc.3/conversation-skills.png)
 
-![DeepSeek Harness Desktop 3.2.0 large-model usage dashboard](docs/screenshots/3.2.0-usage-dashboard.webp)
+### bai provider: consistently promoted in model entry points
 
-### Claude Code and Codex: continue existing work
+The chat picker, model settings, and collaboration controller/worker pickers share one ordering rule: user-pinned models first, then bai, followed by the existing provider order.
 
-Select a local Claude Code or Codex data directory, review discovered project sessions, and import the selected history into a real Harness workspace and session. The flow is read-only, idempotent, and resumable: API keys, tokens, cookies, and paths are redacted, while imported tool calls remain historical and non-executable.
+![DeepSeek Harness Desktop 4.0.0-rc.3 bai model access](docs/screenshots/desktop-4.0.0-rc.3/bai-models.png)
 
-![DeepSeek Harness Desktop 3.2.0 Claude Code and Codex project import preview](docs/screenshots/3.2.0-project-import-preview.webp)
-
-See [External Conversation Import](docs/external-conversation-import.md), [Value Mode](packages/dsh-value-mode/README.md), and [Live Stats](packages/dsh-live-stats/README.md) for implementation boundaries.
+See [Desktop architecture and capabilities](docs/desktop.md), [Upgrade and Rollback](docs/upgrade-and-rollback.md), and the [4.0 release notes](docs/launch/release-notes.md) for the implementation boundaries.
 
 ## Why DeepSeek Harness Desktop
 

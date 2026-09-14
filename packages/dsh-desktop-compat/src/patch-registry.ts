@@ -240,8 +240,8 @@ export const DESKTOP_COMPAT_PATCHES = validateCompatPatchRegistry([
     upstreamReference: '@deepseek-ai/dsh-llm 0.1.1-rc.1, 0.1.5-alpha.1, and 0.1.5-rc.1 llm/stream waterfall plus dsh-tools schema validation',
     owner: 'desktop-platform',
     tests: ['packages/dsh-desktop-compat/tests/tool-call-normalization.spec.ts'],
-    reason: 'Recover only a schema-proven single-key arguments envelope before the agent loop parses tool JSON.',
-    removeWhen: 'The upstream adapter or agent loop normalizes this malformed transport envelope with the same ambiguity guard.',
+    reason: 'Recover only schema-proven tool argument defects, including a single-key arguments envelope and redundant escalation under an already full-access Desktop Runtime.',
+    removeWhen: 'The upstream adapter or agent loop normalizes these malformed tool arguments with the same schema and permission guards.',
     lastVerified: '2026-09-10',
   },
   {

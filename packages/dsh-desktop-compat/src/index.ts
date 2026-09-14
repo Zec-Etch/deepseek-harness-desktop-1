@@ -107,6 +107,7 @@ export {
 export {
   installToolCallArgumentNormalization,
   normalizeToolCallArgumentStream,
+  normalizeRedundantSandboxEscalation,
   normalizeWrappedToolCallArguments,
   type ToolCallArgumentNormalization,
   type ToolCallNormalizationDiagnostic,

@@ -179,8 +179,8 @@ export function assertMacInfoPlist(xml, { appId, productName }) {
   if (plistBoolean(xml, 'NSHighResolutionCapable') !== true) {
     throw new Error('packaged Info.plist is missing NSHighResolutionCapable')
   }
-  if (!plistArrayContains(xml, 'CFBundleURLSchemes', 'dsh')) {
-    throw new Error('packaged Info.plist is missing the dsh URL scheme')
+  if (!plistArrayContains(xml, 'CFBundleURLSchemes', 'dsh-community')) {
+    throw new Error('packaged Info.plist is missing the dsh-community URL scheme')
   }
   if (!plistArrayContains(xml, 'CFBundleTypeExtensions', 'dshpreset')) {
     throw new Error('packaged Info.plist is missing the dshpreset document type')

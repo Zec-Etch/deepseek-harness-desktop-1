@@ -45,8 +45,8 @@ test('website exposes canonical SEO and structured data markers', async () => {
 
 test('website validation rejects stale presentation versions', async () => {
   const html = websiteHtml
-    .replace(`<title>DeepSeek Harness Desktop ${expectedWebsiteVersion}`, '<title>DeepSeek Harness Desktop 2.2.0')
-    .replace(`<h1>DeepSeek Harness<br>Desktop ${expectedWebsiteVersion}</h1>`, '<h1>DeepSeek Harness<br>Desktop 2.1</h1>')
+    .replace(/<title>[^<]*<\/title>/iu, '<title>DeepSeek Harness Desktop 2.2.0</title>')
+    .replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/iu, '<h1>DeepSeek Harness Desktop 2.1</h1>')
   const errors = await collectWebsiteErrors(html, expectedWebsiteVersion)
   assert.ok(errors.some(error => error.includes('page title')))
   assert.ok(errors.some(error => error.includes('page heading')))

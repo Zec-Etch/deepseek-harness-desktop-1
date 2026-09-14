@@ -73,6 +73,22 @@ test('legacy cost names normalize to five parameterized events and never fall ba
   } finally {db.close()}
 })
 
+test('4.0 feature telemetry stays aggregate-only while failures retain one bounded diagnostic', async () => {
+  const { db, wrapper, points } = database()
+  try {
+    const events = [
+      { ...context, name: 'feature_agent_team', outcome: 'succeeded', detail: 'enable', bucket: 'none' },
+      { ...context, name: 'feature_local_lan', outcome: 'succeeded', detail: 'enable', bucket: 'none' },
+      { ...context, name: 'feature_local_lan', outcome: 'failed', detail: 'reconfigure', bucket: 'none' },
+    ]
+    await new AnalyticsService({ METRICS: wrapper, ANALYTICS: wrapper.analytics }, { now: () => now }).record(events, 4)
+    assert.equal(points.length, 3)
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM product_release_daily').get().n, 0)
+    const failure = db.prepare('SELECT event,error_type,model,role,strategy,version,diagnostic FROM analytics_failure').get()
+    assert.deepEqual({ ...failure }, { event: 'feature_local_lan', error_type: 'unknown', model: 'unknown', role: 'unknown', strategy: 'unknown', version: '3.4.0', diagnostic: '{}' })
+  } finally { db.close() }
+})
+
 test('aggregate points use a coarse server dimension and exclude every actor hash', () => {
   const event = route()
   const aggregate = dataPoint(event, '2026-09-09', 'CN')

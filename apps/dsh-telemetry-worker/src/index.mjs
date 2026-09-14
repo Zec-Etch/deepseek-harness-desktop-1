@@ -43,7 +43,10 @@ const DOWNLOAD_SOURCES = new Set(['nav', 'hero', 'terminal', 'install'])
 const EVENT_POLICY = Object.freeze({
   feature_project: Object.freeze({ outcomes: new Set(['started', 'succeeded', 'failed']), details: new Set(['create', 'connect']), buckets: new Set(['none']) }),
   feature_attachment: Object.freeze({ outcomes: new Set(['started', 'succeeded', 'failed', 'cancelled']), details: new Set(['file']), buckets: new Set(['none']) }),
+  feature_skill: Object.freeze({ outcomes: new Set(['opened', 'succeeded', 'failed']), details: new Set(['conversation-menu', 'conversation-insert']), buckets: new Set(['none']) }),
   feature_dock_setting: Object.freeze({ outcomes: new Set(['opened', 'failed']), details: new Set(['relay', 'value-mode', 'personal-prompt', 'memory', 'particle-theme', 'describe-image']), buckets: new Set(['none']) }),
+  feature_agent_team: Object.freeze({ outcomes: new Set(['succeeded', 'failed']), details: new Set(['enable', 'disable']), buckets: new Set(['none']) }),
+  feature_local_lan: Object.freeze({ outcomes: new Set(['succeeded', 'failed', 'cancelled']), details: new Set(['enable', 'disable', 'reconfigure']), buckets: new Set(['none']) }),
   app_launch: Object.freeze({
     outcomes: new Set(['started']),
     details: new Set(['normal', 'updated', 'deep-link', 'unknown']),
@@ -53,6 +56,8 @@ const EVENT_POLICY = Object.freeze({
     outcomes: new Set(['ready', 'failed']),
     details: new Set([
       'none',
+      'http',
+      'pipe',
       'runtime-missing',
       'port-conflict',
       'integrity-failed',
@@ -123,7 +128,7 @@ const EVENT_POLICY = Object.freeze({
   }),
   surface_opened: Object.freeze({
     outcomes: new Set(['opened']),
-    details: new Set(['settings', 'extensions', 'community', 'updates', 'help']),
+    details: new Set(['settings', 'extensions', 'community', 'updates', 'help', 'conversation-import']),
     buckets: new Set(['none']),
   }),
   update_result: Object.freeze({
