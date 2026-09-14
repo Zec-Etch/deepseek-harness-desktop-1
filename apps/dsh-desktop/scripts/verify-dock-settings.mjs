@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { openDockSetting } from './dock-settings-fixture.mjs'
+import { openDockSetting, useChineseFixtureLocale } from './dock-settings-fixture.mjs'
 import electronPath from 'electron'
 import { _electron as electron } from 'playwright'
 
@@ -21,6 +21,10 @@ try {
   await mkdir(output, { recursive: true })
   app = await electron.launch({ executablePath, args: packaged ? [] : [resolve(appDir, 'src/main.mjs')], cwd: appDir,
     env: { ...process.env, DSH_DESKTOP_USER_DATA: resolve(temporary, 'user-data'), DSH_HOME: resolve(temporary, 'dsh-home'), DSH_DESKTOP_VERIFY_UPDATER: '0', DSH_DESKTOP_OPEN_EXTENSIONS: '1' } })
+  // Install the locale override before the collaboration deep link creates the
+  // shared settings child view. English CI runners otherwise create that view
+  // before openDockSetting() can register its future-document init script.
+  await useChineseFixtureLocale(app)
   const main = await app.firstWindow()
   await main.waitForURL(/^dsh-runtime:\/\/app\//u, { timeout: 120_000 })
   let dock
