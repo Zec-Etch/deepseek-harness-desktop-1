@@ -66,9 +66,14 @@ try {
     throw error
   }
   await page.setViewportSize({ width: 1280, height: 800 })
-  const continueButton = page.getByRole('button', { name: /^(?:先继续使用|继续)$/u })
-  await continueButton.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => {})
-  if (await continueButton.isVisible().catch(() => false)) await continueButton.click()
+  const continueButton = page.getByRole('button', { name: /^(?:继续|Continue)$/u })
+  const dismissIntro = async (timeout) => {
+    await continueButton.waitFor({ state: 'visible', timeout }).catch(() => {})
+    if (!await continueButton.isVisible().catch(() => false)) return
+    await continueButton.click({ force: true })
+    await continueButton.waitFor({ state: 'hidden', timeout: 10_000 })
+  }
+  await dismissIntro(5_000)
   const workspace = await rpc(page, 'workspace.create', { path: workspacePath })
   const workspaceId = workspace?.workspace?.workspaceId ?? workspace?.workspaceId
   assert.equal(typeof workspaceId, 'string', JSON.stringify(workspace))
@@ -85,6 +90,9 @@ try {
     await starPrompt.getByRole('button', { name: '先继续使用', exact: true }).click({ force: true })
     await starPrompt.waitFor({ state: 'hidden' })
   }
+  // The upstream first-run dialog can mount after workspace creation on a
+  // slower runner. It must be gone before validating pointer interaction.
+  await dismissIntro(2_000)
   const [commandBounds, skillsBounds] = await Promise.all([commandButton.boundingBox(), skillsButton.boundingBox()])
   assert.ok(commandBounds && skillsBounds)
   assert.ok(skillsBounds.x > commandBounds.x)
