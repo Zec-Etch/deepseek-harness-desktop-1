@@ -41,6 +41,8 @@ export async function openDockSetting(app, mainPage, id) {
   if (id === 'memory') await settings.locator('#memory-tab').click()
   if (id === 'personal-prompt') await settings.locator('#personal-prompt-tab').click()
   await settings.locator(`[data-dsh-dock-settings="${id}"]`).waitFor({ timeout: 60_000 })
-  await settings.waitForFunction(() => document.documentElement.lang.startsWith('zh'))
+  // WebContentsViews can be background-throttled when the host window loses
+  // focus on CI. Use timer polling instead of requestAnimationFrame polling.
+  await settings.waitForFunction(() => document.documentElement.lang.startsWith('zh'), undefined, { polling: 100, timeout: 60_000 })
   return { dock, settings }
 }
