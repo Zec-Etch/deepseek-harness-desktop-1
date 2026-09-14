@@ -136,7 +136,7 @@ try {
   await skillsButton.click()
   // Dispatch the underlying navigation click intentionally while the modal
   // layer is open; this verifies that a real page transition closes it.
-  await page.getByText('探索未至之境', { exact: true }).click({ force: true })
+  await page.getByText(/^(?:探索未至之境|Into the Unknown)$/u).click({ force: true })
   await menu.waitFor({ state: 'hidden' })
   if (screenshot) {
     await page.locator('#dsh-desktop-skills-toast').waitFor({ state: 'detached', timeout: 4_000 }).catch(() => {})
