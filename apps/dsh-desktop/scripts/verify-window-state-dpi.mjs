@@ -96,7 +96,12 @@ try {
   const topologyReloaded = await launch(1, undefined, topology(1))
   assert.deepEqual(topologyReloaded.input, clampedResized.saved)
   assert.deepEqual(topologyReloaded.saved, clampedResized.saved)
-  assert.deepEqual(topologyReloaded.bounds, clampedResized.normal)
+  assert.deepEqual(topologyReloaded.bounds, {
+    x: clampedResized.normal.x,
+    y: clampedResized.normal.y,
+    width: Math.min(clampedResized.normal.width, topologyReloaded.hostWorkArea.width),
+    height: Math.min(clampedResized.normal.height, topologyReloaded.hostWorkArea.height),
+  }, 'native reload must retain the explicit position and fit the actual host work area without rewriting logical size')
   console.log(JSON.stringify({ factoryGeometryRegression: true, results }, null, 2))
 } catch (error) {
   console.error('DPI geometry regression evidence', JSON.stringify(results))

@@ -35,6 +35,7 @@ async function main() {
   await new Promise(resolve => setTimeout(resolve, 200))
   await save()
   const result = { source, displays: displays.map(({ bounds, workArea, scaleFactor }) => ({ bounds, workArea, scaleFactor })),
+    hostWorkArea: screen.getPrimaryDisplay().workArea,
     input, restoredBounds, action, bounds: window.getBounds(), normal: window.getNormalBounds(),
     content: window.getContentBounds(), maximized: window.isMaximized(),
     scale: await window.webContents.executeJavaScript('devicePixelRatio'),
