@@ -5,7 +5,7 @@
  */
 export declare const DESKTOP_CLIENT_API_VERSION = "1.2.0";
 export type DesktopSurface = 'extensions' | 'updates';
-export type DesktopDockSetting = 'value-mode';
+export type DesktopDockSetting = 'control-center' | 'value-mode';
 export type DesktopSurfaceOpenOptions = Readonly<{
     setting?: DesktopDockSetting;
 }>;

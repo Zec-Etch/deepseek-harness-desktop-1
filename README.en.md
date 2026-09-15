@@ -32,25 +32,29 @@ Join the community to discuss:
 
 ---
 
-**DeepSeek Harness Desktop** is a community-maintained, open-source Windows AI coding client.
+**DeepSeek Harness Desktop** is a community-maintained, open-source AI coding desktop client.
 
 DeepSeek has not yet released a standalone official Desktop product. This project already combines the public official **DSH Runtime, Web UI, and the Desktop boundaries visible in the official repository** into an installable Windows application, then adds community plugins, Skills, task automation, Git, remote development, and desktop integration. It is not an official DeepSeek client and does not reuse or overwrite a future official Desktop identity, data directory, protocol, or update feed.
 
-Supports **Windows 10 / 11 x64** and is released under the **BSD-3-Clause** license.
+Supports **Windows 10 / 11 x64**, with **macOS Apple Silicon arm64 Preview** and **Linux x64 Preview** builds. It is released under the **BSD-3-Clause** license.
 
 The installer includes the main runtime components, so you do not need to separately configure Node.js, Git, or DSH.
 
 [Product Site](https://ningbainb.github.io/deepseek-harness-desktop/) · [Download Latest](https://github.com/ningbainb/deepseek-harness-desktop/releases/latest) · [Documentation](docs/desktop.md) · [Changelog](CHANGELOG.md)
 
-### 4.0.0: stable release
+### 4.1.0: let DeepSeek control the browser and computer
 
-The current public stable release is 4.0.0 and has completed the standard-edition release gates.
+The current public stable release is 4.1.0. Windows x64 is stable; macOS arm64 and Linux x64 are Preview builds. One GitHub Release is created only after all three platform jobs pass.
 
-- **Official Desktop capabilities integrated early**: exact-pinned public DSH 0.1.5-rc.2 Runtime and split SDK packages are integrated against the official repository's Desktop boundaries, while the community app keeps an independent identity and update path.
-- **Reliable upgrades from 3.5**: legacy plugins are discovered read-only and restored by exact version; broken history projections degrade without blocking transcripts; pet settings, repeated local `.tgz` installs, and Git marketplace failure categories are fixed.
-- **Discoverable model collaboration**: the session sidebar links directly to one collaboration page for Agent Team and Value Mode; bai is consistently promoted in related model pickers.
-- **Unified Skills and desktop behavior**: Skill Center and the conversation skill menu share the same DSH Home; expanding the bottom panel no longer starts a terminal implicitly, and window controls plus hidden-console behavior have regression coverage.
-- **More useful, still minimal metrics**: fixed-result events cover Skills, Agent Team, and local-LAN outcomes, while conversation-import entry and plugin operations retain coarse signals. No conversations, prompts, file contents, paths, model names, token counts, or credentials are collected. See the [privacy policy](PRIVACY.md).
+- **Browser Use** defaults to the official Playwright MCP in a visible, isolated system-browser session and discovers Chrome, Edge, or Chromium. Clicks, typing, uploads, and downloads remain approval-gated.
+- **Computer Use** defaults to the bundled Cua Driver Native provider, with an external MCP fallback. Observation is separated from per-action approval, and repeated native startup failure recovers through safe mode.
+- **Breaking DSH 0.1.6 compatibility** exact-pins `@deepseek-ai/dsh@0.1.6-alpha.1` and adapts Agent, Session, PTC, Workflow, Sandbox, and Agent Team contracts.
+- **Transactional 3.5/4.0 migration** preserves sessions and long context, workspaces, models, credential references, Skills, plugins, themes, pet settings, and collaboration settings, with backup and rollback.
+- **Privacy-bounded metrics** use only fixed outcome vocabularies and exclude URLs, domains, window names, screenshots, prompts, tool arguments, paths, and credentials.
+
+[Smart Control guide](docs/smart-control.md) · [Full 4.1.0 release notes](docs/launch/release-notes.md)
+
+![DeepSeek Harness Desktop 4.1.0 Smart Control Center](docs/screenshots/desktop-4.1.0/control-center.png)
 
 ![DeepSeek Harness Desktop 4.0.0 model collaboration](docs/screenshots/desktop-4.0.0-rc.3/model-collaboration.png)
 
@@ -89,7 +93,7 @@ The chat picker, model settings, and collaboration controller/worker pickers sha
 
 ![DeepSeek Harness Desktop 4.0.0 bai model access](docs/screenshots/desktop-4.0.0-rc.3/bai-models.png)
 
-See [Desktop architecture and capabilities](docs/desktop.md), [Upgrade and Rollback](docs/upgrade-and-rollback.md), and the [4.0 release notes](docs/launch/release-notes.md) for the implementation boundaries.
+See [Desktop architecture and capabilities](docs/desktop.md), [Upgrade and Rollback](docs/upgrade-and-rollback.md), and the [4.1 release notes](docs/launch/release-notes.md) for the implementation boundaries.
 
 ## Why DeepSeek Harness Desktop
 

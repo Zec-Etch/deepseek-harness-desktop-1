@@ -57,7 +57,7 @@ h1, h2, h3, p { margin-top: 0; }
 .nav-download svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 .hero { position: relative; min-height: 900px; overflow: hidden; isolation: isolate; }
-.hero-backdrop { position: absolute; inset: 0; z-index: -2; background: linear-gradient(90deg, rgba(14,27,44,.88), rgba(25,67,113,.36)), url("assets/desktop-4.0.0-collaboration.webp") center 30% / cover; opacity: .9; }
+.hero-backdrop { position: absolute; inset: 0; z-index: -2; background: linear-gradient(90deg, rgba(14,27,44,.88), rgba(25,67,113,.36)), url("assets/desktop-4.1.0-control-center.webp") center 30% / cover; opacity: .9; }
 .hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(circle at 22% 25%, rgba(235,226,188,.23), transparent 17%), radial-gradient(circle at 63% 25%, rgba(228,223,201,.22), transparent 18%), linear-gradient(180deg, rgba(16,42,75,.05) 0%, rgba(9,13,18,.3) 55%, var(--bg) 100%); }
 .hero-inner { min-height: 900px; padding-top: 190px; display: grid; grid-template-columns: 1.05fr .95fr; gap: 90px; align-items: center; }
 .hero-copy { padding-bottom: 34px; }
@@ -164,7 +164,7 @@ h1 { margin-bottom: 28px; font-family: var(--display); font-size: clamp(46px, 5v
 .phones img { border-radius: 19px; }
 
 .install { padding: 140px 0 180px; }
-.install-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; }
+.install-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
 .install-card { min-height: 242px; padding: 38px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); }
 .install-card h3 { margin-bottom: 12px; font-size: 20px; font-weight: 500; }.install-card p{color:var(--muted);font-size:14px}
 .code-line { width: 100%; min-height: 54px; margin-top: 25px; padding: 0 16px; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(255,255,255,.04); border-radius: 7px; background: #202020; color: #eee; text-align: left; cursor: pointer; }

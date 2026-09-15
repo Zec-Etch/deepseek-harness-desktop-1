@@ -178,6 +178,11 @@ const CHANNELS = [
   'extensions:qqbot-unbind',
   'dock-settings:agent-team-status',
   'dock-settings:agent-team-set',
+  'dock-settings:control-center-state',
+  'dock-settings:browser-use-set',
+  'dock-settings:computer-use-set',
+  'dock-settings:control-provider-test',
+  'dock-settings:control-permission-open',
   'extensions:preset-export',
   'extensions:preset-select',
   'extensions:preset-import',
@@ -204,6 +209,15 @@ export function registerExtensionIpc({
   agentTeamFeature = Object.freeze({
     status: async () => Object.freeze({ available: false, enabled: false }),
     setEnabled: async () => { throw new Error('Agent Team is unavailable') },
+  }),
+  controlCenterFeature = Object.freeze({
+    status: async () => Object.freeze({
+      browser: { enabled: false, provider: 'playwright', state: 'unavailable', browsers: [] },
+      computer: { enabled: false, provider: 'cua-native', state: 'unavailable' },
+    }),
+    setFeature: async () => { throw new Error('Smart Control is unavailable') },
+    test: async () => { throw new Error('Smart Control is unavailable') },
+    openPermissionSettings: async () => false,
   }),
   pluginRecovery,
   legacyPluginRecovery,
@@ -250,6 +264,12 @@ export function registerExtensionIpc({
   if (typeof agentTeamFeature?.status !== 'function' || typeof agentTeamFeature?.setEnabled !== 'function') {
     throw new TypeError('Agent Team feature controller is invalid')
   }
+  if (
+    typeof controlCenterFeature?.status !== 'function'
+    || typeof controlCenterFeature?.setFeature !== 'function'
+    || typeof controlCenterFeature?.test !== 'function'
+    || typeof controlCenterFeature?.openPermissionSettings !== 'function'
+  ) throw new TypeError('Smart Control feature controller is invalid')
   for (const channel of CHANNELS) ipcMain.removeHandler(channel)
   let skillPaths = new Map()
   let pluginMutationQueue = Promise.resolve()
@@ -932,6 +952,62 @@ export function registerExtensionIpc({
   handleDockSettings('dock-settings:agent-team-set', (event, enabled) => {
     event.sender.send?.('dock-settings:agent-team-progress', { phase: 'saving' })
     return setAgentTeamEnabled(event, enabled)
+  })
+  handleDockSettings('dock-settings:control-center-state', () => controlCenterFeature.status())
+  const setControlFeature = (kind, enabled, provider) => {
+    if (!['browser', 'computer'].includes(kind)) throw new TypeError('unknown control feature')
+    if (typeof enabled !== 'boolean' || typeof provider !== 'string') throw new TypeError('invalid control feature request')
+    return enqueuePluginMutation(async () => {
+      const previous = await controlCenterFeature.status()
+      const previousFeature = previous[kind]
+      if (enabled) {
+        const probe = await controlCenterFeature.test(kind, provider)
+        if (!['ready', 'permission-required'].includes(probe?.state)) {
+          throw new Error(probe?.message ?? 'The selected control provider is unavailable')
+        }
+      }
+      try {
+        const result = await mutation().run({
+          label: `${kind} control setting change`,
+          apply: async () => {
+            await controlCenterFeature.setFeature(kind, enabled, provider)
+            return {
+              transactions: [Object.freeze({
+                rollback: () => controlCenterFeature.setFeature(kind, previousFeature.enabled, previousFeature.provider),
+                commit: async () => true,
+              })],
+            }
+          },
+          finalize: () => controlCenterFeature.status(),
+        })
+        try { recordFeatureEvent({ feature: kind === 'browser' ? 'browser-use' : 'computer-use', outcome: 'succeeded', detail: enabled ? 'enable' : 'disable' }) } catch {}
+        try { recordFeatureEvent({ feature: 'control-provider', outcome: 'selected', detail: provider }) } catch {}
+        return result
+      } catch (error) {
+        try { recordFeatureEvent({ feature: kind === 'browser' ? 'browser-use' : 'computer-use', outcome: 'failed', detail: enabled ? 'enable' : 'disable' }) } catch {}
+        throw error
+      }
+    })
+  }
+  handleDockSettings('dock-settings:browser-use-set', (_event, enabled, provider) => setControlFeature('browser', enabled, provider))
+  handleDockSettings('dock-settings:computer-use-set', (_event, enabled, provider) => setControlFeature('computer', enabled, provider))
+  handleDockSettings('dock-settings:control-provider-test', async (_event, kind) => {
+    if (!['browser', 'computer'].includes(kind)) throw new TypeError('unknown control provider kind')
+    try {
+      const result = await controlCenterFeature.test(kind)
+      try { recordFeatureEvent({ feature: kind === 'browser' ? 'browser-use' : 'computer-use', outcome: result?.state === 'ready' ? 'succeeded' : 'failed', detail: 'probe' }) } catch {}
+      if (typeof result?.provider === 'string') try { recordFeatureEvent({ feature: 'control-provider', outcome: 'tested', detail: result.provider }) } catch {}
+      return result
+    } catch (error) {
+      try { recordFeatureEvent({ feature: kind === 'browser' ? 'browser-use' : 'computer-use', outcome: 'failed', detail: 'probe' }) } catch {}
+      throw error
+    }
+  })
+  handleDockSettings('dock-settings:control-permission-open', async (_event, kind) => {
+    if (!['browser', 'computer'].includes(kind)) throw new TypeError('unknown control permission kind')
+    const opened = await controlCenterFeature.openPermissionSettings(kind)
+    try { recordFeatureEvent({ feature: 'control-permission', outcome: opened ? 'opened' : 'unavailable', detail: kind }) } catch {}
+    return opened
   })
   handleExtension('extensions:runtime-restart', () => enqueuePluginMutation(async () => {
     await controller.stop()

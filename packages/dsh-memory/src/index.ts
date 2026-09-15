@@ -2,6 +2,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-settings'
 import { carrierKeyOf, type ScopeKey } from '@deepseek-ai/dsh-scope'
 import type { Session } from '@deepseek-ai/dsh-session'
+import type {} from '@deepseek-ai/dsh-agent'
+import type { SessionQueryEngine } from '@deepseek-ai/dsh-session-query'
 import type { WorkspaceRegistry } from '@deepseek-ai/dsh-workspace'
 import type { AccessScope, UserScopeService } from '@ningbainb/dsh-user-scope'
 import z from 'schemastery'
@@ -27,7 +29,7 @@ import { createMemoryTool } from './tools.ts'
 import { makeMemoryRoutes } from './routes.ts'
 
 export const name = 'memory'
-export const inject = ['systemPrompt', 'sessions', 'userScope', 'tools']
+export const inject = ['systemPrompt', 'sessions', 'sessionQuery', 'userScope', 'tools']
 
 export * from './core/config.ts'
 export * from './core/schema.ts'
@@ -57,6 +59,7 @@ type HostUserScope = Pick<UserScopeService, 'availabilityState' | 'localPrincipa
 interface SessionEntry {
   session: Session
   scope: AccessScope
+  events: Awaited<ReturnType<SessionQueryEngine['readSession']>>['events']
 }
 
 function workspaceForSession(registry: WorkspaceRegistryLike | undefined, sessionId: string): string | undefined {
@@ -106,6 +109,8 @@ export function apply(ctx: Context, initialConfig: MemoryConfig = { ...DEFAULT_M
 
   const hydrate = async (entry: SessionEntry): Promise<void> => {
     try {
+      const snapshot = await ctx.sessionQuery.readSession(entry.session.id)
+      entry.events = snapshot.events
       const memoryContext = service.contextFor(entry.scope, { sessionId: String(entry.session.id) })
       if (memoryContext !== undefined) await service.preload(memoryContext)
     } catch {
@@ -119,7 +124,7 @@ export function apply(ctx: Context, initialConfig: MemoryConfig = { ...DEFAULT_M
     let scope: AccessScope | undefined
     try { scope = userScope.currentScope() ?? service.desktopScope() } catch { return }
     if (scope === undefined) return
-    const entry: SessionEntry = { session, scope: copyScope(scope) }
+    const entry: SessionEntry = { session, scope: copyScope(scope), events: [] }
     sessionsById.set(sessionId, entry)
     if (key !== undefined) sessionScopes.set(key, entry)
     void hydrate(entry)
@@ -135,9 +140,16 @@ export function apply(ctx: Context, initialConfig: MemoryConfig = { ...DEFAULT_M
     const key = carrierKeyOf(this)
     if (key !== undefined && sessionScopes.get(key)?.session === session) sessionScopes.delete(key)
   })
-  ctx.on('session/event', function (this: unknown, session: Session) {
+  ctx.on('session/event', function (this: unknown, session: Session, event) {
     const entry = sessionsById.get(String(session.id))
-    if (entry !== undefined) void hydrate(entry)
+    if (entry !== undefined) {
+      entry.events = [...entry.events, event]
+      void hydrate(entry)
+    }
+  })
+  ctx.on('agent/created', async ({ agent }) => {
+    const entry = sessionsById.get(String(agent.session.id))
+    if (entry !== undefined) await hydrate(entry)
   })
 
   // Sessions already live when the plugin is mounted are registered for
@@ -168,6 +180,7 @@ export function apply(ctx: Context, initialConfig: MemoryConfig = { ...DEFAULT_M
   ctx.effect(() => ctx.tools.register(createMemoryTool(service, {
     enabled: () => currentConfig().enabled,
     contextForSession,
+    eventsForSession: async session => (await ctx.sessionQuery.readSession(session.id)).events,
   })), 'memory: model tool')
 
   ctx.inject(['webServer'], webCtx => {
@@ -191,7 +204,10 @@ export function apply(ctx: Context, initialConfig: MemoryConfig = { ...DEFAULT_M
       if (entry === undefined) return ''
       const memoryContext = service.contextFor(entry.scope, { sessionId: String(entry.session.id) })
       if (memoryContext === undefined) return ''
-      return service.prepare(memoryContext, extractCurrentUserQuery(entry.session), currentConfig().enabled)
+      return service.prepare(memoryContext, extractCurrentUserQuery({
+        header: entry.session.header,
+        events: entry.events,
+      }), currentConfig().enabled)
     } catch {
       return ''
     }

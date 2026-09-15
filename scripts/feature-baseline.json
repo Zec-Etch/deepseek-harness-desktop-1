@@ -28,7 +28,9 @@
         "chatgpt-login-polls-until-terminal-state",
         "cancelled-login-response-isolation",
         "same-field-draft-preserved-during-save",
-        "conversation-collaboration-entry"
+        "conversation-collaboration-entry",
+        "conversation-smart-control-entry",
+        "desktop-control-actions-require-approval"
       ],
       "requiredInAggregate": true,
       "requiredInCordisPatch": true,
@@ -622,9 +624,14 @@
         "plugin-repair-retry-within-active-operation",
         "plugin-diagnostics-use-loaded-inventory",
         "collaboration-deep-link-single-window",
-        "collaboration-unified-page"
+        "collaboration-unified-page",
+        "smart-control-deep-link-single-window",
+        "browser-use-visible-isolated-session",
+        "computer-use-safe-mode-after-repeated-native-failure",
+        "control-provider-errors-are-sanitized"
       ],
       "settings": [
+        "control-center",
         "value-mode",
         "personal-prompt",
         "memory",

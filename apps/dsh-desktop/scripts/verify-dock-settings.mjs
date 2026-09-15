@@ -55,8 +55,17 @@ try {
   assert.ok(Math.abs(nativeBounds.bounds.x + nativeBounds.bounds.width / 2 - area.x - area.width / 2) <= 4, 'Dock centered horizontally')
   assert.ok(Math.abs(nativeBounds.bounds.y + nativeBounds.bounds.height / 2 - area.y - area.height / 2) <= 4, 'Dock centered vertically')
   await dock.screenshot({ path: resolve(output, 'dock.png') })
-  await app.evaluate(({ shell }) => { shell.openExternal = async url => { globalThis.dockExternalUrl = url } })
+  const externalStubInstalled = await app.evaluate(({ shell }) => {
+    globalThis.dockExternalUrl = undefined
+    shell.openExternal = url => {
+      globalThis.dockExternalUrl = url
+      return Promise.resolve()
+    }
+    return true
+  })
+  assert.equal(externalStubInstalled, true)
   for (const [id, selector] of [
+    ['control-center', '[data-control-center]'],
     ['models', '[data-relay-onboarding-card="true"]'],
     ['value-mode', '[data-value-mode-card="true"]'],
     ['personal-prompt', '[data-personal-prompt-card="true"]'],
@@ -239,7 +248,7 @@ try {
   await dock.locator('#install-plugin > summary').click()
   await dock.locator('#plugin-form').waitFor({ state: 'visible' })
   assert.deepEqual(await dock.locator('.settings-sidebar [role="tab"]').evaluateAll(tabs => tabs.map(tab => tab.id)), [
-    'models-tab', 'value-mode-tab', 'personal-prompt-tab', 'describe-image-tab',
+    'control-center-tab', 'models-tab', 'value-mode-tab', 'personal-prompt-tab', 'describe-image-tab',
     'usage-tab', 'sessions-tab', 'plugins-hub-tab', 'skills-tab', 'qqbot-tab',
     'appearance-tab', 'particle-theme-tab', 'backup-tab', 'recovery-tab',
   ], 'the combined model destination and all other destinations remain available in order')
@@ -330,7 +339,7 @@ try {
   assert.equal(main.isClosed(), false, 'closing Dock never closes the main chat')
   assert.deepEqual(errors, [])
   assert.equal(await main.locator('[data-memory-activity]').count(), 0, 'main conversation has no memory entry')
-  console.log(`Dock settings: six working pages, preserved management entry, centered bounds; screenshots ${process.env.DSH_DESKTOP_DOCK_SCREENSHOTS ? `saved to ${output}` : 'validated'}`)
+  console.log(`Dock settings: seven working pages, preserved management entry, centered bounds; screenshots ${process.env.DSH_DESKTOP_DOCK_SCREENSHOTS ? `saved to ${output}` : 'validated'}`)
 } catch (error) {
   console.error('Settings URL:', settings?.url())
   console.error('Settings body:', await settings?.locator('body').innerText().catch(() => 'unavailable'))

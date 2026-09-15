@@ -195,5 +195,5 @@ try {
   await closeApplication().catch(() => undefined)
   sshServer?.killAllClients()
   await sshServer?.stop().catch(() => undefined)
-  await rm(temporary, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 })
+  await rm(temporary, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 })
 }

@@ -177,7 +177,7 @@ function createDesktopTaskBoardHostScheduleRunner(options) {
 				const { agent } = handle;
 				await agent.whenIdle();
 				const firstSequence = agent.session.seq;
-				const promptAlreadyAccepted = persisted && hasScheduledPrompt(agent.session.snapshotEvents(), prompt);
+				const promptAlreadyAccepted = persisted && hasScheduledPrompt((await options.sessionQuery.readSession(agent.session.id)).events, prompt);
 				if (!promptAlreadyAccepted) {
 					agent.followup(createUserMessage({
 						content: [{
@@ -189,7 +189,7 @@ function createDesktopTaskBoardHostScheduleRunner(options) {
 					await agent.whenIdle();
 				}
 				await options.sessions.flush(agent.session);
-				const reason = terminalReason(agent.session.snapshotEvents(), promptAlreadyAccepted ? 0 : firstSequence);
+				const reason = terminalReason((await options.sessionQuery.readSession(agent.session.id)).events, promptAlreadyAccepted ? 0 : firstSequence);
 				const outcome = terminalOutcome(reason);
 				const error = outcome === "failed" ? reason?.kind === "error" ? `${reason.error.code}: ${reason.error.message}`.slice(0, 500) : promptAlreadyAccepted ? `scheduled session was already accepted before recovery and ended with ${reason?.kind ?? "no terminal outcome"}` : `scheduled turn ended with ${reason?.kind ?? "no terminal outcome"}` : void 0;
 				return {
@@ -1207,6 +1207,59 @@ function createDesktopWorkspaceFileOpenRoute(workspaceRegistry, { capabilityToke
 function registerDesktopWorkspaceFileOpenRoute(ctx) {
 	return ctx.webServer.register(createDesktopWorkspaceFileOpenRoute(ctx.workspaceRegistry, { capabilityToken: process.env[DESKTOP_WORKSPACE_FILE_OPEN_TOKEN_ENV] }));
 }
+//#endregion
+//#region src/control-tool-approval.ts
+const BROWSER_PREFIXES = [
+	"mcp__playwright-mcp__",
+	"mcp__chrome-devtools-mcp__",
+	"stagehand_"
+];
+const COMPUTER_PREFIXES = ["cua_driver_native__", "mcp__cua-driver-mcp__"];
+const BROWSER_OBSERVATION_NAMES = /* @__PURE__ */ new Set([
+	"browser_console_messages",
+	"browser_network_requests",
+	"browser_snapshot",
+	"browser_take_screenshot",
+	"get_console_message",
+	"get_network_request",
+	"list_console_messages",
+	"list_network_requests",
+	"list_pages",
+	"performance_analyze_insight",
+	"performance_stop_trace",
+	"take_screenshot",
+	"take_snapshot",
+	"stagehand_extract",
+	"stagehand_observe",
+	"stagehand_screenshot"
+]);
+const COMPUTER_OBSERVATION_PATTERN = /(?:^|_)(?:check_permissions|find_element|get_(?:active_window|app|cursor|desktop|display|element|monitors?|permissions?|screen|snapshot|window)|list_(?:apps?|displays?|monitors?|windows?)|screenshot|snapshot|window_snapshot)$/u;
+function stripPrefix(name, prefixes) {
+	const prefix = prefixes.find((candidate) => name.startsWith(candidate));
+	return prefix === void 0 ? void 0 : name.slice(prefix.length);
+}
+/** Classify Desktop control tools without inspecting arguments or page/window data. */
+function controlToolApprovalDecision(name) {
+	const browserName = stripPrefix(name, BROWSER_PREFIXES);
+	if (browserName !== void 0) {
+		const normalized = name.startsWith("stagehand_") ? name : browserName;
+		return BROWSER_OBSERVATION_NAMES.has(normalized) ? void 0 : {
+			kind: "ask",
+			reason: "浏览器操作可能改变页面或外部状态，需要本次授权。"
+		};
+	}
+	const computerName = stripPrefix(name, COMPUTER_PREFIXES);
+	if (computerName !== void 0) return COMPUTER_OBSERVATION_PATTERN.test(computerName) ? void 0 : {
+		kind: "ask",
+		reason: "鼠标、键盘或电脑输入操作需要本次授权。"
+	};
+}
+/** Require one-shot approval for mutating Browser Use and Computer Use actions. */
+function installControlToolApproval(ctx) {
+	ctx.on("tools/pre-execute", async (exec, next) => {
+		return controlToolApprovalDecision(exec.name) ?? next();
+	});
+}
 const PATCH_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/u;
@@ -1420,6 +1473,7 @@ function apply(ctx) {
 	new DesktopSkinStateService(ctx);
 	installToolCallArgumentNormalization(ctx);
 	installTranscriptBalanceGuard(ctx);
+	installControlToolApproval(ctx);
 	ctx.effect(() => registerDesktopWorkspaceFileOpenRoute(ctx), "dsh-desktop-compat: workspace native-open authority");
 	ctx.effect(() => registerDesktopConversationImportRoute(ctx), "dsh-desktop-compat: conversation import authority");
 	if (process.env.DSH_DESKTOP_BACKGROUND_AUTOMATION === "1") ctx.inject([
@@ -1427,6 +1481,7 @@ function apply(ctx) {
 		"agentDefaultModel",
 		"sessions",
 		"sessionPersistence",
+		"sessionQuery",
 		"workspaceRegistry"
 	], (schedulerCtx) => {
 		const runner = createDesktopTaskBoardHostScheduleRunner({
@@ -1434,6 +1489,7 @@ function apply(ctx) {
 			defaultModel: schedulerCtx.agentDefaultModel,
 			sessions: schedulerCtx.sessions,
 			sessionPersistence: schedulerCtx.sessionPersistence,
+			sessionQuery: schedulerCtx.sessionQuery,
 			workspaceRegistry: schedulerCtx.workspaceRegistry
 		});
 		return schedulerCtx.provide("taskBoardHostScheduleRunner", runner);
@@ -1450,4 +1506,4 @@ function apply(ctx) {
 	});
 }
 //#endregion
-export { DESKTOP_COMPAT_PATCHES, DESKTOP_CONVERSATION_IMPORT_PATH, DESKTOP_TASK_BOARD_SCHEDULER_OWNERSHIP, DESKTOP_WORKSPACE_FILE_OPEN_TARGET_PATH, DesktopSkinStateService, DesktopSkinStateStore, FRIENDLY_CANCELLED_MESSAGE, SKIN_STATE_END, SKIN_STATE_START, apply, balanceTranscriptMessages, createDesktopConversationImportRoute, createDesktopTaskBoardHostScheduleRunner, createDesktopWorkspaceFileOpenRoute, createQueueRecoveryScheduler, extractToolCallsFromAssistantMessage, importConversationIntoHost, inject, installToolCallArgumentNormalization, installTranscriptBalanceGuard, name, normalizeCancellationDecision, normalizeRedundantSandboxEscalation, normalizeToolCallArgumentStream, normalizeWrappedToolCallArguments, recoverQueuedTurns, registerDesktopConversationImportRoute, registerDesktopWorkspaceFileOpenRoute, resolveDesktopWorkspaceFileOpenTarget, validateCompatPatchRegistry };
+export { DESKTOP_COMPAT_PATCHES, DESKTOP_CONVERSATION_IMPORT_PATH, DESKTOP_TASK_BOARD_SCHEDULER_OWNERSHIP, DESKTOP_WORKSPACE_FILE_OPEN_TARGET_PATH, DesktopSkinStateService, DesktopSkinStateStore, FRIENDLY_CANCELLED_MESSAGE, SKIN_STATE_END, SKIN_STATE_START, apply, balanceTranscriptMessages, controlToolApprovalDecision, createDesktopConversationImportRoute, createDesktopTaskBoardHostScheduleRunner, createDesktopWorkspaceFileOpenRoute, createQueueRecoveryScheduler, extractToolCallsFromAssistantMessage, importConversationIntoHost, inject, installControlToolApproval, installToolCallArgumentNormalization, installTranscriptBalanceGuard, name, normalizeCancellationDecision, normalizeRedundantSandboxEscalation, normalizeToolCallArgumentStream, normalizeWrappedToolCallArguments, recoverQueuedTurns, registerDesktopConversationImportRoute, registerDesktopWorkspaceFileOpenRoute, resolveDesktopWorkspaceFileOpenTarget, validateCompatPatchRegistry };

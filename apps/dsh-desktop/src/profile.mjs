@@ -16,6 +16,7 @@ import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parse } from 'yaml'
 
+import { ControlCenterStore, createDefaultControlCenterConfiguration } from './control-center.mjs'
 import { mergeQqBotPatch, readQqBotPatchEnabled } from './extensions/qqbot.mjs'
 
 export const BUILTIN_BUNDLES = Object.freeze([
@@ -37,7 +38,7 @@ export const BUILTIN_BUNDLES = Object.freeze([
 ])
 
 export const AGENT_TEAM_PROFILE_BUNDLE = '@deepseek-ai/dsh-experimental-agent-team-profile'
-export const AGENT_TEAM_VERSION = '0.1.5-rc.2'
+export const AGENT_TEAM_VERSION = '0.1.6-alpha.1'
 export const AGENT_TEAM_RUNTIME_PACKAGES = Object.freeze([
   '@deepseek-ai/dsh-experimental-agent-team',
   AGENT_TEAM_PROFILE_BUNDLE,
@@ -45,6 +46,17 @@ export const AGENT_TEAM_RUNTIME_PACKAGES = Object.freeze([
 ].toSorted())
 
 export const DESKTOP_REPAIR_BUNDLE = '@linxin666/dsh-desktop-repair'
+
+export const CONTROL_CENTER_RUNTIME_PACKAGES = Object.freeze([
+  '@deepseek-ai/dsh-browser-use',
+  '@deepseek-ai/dsh-computer-use',
+  '@deepseek-ai/dsh-experimental-browser-use-chrome-devtools-mcp',
+  '@deepseek-ai/dsh-experimental-browser-use-playwright-mcp',
+  '@deepseek-ai/dsh-experimental-browser-use-runtime',
+  '@deepseek-ai/dsh-experimental-browser-use-stagehand-native',
+  '@deepseek-ai/dsh-experimental-computer-use-cua-driver-mcp',
+  '@deepseek-ai/dsh-experimental-computer-use-cua-driver-native',
+].toSorted())
 
 // Packages expanded by @linxin666/dsh-web-ui-all. Older desktop profiles
 // listed some of these as top-level bundles as well, which makes Cordis
@@ -150,6 +162,7 @@ export const WEB_UI_SETTINGS_NAMESPACES = Object.freeze([
 
 export const BUILTIN_RUNTIME_PACKAGES = Object.freeze([
   ...AGENT_TEAM_RUNTIME_PACKAGES,
+  ...CONTROL_CENTER_RUNTIME_PACKAGES,
   '@linxin666/dsh-desktop-pipe-webserver',
   '@linxin666/dsh-client-ui-model-capabilities',
   '@linxin666/dsh-usage',
@@ -236,6 +249,7 @@ export const DESKTOP_PLUGIN_COMPAT_PACKAGES = Object.freeze([
 // aggregate's dependency tree so fresh and packaged profiles use them.
 export const DESKTOP_RUNTIME_OVERRIDE_PACKAGES = Object.freeze([
   '@linxin666/dsh-client-ui-web-ui-settings',
+  '@linxin666/dsh-liangshen',
   '@linxin666/dsh-live-stats',
   '@linxin666/dsh-remote-web-ui',
 ].toSorted())
@@ -275,7 +289,7 @@ export const MANAGED_RUNTIME_PACKAGES = Object.freeze([
   DESKTOP_REPAIR_BUNDLE,
 ].toSorted())
 
-// DSH 0.1.5 exposes these runtime modules as peers. Keep them explicit so the
+// DSH 0.1.6 exposes these runtime modules as peers. Keep them explicit so the
 // packaged host is hermetic instead of resolving through a developer machine.
 export const DSH_BOOT_RUNTIME_PACKAGES = Object.freeze([
   '@deepseek-ai/cordis-plugin-group',
@@ -308,7 +322,6 @@ export const DSH_BOOT_RUNTIME_PACKAGES = Object.freeze([
   '@deepseek-ai/dsh-client-ui-settings',
   '@deepseek-ai/dsh-client-ui-slots',
   '@deepseek-ai/dsh-client-ui-workspace',
-  '@deepseek-ai/dsh-code-runtime',
   '@deepseek-ai/dsh-cmdline',
   '@deepseek-ai/dsh-compaction',
   '@deepseek-ai/dsh-fs',
@@ -317,6 +330,8 @@ export const DSH_BOOT_RUNTIME_PACKAGES = Object.freeze([
   '@deepseek-ai/dsh-jobs',
   '@deepseek-ai/dsh-launch-environment',
   '@deepseek-ai/dsh-output-retention',
+  '@deepseek-ai/dsh-ptc-runtime',
+  '@deepseek-ai/dsh-ptc-runtime-node',
   '@deepseek-ai/dsh-sandbox',
   '@deepseek-ai/dsh-sandbox-policy',
   '@deepseek-ai/dsh-scope',
@@ -336,6 +351,7 @@ export const DSH_BOOT_RUNTIME_PACKAGES = Object.freeze([
   '@deepseek-ai/dsh-util-time',
   '@deepseek-ai/dsh-util-workspace-path',
   '@deepseek-ai/dsh-workflow',
+  '@deepseek-ai/dsh-workflow-ptc',
   '@deepseek-ai/dsh-web',
   '@deepseek-ai/dsh-web-app',
 ].toSorted())
@@ -371,7 +387,32 @@ const LEGACY_DESKTOP_PATCH_CONFIG = `- id: directory-picker
     - id: directory-picker-desktop-client
       name: '@deepseek-ai/dsh-client-ui-directory-picker-browse'
 `
-export const DESKTOP_PATCH_CONFIG = `${DESKTOP_PATCH_START}
+function yamlString(value) {
+  return `'${String(value).replaceAll("'", "''")}'`
+}
+
+export function renderControlCenterPatch(configuration = createDefaultControlCenterConfiguration()) {
+  const browser = configuration.browser ?? {}
+  const computer = configuration.computer ?? {}
+  const browserPackage = {
+    playwright: '@deepseek-ai/dsh-experimental-browser-use-playwright-mcp',
+    'chrome-devtools': '@deepseek-ai/dsh-experimental-browser-use-chrome-devtools-mcp',
+    stagehand: '@deepseek-ai/dsh-experimental-browser-use-stagehand-native',
+  }[browser.provider] ?? '@deepseek-ai/dsh-experimental-browser-use-playwright-mcp'
+  const computerPackage = computer.provider === 'cua-mcp'
+    ? '@deepseek-ai/dsh-experimental-computer-use-cua-driver-mcp'
+    : '@deepseek-ai/dsh-experimental-computer-use-cua-driver-native'
+  const browserConfig = browserPackage.endsWith('stagehand-native')
+    ? `\n      config:\n        mode: launch\n        headless: false${browser.executablePath ? `\n        executablePath: ${yamlString(browser.executablePath)}` : ''}\n        model:\n          modelName: ${yamlString(configuration.stagehand?.modelName ?? '')}\n          apiKey: !!js process.env.DSH_STAGEHAND_MODEL_API_KEY`
+    : `\n      config:\n        mode: launch\n        headless: false${browser.executablePath ? `\n        executablePath: ${yamlString(browser.executablePath)}` : ''}`
+  const computerConfig = computerPackage.endsWith('cua-driver-mcp')
+    ? `\n      config:\n        command: ${yamlString(computer.command ?? '')}\n        args: [mcp]`
+    : ''
+  return `- insert:\n    - id: desktop-browser-use\n      name: '@deepseek-ai/dsh-browser-use'\n    - id: desktop-browser-provider\n      name: '${browserPackage}'\n      disabled: ${browser.enabled === true ? 'false' : 'true'}${browserConfig}\n    - id: desktop-computer-use\n      name: '@deepseek-ai/dsh-computer-use'\n    - id: desktop-computer-provider\n      name: '${computerPackage}'\n      disabled: ${computer.enabled === true ? 'false' : 'true'}${computerConfig}\n`
+}
+
+function desktopPatchConfig(controlCenterConfiguration = createDefaultControlCenterConfiguration()) {
+  return `${DESKTOP_PATCH_START}
 ${LEGACY_DESKTOP_PATCH_CONFIG.trimEnd()}
 - id: web-startup
   name: '@linxin666/dsh-remote-web-ui/startup'
@@ -398,8 +439,12 @@ ${LEGACY_DESKTOP_PATCH_CONFIG.trimEnd()}
         initialDelayMs: 750
         maxDelayMs: 15000
         jitterRatio: 0.15
+${renderControlCenterPatch(controlCenterConfiguration).trimEnd()}
 ${DESKTOP_PATCH_END}
 `
+}
+
+export const DESKTOP_PATCH_CONFIG = desktopPatchConfig()
 const WORKSPACE_CONFIG = `packages:\n  - .\n\nnodeLinker: isolated\nautoInstallPeers: false\n`
 
 /** Identify patch files that carry no loader entries, including legacy `{}` placeholders. */
@@ -903,7 +948,7 @@ async function migrateLegacySkinState({ profilePatch, homePatch, dshHome, profil
   }
 }
 
-export function mergeDesktopPatch(existing = '') {
+export function mergeDesktopPatch(existing = '', controlCenterConfiguration = createDefaultControlCenterConfiguration()) {
   // The skin selector belongs to this isolated profile. Only replace the
   // desktop-owned block; skin and community rows must survive unchanged.
   let userPatch = String(existing)
@@ -916,7 +961,8 @@ export function mergeDesktopPatch(existing = '') {
     userPatch = userPatch.slice(LEGACY_DESKTOP_PATCH_CONFIG.length)
   }
   const suffix = userPatch.trim()
-  return suffix ? `${DESKTOP_PATCH_CONFIG.trimEnd()}\n\n${suffix}\n` : DESKTOP_PATCH_CONFIG
+  const managed = desktopPatchConfig(controlCenterConfiguration)
+  return suffix ? `${managed.trimEnd()}\n\n${suffix}\n` : managed
 }
 
 async function readJsonIfPresent(path) {
@@ -1227,7 +1273,10 @@ export async function ensureDesktopProfile({
   if (mode !== 'repair') {
     try {
       const qqBotEnabled = readQqBotPatchEnabled(existingPatch) ?? false
-      managedPatch = mergeQqBotPatch(mergeDesktopPatch(existingPatch), qqBotEnabled)
+      const controlCenterConfiguration = mode === 'full'
+        ? await new ControlCenterStore({ path: join(dshHome, 'desktop-control-center.json') }).profileConfiguration()
+        : createDefaultControlCenterConfiguration()
+      managedPatch = mergeQqBotPatch(mergeDesktopPatch(existingPatch, controlCenterConfiguration), qqBotEnabled)
     } catch (error) {
       throw profileBootstrapError('desktop profile patch is invalid', error)
     }

@@ -1185,7 +1185,7 @@ const removeQqBotEventListener = window.dshDesktop.onQqBotEvent((payload) => {
 const removeProgressListener = window.dshDesktop.onExtensionProgress(renderProgress)
 
 // Reuse the product's existing icon set across both navigation and catalog.
-const navigationIcons = { 'models-tab': 'cpu', 'value-mode-tab': 'cpu', 'personal-prompt-tab': 'user-check', 'describe-image-tab': 'image', 'usage-tab': 'gauge', 'sessions-tab': 'message', 'plugins-hub-tab': 'layout', 'skills-tab': 'sparkles', 'qqbot-tab': 'message', 'appearance-tab': 'palette', 'particle-theme-tab': 'palette', 'backup-tab': 'git-branch', 'recovery-tab': 'activity' }
+const navigationIcons = { 'control-center-tab': 'mouse', 'models-tab': 'cpu', 'value-mode-tab': 'cpu', 'personal-prompt-tab': 'user-check', 'describe-image-tab': 'image', 'usage-tab': 'gauge', 'sessions-tab': 'message', 'plugins-hub-tab': 'layout', 'skills-tab': 'sparkles', 'qqbot-tab': 'message', 'appearance-tab': 'palette', 'particle-theme-tab': 'palette', 'backup-tab': 'git-branch', 'recovery-tab': 'activity' }
 for (const [id, icon] of Object.entries(navigationIcons)) document.querySelector(`#${id} .tab-title`)?.insertAdjacentHTML('afterbegin', nativeIconSvg(icon))
 const tabs = Array.from(document.querySelectorAll('[data-tab]'))
 let settingsRequest = 0
@@ -1272,6 +1272,7 @@ const searchEntries = [
   ['模型与能力', '模型目录 图片输入 推理档位 供应商 bai 中转站 登录 账号 充值 API Key 启用 停用 模型接入', 'models-tab'],
   ['用量与余额', '统计 token 额度 套餐 费用 供应商', 'usage-tab'],
   ['会话管理', '聊天历史 搜索 归档 恢复 清理', 'sessions-tab'],
+  ['智能操控', 'Browser Use Computer Use 浏览器 电脑 Playwright Cua', 'control-center-tab'],
   ['模型协作', '性价比模式 Value Mode 主控 执行模型 成本 策略', 'value-mode-tab'],
   ['回复偏好', '个人偏好 Prompt 提示词 全局 工作区', 'personal-prompt-tab', 'personal-prompt'],
   ['记忆', '个人偏好 本地记忆 待确认建议', 'personal-prompt-tab', 'memory'],
@@ -1342,10 +1343,10 @@ document.querySelectorAll('.native-chip').forEach((chip) => {
 })
 
 const removeNavigationListener = window.dshDesktop.onExtensionNavigate((payload) => {
-  if (payload?.setting === 'value-mode') {
+  if (payload?.setting === 'value-mode' || payload?.setting === 'control-center') {
     const tab = tabs.find((item) => item.dataset.tab === 'dock-settings')
     if (tab) activateTab(tab)
-    document.querySelector('[data-setting="value-mode"]')?.click()
+    document.querySelector(`[data-setting="${payload.setting}"]`)?.click()
     return
   }
   const tab = tabs.find((item) => item.dataset.tab === payload?.tab)

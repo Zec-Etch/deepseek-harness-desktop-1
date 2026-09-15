@@ -33,9 +33,11 @@ import {
 } from './local-lan-gateway.mjs'
 import { createDesktopIngress, registerDesktopProtocolClient } from './desktop-ingress.mjs'
 import { CommunityHomeMigration } from './community-home-migration.mjs'
+import { DesktopV41Migration } from './desktop-v41-migration.mjs'
 import { LegacyPluginRecovery } from './legacy-plugin-recovery.mjs'
 import { createRuntimePresentationGuard } from './runtime-presentation.mjs'
 import { createDesktopInstallPreparation } from './install-preparation.mjs'
+import { ControlCenterStore } from './control-center.mjs'
 import { registerExtensionIpc } from './extension-ipc.mjs'
 import { createCommunityMarketService } from './extensions/community-market.mjs'
 import {
@@ -658,6 +660,8 @@ export async function startElectronApp(metadata) {
       await logStore.append(`[migration] community-home preparation failed: ${error instanceof Error ? error.name : 'unknown'}`)
     }
   }
+  const desktopV41Migration = new DesktopV41Migration({ dshHome, desktopVersion })
+  let desktopV41MigrationResult
   const telemetryEndpoint = await resolveTelemetryEndpoint({
     isPackaged: app.isPackaged,
     resourcesPath: process.resourcesPath,
@@ -1217,6 +1221,14 @@ export async function startElectronApp(metadata) {
     const profileStartedAt = performance.now()
     try {
       const repair = async () => {
+        if (mode === 'full') {
+          desktopV41MigrationResult = await desktopV41Migration.prepare()
+          await logStore.append(
+            `[migration] desktop-v4.1 state=${desktopV41MigrationResult.state}`
+            + ` endpoint=${desktopV41MigrationResult.officialEndpointMigrated === true}`
+            + ` e2b=${desktopV41MigrationResult.e2bRetired === true}`,
+          )
+        }
         const result = await ensureDesktopProfile({ dshHome, packageRoots: runtimePackages, mode })
         if (mode === 'full') {
           await setQqBotProfileEnabled({ profileDir: desktopProfileDir, enabled: Boolean(qqBotCredentials) })
@@ -1712,6 +1724,24 @@ export async function startElectronApp(metadata) {
     }),
     setEnabled: (enabled) => setAgentTeamProfileEnabled({ profileDir: desktopProfileDir, enabled }),
   })
+  const controlCenterStore = new ControlCenterStore({ path: join(dshHome, 'desktop-control-center.json') })
+  const controlCenterFeature = Object.freeze({
+    status: () => controlCenterStore.status({ packageRoots: runtimePackages }),
+    setFeature: (kind, enabled, provider) => controlCenterStore.setFeature(kind, enabled, provider),
+    test: (kind, provider) => controlCenterStore.probe(kind, provider, { packageRoots: runtimePackages }),
+    openPermissionSettings: async (kind) => {
+      if (kind !== 'computer') return false
+      if (process.platform === 'darwin') {
+        await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
+        return true
+      }
+      if (process.platform === 'win32') {
+        await shell.openExternal('ms-settings:privacy')
+        return true
+      }
+      return false
+    },
+  })
 
   const persistUpdateChannel = (channel) => {
     const operation = updateChannelWriteQueue.then(async () => {
@@ -1773,6 +1803,8 @@ export async function startElectronApp(metadata) {
 
   let sessionRecoverySkippedCount = 0
   let sessionRecoveryRecoveredCount = 0
+  let nativeComputerProviderFailureObserved = false
+  let nativeComputerProviderRecoveryActive = false
   const observeSessionRecoveryLine = (entry) => {
     const line = String(entry?.line ?? '')
     const skipped = /\[dsh-session-recovery\]\s+skipped=(\d+)\s+kind=corrupt-zstd-header(?:\s|$)/u.exec(line)
@@ -1792,7 +1824,12 @@ export async function startElectronApp(metadata) {
   }
   runtimeProvider.on('line', observeSessionRecoveryLine)
   runtimeProvider.on('line', (entry) => {
-    const metric = parseValueModeRuntimeTelemetryLine(String(entry?.line ?? ''))
+    const line = String(entry?.line ?? '')
+    if (
+      /(?:cua-driver-native|computer-use-cua-driver-native)/iu.test(line)
+      && /(?:error|failed|failure|crash|exception)/iu.test(line)
+    ) nativeComputerProviderFailureObserved = true
+    const metric = parseValueModeRuntimeTelemetryLine(line)
     if (metric?.event === 'cost_mode_route') productMetrics.recordCostModeRoute(metric)
     else if (metric) productMetrics.recordValueModeCall(metric.outcome, metric.role)
   })
@@ -2176,6 +2213,7 @@ export async function startElectronApp(metadata) {
     agentsHome: process.env.DSH_AGENTS_HOME,
     qqBotBinding,
     agentTeamFeature,
+    controlCenterFeature,
     pluginRecovery,
     presetService,
     migrationService,
@@ -2294,8 +2332,24 @@ export async function startElectronApp(metadata) {
       void loadStartup().catch(() => {})
     }
   }
+  const recoverFromNativeComputerProviderFailure = (status) => {
+    if (status.state !== 'crashed' || !nativeComputerProviderFailureObserved || nativeComputerProviderRecoveryActive) return
+    nativeComputerProviderFailureObserved = false
+    nativeComputerProviderRecoveryActive = true
+    void controlCenterStore.recordComputerProviderFailure().then(async (result) => {
+      if (!result.suspended) return
+      await logStore.append('[control-center] native computer provider suspended after repeated startup failure')
+      await ensureDesktopProfile({ dshHome, packageRoots: runtimePackages, mode: 'full' })
+      await runtimeProvider.recover()
+    }).catch(error => logStore.append(
+      `[control-center] safe-mode recovery failed: ${error instanceof Error ? error.message : String(error)}`,
+    )).finally(() => {
+      nativeComputerProviderRecoveryActive = false
+    })
+  }
   runtimeProvider.on('status', (status) => {
     productMetrics.observeRuntimeStatus(status, runtimeTransport)
+    recoverFromNativeComputerProviderFailure(status)
     if (!runtimePresentation.active) {
       deepLinkRouter.setReady(false)
       return
@@ -2305,6 +2359,7 @@ export async function startElectronApp(metadata) {
     if (status.state === 'starting') {
       sessionRecoverySkippedCount = 0
       sessionRecoveryRecoveredCount = 0
+      nativeComputerProviderFailureObserved = false
     }
     if (!mainWindow || mainWindow.isDestroyed()) return
     if (status.state === 'ready' && status.url) {
@@ -2676,6 +2731,10 @@ export async function startElectronApp(metadata) {
       }
       if (state === 'rolling-back') await showDirectStartupState('repairing')
       if (state === 'ready-full') {
+        if (desktopV41MigrationResult?.state === 'PREPARED') {
+          desktopV41MigrationResult = await desktopV41Migration.commitHealthy()
+          await logStore.append('[migration] desktop-v4.1 committed after full Runtime health verification')
+        }
         if (
           communityHomeMigration !== undefined
           && typeof communityHomeMigrationResult?.transactionId === 'string'
@@ -2711,6 +2770,12 @@ export async function startElectronApp(metadata) {
         }
       }
       if (state === 'ready-builtins') {
+        if (desktopV41MigrationResult?.state === 'PREPARED') {
+          desktopV41MigrationResult = await desktopV41Migration.rollback('full-runtime-unavailable').catch(async (error) => {
+            await logStore.append(`[migration] desktop-v4.1 rollback failed: ${error instanceof Error ? error.name : 'unknown'}`)
+            return desktopV41MigrationResult
+          })
+        }
         const fallbackReason = builtinsRollbackFailed ? 'rollback-failed' : builtinsFallbackDetail
         await showDirectStartupState(state, { reason: fallbackReason })
         productMetrics.recordBuiltinsFallbackReady({

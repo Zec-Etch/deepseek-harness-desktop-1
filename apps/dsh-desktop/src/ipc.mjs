@@ -399,7 +399,7 @@ export function normalizeDesktopDockOpenOptions(value) {
     throw new TypeError('invalid Extension Dock navigation options')
   }
   const keys = Object.keys(value)
-  if (keys.some(key => key !== 'setting') || (value.setting !== undefined && value.setting !== 'value-mode')) {
+  if (keys.some(key => key !== 'setting') || (value.setting !== undefined && !['control-center', 'value-mode'].includes(value.setting))) {
     throw new TypeError('invalid Extension Dock setting')
   }
   return Object.freeze(value.setting === undefined ? {} : { setting: value.setting })

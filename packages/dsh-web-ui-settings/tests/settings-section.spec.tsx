@@ -24,7 +24,7 @@ import { apply } from '../src/client/index.ts'
 import { ChatGptAuthSection } from '../src/client/ChatGptAuthSection.tsx'
 import { WebUIPluginsSection } from '../src/client/WebUIPluginsCard.tsx'
 import { RelayOnboardingCard } from '../src/client/RelayOnboardingCard.tsx'
-import { DesktopCollaborationEntry, DesktopExtensionDockEntry } from '../src/client/desktop-extension-dock.tsx'
+import { DesktopCollaborationEntry, DesktopExtensionDockEntry, DesktopSmartControlEntry } from '../src/client/desktop-extension-dock.tsx'
 
 afterEach(() => {
   cleanup()
@@ -67,8 +67,8 @@ describe('Web UI settings section', () => {
     expect(localeRegister).toHaveBeenCalledWith('web-ui-plugins', expect.any(Object))
     expect(localeRegister).toHaveBeenCalledWith('chatgpt-auth', expect.any(Object))
     expect(localeRegister).toHaveBeenCalledWith('relay-onboarding', expect.any(Object))
-    expect(inject.mock.calls.map(([name]) => name)).toEqual(['settings.section', 'settings.section', 'model-preferences.onboarding', 'sidebar.footer.action', 'sidebar.footer.action'])
-    expect(register).toHaveBeenCalledTimes(5)
+    expect(inject.mock.calls.map(([name]) => name)).toEqual(['settings.section', 'settings.section', 'model-preferences.onboarding', 'sidebar.footer.action', 'sidebar.footer.action', 'sidebar.footer.action'])
+    expect(register).toHaveBeenCalledTimes(6)
     const [authOptions, AuthComponent] = register.mock.calls[0] as unknown as [Record<string, unknown>, typeof ChatGptAuthSection]
     expect(authOptions).toMatchObject({
       name: 'settings.section',
@@ -95,10 +95,13 @@ describe('Web UI settings section', () => {
       locale: 'relay-onboarding',
     })
     expect(RelayComponent).toBe(RelayOnboardingCard)
-    const [collaborationOptions, CollaborationComponent] = register.mock.calls[3] as unknown as [Record<string, unknown>, typeof DesktopCollaborationEntry]
+    const [controlOptions, ControlComponent] = register.mock.calls[3] as unknown as [Record<string, unknown>, typeof DesktopSmartControlEntry]
+    expect(controlOptions).toMatchObject({ name: 'sidebar.footer.action', id: 'desktop-smart-control', order: 98 })
+    expect(ControlComponent).toBe(DesktopSmartControlEntry)
+    const [collaborationOptions, CollaborationComponent] = register.mock.calls[4] as unknown as [Record<string, unknown>, typeof DesktopCollaborationEntry]
     expect(collaborationOptions).toMatchObject({ name: 'sidebar.footer.action', id: 'desktop-model-collaboration', order: 99 })
     expect(CollaborationComponent).toBe(DesktopCollaborationEntry)
-    const [dockOptions, DockComponent] = register.mock.calls[4] as unknown as [Record<string, unknown>, typeof DesktopExtensionDockEntry]
+    const [dockOptions, DockComponent] = register.mock.calls[5] as unknown as [Record<string, unknown>, typeof DesktopExtensionDockEntry]
     expect(dockOptions).toMatchObject({
       name: 'sidebar.footer.action',
       id: 'desktop-extension-dock',
@@ -120,8 +123,8 @@ describe('Web UI settings section', () => {
       slots: { inject, register },
     }
     apply(ctx as never)
-    expect(inject.mock.calls.map(([name]) => name)).toEqual(['settings.section', 'web-ui.plugin.item', 'sidebar.footer.action', 'sidebar.footer.action', 'root'])
-    expect(register).toHaveBeenCalledTimes(5)
+    expect(inject.mock.calls.map(([name]) => name)).toEqual(['settings.section', 'web-ui.plugin.item', 'sidebar.footer.action', 'sidebar.footer.action', 'sidebar.footer.action', 'root'])
+    expect(register).toHaveBeenCalledTimes(6)
     expect(register.mock.calls[1]![0]).toMatchObject({ name: 'web-ui.plugin.item', id: 'relay', order: 1 })
     expect(register.mock.calls[1]![1]).toBe(RelayOnboardingCard)
   })

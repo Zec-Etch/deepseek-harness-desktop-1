@@ -36,9 +36,13 @@ test('shipped LiangShen keeps SDK persona sections, restores workspace and retai
   const { apply } = await import(pathToFileURL(join(root, 'presets/liangshen/tool-bootstrap.mjs')).href)
   const prompt = await import(pathToFileURL(webAppRequire.resolve('@deepseek-ai/dsh-system-prompt')).href)
   const listeners = new Map()
-  apply({ on: (name, listener) => listeners.set(name, listener) }, { shellTools: ['bash'],
+  const session = { id: 'liangshen-sdk-session', header: { cwd: '/workspace' } }
+  const events = []
+  apply({
+    on: (name, listener) => listeners.set(name, listener),
+    sessionQuery: { async readSession() { return { events } } },
+  }, { shellTools: ['bash'],
     commonTools: ['str_replace_editor'], compactionTools: ['read'] })
-  const session = { events: [], header: { cwd: '/workspace' } }
   const agent = { session }
   const sections = [{ name: prompt.PERSONA_PREFIX_SECTION, text: 'Persona' },
     { name: 'plan:policy', text: 'Plan policy' }, { name: prompt.PERSONA_SUFFIX_SECTION, text: 'Suffix' }]
@@ -48,12 +52,12 @@ test('shipped LiangShen keeps SDK persona sections, restores workspace and retai
   const first = await assemble()
   assert.deepEqual(first.sections, [sections[0], sections[2]])
   assert.deepEqual(first.tools.map(tool => tool.name), ['bash', 'str_replace_editor'])
-  session.events.push({ type: 'tool/call' })
+  events.push({ type: 'tool/call' })
   const promoted = await assemble()
   assert.deepEqual(promoted.sections, [{ ...sections[0], text: 'Persona\n\nYour working directory is /workspace.' }, sections[1], sections[2]])
   assert.deepEqual(promoted.tools, assembly.tools)
-  session.events.push({ type: 'compaction/end' })
-  listeners.get('session/event')(session, session.events.at(-1))
+  events.push({ type: 'compaction/end' })
+  await listeners.get('session/event')(session, events.at(-1))
   const compacted = await assemble()
   assert.deepEqual(compacted.sections, [sections[0], sections[2]])
   assert.deepEqual(compacted.tools.map(tool => tool.name), ['bash', 'str_replace_editor', 'read'])
@@ -87,9 +91,10 @@ test('public Agent contract exposes scoped lifecycle hooks and session identity'
 
   assert.match(identityTypes, /readonly id: SessionId/u)
   assert.match(runtimeTypes, /interface Agent \{[\s\S]*readonly session: Session/u)
-  for (const event of ['agent/session-start', 'agent/pre-step', 'agent/request', 'agent/turn-stopping']) {
+  for (const event of ['agent/created', 'agent/pre-step', 'agent/request', 'agent/turn-stopping']) {
     assert.match(runtimeTypes, new RegExp(`['"]${event.replace('/', '\\/')}['"]`, 'u'))
   }
+  assert.match(runtimeTypes, /'agent\/created'[\s\S]*@mode serial/u)
   assert.match(runtimeTypes, /Promise<LlmCallConfig>/u)
 })
 

@@ -16,7 +16,7 @@ export const nativeBrowserDefinition: SidebarRightTabDefinition = {
   title: () => t('native.browser'),
   patterns: [`${ADDRESS_PREFIX}*`],
   canOpen: address => /^dsh-resource:\/\/desktop-browser\/[\w-]{1,100}$/u.test(address),
-  guide: [{ order: 40, title: () => t('native.browser'), description: () => t('native.browserHint') }],
+  guide: [{ id: 'dsh-browser', order: 40, title: () => t('native.browser'), description: () => t('native.browserHint') }],
 }
 
 /** Record lifetime, not React mount lifetime: split/float/remount retains the draft address. */

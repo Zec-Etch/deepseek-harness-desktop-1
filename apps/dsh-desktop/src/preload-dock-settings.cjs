@@ -43,4 +43,9 @@ contextBridge.exposeInMainWorld('dshDockSettings', Object.freeze({
     progressListeners.add(listener)
     return () => progressListeners.delete(listener)
   },
+  getControlCenterState: () => ipcRenderer.invoke('dock-settings:control-center-state'),
+  setBrowserUseEnabled: (enabled, provider) => ipcRenderer.invoke('dock-settings:browser-use-set', enabled, provider),
+  setComputerUseEnabled: (enabled, provider) => ipcRenderer.invoke('dock-settings:computer-use-set', enabled, provider),
+  testControlProvider: (kind) => ipcRenderer.invoke('dock-settings:control-provider-test', kind),
+  openControlPermissionSettings: (kind) => ipcRenderer.invoke('dock-settings:control-permission-open', kind),
 }))

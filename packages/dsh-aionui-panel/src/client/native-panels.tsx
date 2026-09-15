@@ -26,12 +26,12 @@ export const nativePanelDefinitions: readonly SidebarRightTabDefinition[] = [
   {
     id: '@linxin666/dsh-client-ui-aionui-panel/files', kind: NATIVE_FILE_TOOLS,
     title: () => t('native.files'),
-    guide: [{ order: 20, title: () => t('native.files'), description: () => t('native.filesHint') }],
+    guide: [{ id: 'dsh-file-tools', order: 20, title: () => t('native.files'), description: () => t('native.filesHint') }],
   },
   {
     id: '@linxin666/dsh-client-ui-aionui-panel/changes', kind: NATIVE_GIT_CHANGES,
     title: () => t('native.changes'),
-    guide: [{ order: 30, title: () => t('native.changes'), description: () => t('native.changesHint') }],
+    guide: [{ id: 'dsh-git-changes', order: 30, title: () => t('native.changes'), description: () => t('native.changesHint') }],
   },
 ]
 

@@ -22,6 +22,34 @@ export type DesktopExtensionDockEntryProps = {
   t: (key: WebUIPluginsKey, params?: Record<string, unknown>) => string
 }
 
+/** Desktop-only shortcut that opens the Smart Control center. */
+export function DesktopSmartControlEntry({ wide, t }: DesktopExtensionDockEntryProps) {
+  const [available, setAvailable] = useState(false)
+  const [opening, setOpening] = useState(false)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    let active = true
+    void hasCapability('extensions.open').then(value => { if (active) setAvailable(value) }).catch(() => {})
+    return () => { active = false }
+  }, [])
+  const openControlCenter = useCallback(async () => {
+    if (opening) return
+    setOpening(true); setFailed(false)
+    try {
+      if (!await openDesktopSurface('extensions', { setting: 'control-center' })) setFailed(true)
+    } catch { setFailed(true) } finally { setOpening(false) }
+  }, [opening])
+  if (!available) return null
+  const label = t('controlLabel' satisfies WebUIPluginsKey)
+  return <div className={css.dockEntry} data-wide={wide ? 'wide' : 'rail'}>
+    <button type="button" className={css.dockTrigger} aria-label={label} title={label} disabled={opening} onClick={() => { void openControlCenter() }}>
+      <SmartControlIcon wide={wide} />
+      {wide && <span className={css.dockTriggerLabel}>{label}</span>}
+    </button>
+    {failed && <span className={css.dockError} role="alert">{t('controlOpenFailed' satisfies WebUIPluginsKey)}</span>}
+  </div>
+}
+
 /** Desktop-only shortcut that deep-links straight to the collaboration page. */
 export function DesktopCollaborationEntry({ wide, t }: DesktopExtensionDockEntryProps) {
   const [available, setAvailable] = useState(false)
@@ -238,6 +266,14 @@ function CollaborationIcon({ wide }: { wide?: boolean }) {
     <circle cx="5" cy="5" r="2" />
     <circle cx="11" cy="5" r="2" />
     <path d="M1.8 12.8c.4-2 1.5-3 3.2-3s2.8 1 3.2 3M7.8 12.8c.4-2 1.5-3 3.2-3s2.8 1 3.2 3" />
+  </svg>
+}
+
+function SmartControlIcon({ wide }: { wide?: boolean }) {
+  const size = wide ? 16 : 18
+  return <svg viewBox="0 0 16 16" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="1.8" y="2.2" width="12.4" height="8.2" rx="1.5" />
+    <path d="M5.3 13.8h5.4M8 10.5v3.3M10.2 5.2l2.5 2.5M10.2 7.7l2.5-2.5" />
   </svg>
 }
 

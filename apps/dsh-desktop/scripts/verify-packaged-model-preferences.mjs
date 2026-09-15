@@ -228,11 +228,17 @@ async function readComposerSelector(page) {
 }
 
 async function readModelCommand(page) {
-  const commandButton = page.getByRole('button', { name: '指令', exact: true }).last()
+  const commandButton = page.getByRole('button', {
+    name: /^(?:指令|命令|Commands|添加文件或调用指令|Add files or invoke commands)$/u,
+  }).last()
   await commandButton.click({ force: true })
   const commandList = page.locator('[role="listbox"][aria-label="触发候选建议"]')
   await commandList.waitFor({ state: 'visible', timeout: 30_000 })
-  await commandList.getByRole('option', { name: /^model/u }).click({ force: true })
+  const modelCommand = commandList.getByRole('option').filter({ hasText: /model/u })
+  if (await modelCommand.count() === 0) {
+    throw new Error(`command launcher did not expose model: ${JSON.stringify(await commandList.getByRole('option').allTextContents())}`)
+  }
+  await modelCommand.click({ force: true })
   const popup = page.locator('[aria-label="/model 选项"]')
   await popup.waitFor({ state: 'visible', timeout: 30_000 })
   const rows = await popup.locator('[role="option"]').evaluateAll((items) => items.map((row) => ({

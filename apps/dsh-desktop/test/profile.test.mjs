@@ -1084,6 +1084,7 @@ test('runtime resolver finds every bundled and desktop support package', async (
   )
   assert.deepEqual(DESKTOP_RUNTIME_OVERRIDE_PACKAGES, [
     '@linxin666/dsh-client-ui-web-ui-settings',
+    '@linxin666/dsh-liangshen',
     '@linxin666/dsh-live-stats',
     '@linxin666/dsh-remote-web-ui',
   ])
