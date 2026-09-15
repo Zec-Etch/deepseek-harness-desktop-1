@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import test from 'node:test'
 import { chromium } from 'playwright'
 
@@ -215,10 +216,13 @@ test('rapid direct-start states serialize local startup-page navigations', async
 })
 
 test('desktop local surfaces use canonical file URLs with encoded query values', () => {
-  const url = desktopLocalSurfaceUrl('D:\\DeepSeek Harness\\startup.html', {
+  const localPath = resolve('DeepSeek Harness', 'startup.html')
+  const url = desktopLocalSurfaceUrl(localPath, {
     query: { directState: 'starting full', omitted: undefined },
   })
-  assert.equal(url, 'file:///D:/DeepSeek%20Harness/startup.html?directState=starting+full')
+  const expected = new URL(pathToFileURL(localPath))
+  expected.searchParams.set('directState', 'starting full')
+  assert.equal(url, expected.href)
   assert.equal(url.includes('\\'), false)
 })
 

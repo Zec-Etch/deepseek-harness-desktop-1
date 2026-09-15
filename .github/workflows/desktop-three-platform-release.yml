@@ -111,6 +111,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @linxin666/dsh-desktop exec playwright install chromium
       - run: pnpm verify
       - run: pnpm feature-baseline:check
       - name: Configure anonymous product metrics
@@ -159,6 +160,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @linxin666/dsh-desktop exec playwright install chromium
       - run: pnpm verify
       - run: pnpm feature-baseline:check
       - name: Configure anonymous product metrics

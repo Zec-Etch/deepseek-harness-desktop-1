@@ -260,7 +260,7 @@ test('release recovery restores pnpm peer snapshots omitted by electron-builder'
   }
 })
 
-test('release recovery restores Windows native optional bindings omitted by electron-builder', async () => {
+test('release recovery restores Windows native optional bindings omitted by electron-builder', { skip: process.platform !== 'win32' }, async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-runtime-native-bindings-'))
   try {
     const restored = await restoreRequiredNativeBindings(root, {
