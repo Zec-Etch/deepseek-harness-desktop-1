@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { createServer, createConnection } from 'node:net'
-import { join } from 'node:path'
+import { join, posix } from 'node:path'
 import { tmpdir } from 'node:os'
 
 export const RUNTIME_PIPE_PROTOCOL_VERSION = 2
@@ -12,6 +12,10 @@ export const RUNTIME_PIPE_READY_LINE = 'dsh desktop pipe: ready'
 const MAX_FRAME_BYTES = 512 * 1024
 const MAX_BODY_BYTES = 320 * 1024 * 1024
 const CHUNK_BYTES = 192 * 1024
+// Darwin sockaddr_un.sun_path is only 104 bytes including its terminator.
+// Leave headroom for Node's native conversion and non-ASCII temporary paths.
+export const MAX_POSIX_PIPE_ADDRESS_BYTES = 100
+const POSIX_PIPE_FALLBACK_DIRECTORY = '/tmp'
 
 function assertToken(value, label) {
   if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{32,128}$/u.test(value)) {
@@ -29,8 +33,13 @@ function assertAddress(value) {
 
 export function createRuntimePipeIdentity({ platform = process.platform, temporaryDirectory = tmpdir() } = {}) {
   const name = `dsh-desktop-${randomBytes(24).toString('hex')}`
+  const socketName = `${name}.sock`
+  const preferredAddress = posix.join(String(temporaryDirectory).replaceAll('\\', '/'), socketName)
+  const posixAddress = Buffer.byteLength(preferredAddress, 'utf8') <= MAX_POSIX_PIPE_ADDRESS_BYTES
+    ? preferredAddress
+    : posix.join(POSIX_PIPE_FALLBACK_DIRECTORY, socketName)
   return Object.freeze({
-    address: platform === 'win32' ? `\\\\.\\pipe\\${name}` : join(temporaryDirectory, `${name}.sock`),
+    address: platform === 'win32' ? `\\\\.\\pipe\\${name}` : posixAddress,
     token: randomBytes(32).toString('base64url'),
     generation: randomBytes(24).toString('base64url'),
   })

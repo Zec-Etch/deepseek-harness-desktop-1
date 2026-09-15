@@ -822,6 +822,7 @@
       "uiSelector": "#root",
       "features": [
         "authenticated-private-os-pipe",
+        "bounded-posix-socket-address",
         "generation-fenced-handshake",
         "chunked-fetch-with-cancellation",
         "gateway-stream-cancellation",

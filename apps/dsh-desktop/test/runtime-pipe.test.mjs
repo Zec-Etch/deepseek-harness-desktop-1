@@ -4,9 +4,23 @@ import { test } from 'node:test'
 import {
   createRuntimePipeIdentity,
   createRuntimePipeServer,
+  MAX_POSIX_PIPE_ADDRESS_BYTES,
   RuntimePipeClient,
   RUNTIME_PIPE_PROTOCOL_VERSION,
 } from '../src/runtime-pipe.mjs'
+
+test('macOS runtime pipe falls back to a bounded socket path when TMPDIR is long', () => {
+  const identity = createRuntimePipeIdentity({
+    platform: 'darwin',
+    temporaryDirectory: `/var/folders/${'long-segment/'.repeat(12)}T`,
+  })
+
+  assert.match(identity.address, /^\/tmp\/dsh-desktop-[0-9a-f]{48}\.sock$/u)
+  assert.ok(Buffer.byteLength(identity.address, 'utf8') <= MAX_POSIX_PIPE_ADDRESS_BYTES)
+
+  const short = createRuntimePipeIdentity({ platform: 'darwin', temporaryDirectory: '/private/tmp' })
+  assert.match(short.address, /^\/private\/tmp\/dsh-desktop-[0-9a-f]{48}\.sock$/u)
+})
 
 test('runtime pipe authenticates, chunks bodies, and preserves response metadata', async (t) => {
   const identity = createRuntimePipeIdentity()
