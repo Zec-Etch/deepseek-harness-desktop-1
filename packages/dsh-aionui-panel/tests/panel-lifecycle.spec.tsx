@@ -118,8 +118,10 @@ it('remounts both panels after the shell replaces its frame or removes injected 
   try {
     await vi.waitFor(() => expect(document.querySelectorAll('[data-explorer-probe]')).toHaveLength(1))
     const next = frame(); shell.replaceWith(next); shell = next
-    await vi.waitFor(() => expect(shell.querySelectorAll('[data-explorer-probe]')).toHaveLength(1))
-    expect(shell.querySelectorAll('[data-preview-probe]')).toHaveLength(1)
+    await vi.waitFor(() => {
+      expect(shell.querySelectorAll('[data-explorer-probe]')).toHaveLength(1)
+      expect(shell.querySelectorAll('[data-preview-probe]')).toHaveLength(1)
+    })
     shell.querySelector('[data-aionui-explorer-col]')!.remove()
     await vi.waitFor(() => expect(shell.querySelectorAll('[data-explorer-probe]')).toHaveLength(1))
     expect(document.querySelectorAll('.aionui-floating-expand')).toHaveLength(1)
