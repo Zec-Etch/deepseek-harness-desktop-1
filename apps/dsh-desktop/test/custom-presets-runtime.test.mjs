@@ -61,6 +61,10 @@ test('upgraded custom presets mount and create sessions through the official run
     throw new Error(`${error.message}\nRecent runtime log:\n${await logs.tail(45)}`, { cause: error })
   } finally {
     await controller?.stop()
+    // Runtime shutdown can enqueue its final log line just before resolving.
+    // Drain the bounded store before removing the isolated Home so Windows
+    // does not race an in-flight log write during recursive cleanup.
+    await logs.tail(1)
     await rm(root, { recursive: true, force: true })
   }
 })

@@ -1,0 +1,104 @@
+name: macOS arm64 Preview
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-preview-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      REQUIRE_SIGNING: 'false'
+      DSH_DESKTOP_UPDATE_CHANNEL: stable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Apple Silicon runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "arm64"
+          sw_vers
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Verify source and macOS packaging contracts
+        run: |
+          pnpm feature-baseline:check
+          pnpm typecheck
+          node --test \
+            apps/dsh-desktop/test/electron-builder-mac.test.mjs \
+            apps/dsh-desktop/test/package-mac.test.mjs \
+            apps/dsh-desktop/test/verify-package-mac.test.mjs \
+            apps/dsh-desktop/test/macos-lifecycle-menu.test.mjs \
+            apps/dsh-desktop/test/unsigned-mac-preview.test.mjs
+      - name: Configure official anonymous product metrics
+        shell: bash
+        env:
+          DSH_TELEMETRY_ENDPOINT: ${{ vars.DSH_TELEMETRY_ENDPOINT }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { writeFile } from 'node:fs/promises'
+
+          const endpointText = process.env.DSH_TELEMETRY_ENDPOINT?.trim()
+          if (!endpointText) throw new Error('Repository variable DSH_TELEMETRY_ENDPOINT is required')
+          const endpoint = new URL(endpointText)
+          if (endpoint.protocol !== 'https:'
+            || endpoint.pathname !== '/v1/events'
+            || endpoint.search !== ''
+            || endpoint.hash !== ''
+            || endpoint.username !== ''
+            || endpoint.password !== '') {
+            throw new Error('DSH_TELEMETRY_ENDPOINT must be a credential-free HTTPS URL ending exactly in /v1/events')
+          }
+          await writeFile(
+            'apps/dsh-desktop/build/telemetry-config.json',
+            `${JSON.stringify({ endpoint: endpoint.href, officialBuild: true }, null, 2)}\n`,
+          )
+          NODE
+      - name: Build unsigned Apple Silicon package
+        run: pnpm --filter @linxin666/dsh-desktop pack:mac
+      - name: Verify packaged bundle
+        run: pnpm --filter @linxin666/dsh-desktop pack:verify:mac
+      - name: Run packaged application smoke
+        run: pnpm --filter @linxin666/dsh-desktop pack:smoke:mac
+      - name: Verify preview signing boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          app='apps/dsh-desktop/dist/mac-arm64/DeepSeek Harness Desktop.app'
+          signature="$(codesign -dv --verbose=4 "$app" 2>&1 || true)"
+          if grep -q '^Authority=Developer ID Application' <<<"$signature"; then
+            echo 'Unsigned preview unexpectedly contains a Developer ID Application signature.' >&2
+            exit 1
+          fi
+          printf '%s\n' "$signature"
+      - name: Write macOS checksums
+        shell: bash
+        working-directory: apps/dsh-desktop/dist
+        run: |
+          set -euo pipefail
+          shasum -a 256 \
+            DeepSeek-Harness-Desktop-4.0.0-arm64.dmg \
+            DeepSeek-Harness-Desktop-4.0.0-arm64.zip \
+            > SHA256SUMS-macos.txt
+          shasum -a 256 -c SHA256SUMS-macos.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DeepSeek-Harness-Desktop-4.0.0-macos-arm64-preview
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            apps/dsh-desktop/dist/DeepSeek-Harness-Desktop-4.0.0-arm64.dmg
+            apps/dsh-desktop/dist/DeepSeek-Harness-Desktop-4.0.0-arm64.zip
+            apps/dsh-desktop/dist/SHA256SUMS-macos.txt
