@@ -28,7 +28,7 @@ import { DesktopCollaborationEntry, DesktopExtensionDockEntry, DesktopSmartContr
 
 function ownedEffect(callback: () => unknown): unknown {
   const dispose = callback()
-  if (typeof dispose === 'function') onTestFinished(dispose)
+  if (typeof dispose === 'function') onTestFinished(() => { dispose() })
   return dispose
 }
 
