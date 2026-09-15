@@ -105,6 +105,8 @@ test('skills surface exposes accessible menu, search, keyboard, and theme rules'
   assert.match(CONVERSATION_SKILLS_SCRIPT, /aria-label="指令"/u)
   assert.match(CONVERSATION_SKILLS_SCRIPT, /aria-label="命令"/u)
   assert.match(CONVERSATION_SKILLS_SCRIPT, /aria-label="Commands"/u)
+  assert.match(CONVERSATION_SKILLS_SCRIPT, /aria-label="添加文件或运行命令"/u)
+  assert.match(CONVERSATION_SKILLS_SCRIPT, /aria-label="Add files or run commands"/u)
   assert.doesNotMatch(CONVERSATION_SKILLS_SCRIPT, /innerHTML\s*=/u)
 })
 

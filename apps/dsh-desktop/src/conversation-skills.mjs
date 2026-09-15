@@ -403,6 +403,8 @@ function installConversationSkillsPage() {
       'button[aria-label="Commands"]',
       'button[aria-label="添加文件或调用指令"]',
       'button[aria-label="Add files or invoke commands"]',
+      'button[aria-label="添加文件或运行命令"]',
+      'button[aria-label="Add files or run commands"]',
     ].join(','))
     const textarea = composer?.querySelector('textarea, [role="textbox"][contenteditable]:not([contenteditable="false"])')
     if (!composer || !commandButton || !textarea) {

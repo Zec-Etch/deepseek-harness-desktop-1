@@ -81,7 +81,7 @@ try {
   await newSession.waitFor({ state: 'attached', timeout: 20_000 })
   await newSession.dispatchEvent('click')
   await page.locator('[data-composer-card="true"] [role="textbox"][contenteditable]:not([contenteditable="false"])').waitFor({ state: 'visible' })
-  const commandButton = page.getByRole('button', { name: /^(?:指令|命令|Commands|添加文件或调用指令|Add files or invoke commands)$/u })
+  const commandButton = page.getByRole('button', { name: /^(?:指令|命令|Commands|添加文件或调用指令|Add files or invoke commands|添加文件或运行命令|Add files or run commands)$/u })
   const skillsButton = page.getByRole('button', { name: '技能库' })
   await skillsButton.waitFor({ state: 'visible' })
   const starPrompt = page.locator('#dsh-desktop-star-prompt[data-open="true"]')
