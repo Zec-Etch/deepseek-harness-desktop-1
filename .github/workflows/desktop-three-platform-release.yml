@@ -65,7 +65,7 @@ jobs:
             throw 'DSH_TELEMETRY_ENDPOINT must be a credential-free HTTPS URL ending exactly in /v1/events.'
           }
           @{ endpoint = $endpoint.AbsoluteUri; officialBuild = $true } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM apps/dsh-desktop/build/telemetry-config.json
-      - run: pnpm --filter @linxin666/dsh-desktop pack:win --config.publish.channel=latest
+      - run: pnpm --filter @linxin666/dsh-desktop pack:win
       - name: Run packaged Windows regression
         shell: pwsh
         run: |

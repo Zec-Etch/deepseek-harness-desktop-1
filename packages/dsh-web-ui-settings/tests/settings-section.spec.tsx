@@ -6,7 +6,7 @@
  * registration and its section component's child-slot render contract.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import * as desktop from '@linxin666/dsh-desktop-client'
 
@@ -25,6 +25,12 @@ import { ChatGptAuthSection } from '../src/client/ChatGptAuthSection.tsx'
 import { WebUIPluginsSection } from '../src/client/WebUIPluginsCard.tsx'
 import { RelayOnboardingCard } from '../src/client/RelayOnboardingCard.tsx'
 import { DesktopCollaborationEntry, DesktopExtensionDockEntry, DesktopSmartControlEntry } from '../src/client/desktop-extension-dock.tsx'
+
+function ownedEffect(callback: () => unknown): unknown {
+  const dispose = callback()
+  if (typeof dispose === 'function') onTestFinished(dispose)
+  return dispose
+}
 
 afterEach(() => {
   cleanup()
@@ -54,7 +60,7 @@ describe('Web UI settings section', () => {
     const localeRegister = vi.fn(() => () => {})
     const bind = vi.fn(() => (key: string) => key === 'title' ? 'Web UI Plugins' : key)
     const ctx = {
-      effect: (callback: () => unknown) => callback(),
+      effect: ownedEffect,
       inject: vi.fn(),
       locale: { register: localeRegister, bind },
       slots: { inject, register },
@@ -117,7 +123,7 @@ describe('Web UI settings section', () => {
     const register = vi.fn((_entry: unknown, _component?: unknown) => () => {})
     const inject = vi.fn((_name: string, callback: () => unknown) => callback())
     const ctx = {
-      effect: (callback: () => unknown) => callback(),
+      effect: ownedEffect,
       inject: vi.fn(),
       locale: { register: vi.fn(() => () => {}), bind: vi.fn(() => (key: string) => key) },
       slots: { inject, register },
