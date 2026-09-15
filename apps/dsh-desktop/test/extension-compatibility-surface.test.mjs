@@ -41,6 +41,15 @@ test('Extension Dock moves Agent Team into the unified collaboration page', asyn
   assert.match(collaboration, /会话、草稿和项目文件不会被删除/u)
 })
 
+test('Extension Dock renders built-in capabilities before the async inventory refresh', async () => {
+  const script = await readFile(new URL('../src/ui/extensions.mjs', import.meta.url), 'utf8')
+  const initialRender = script.lastIndexOf('renderNativePlugins()')
+  const initialRefresh = script.lastIndexOf('await refresh()')
+
+  assert.ok(initialRender >= 0, 'built-in capabilities have an eager initial render')
+  assert.ok(initialRender < initialRefresh, 'the eager render does not depend on Runtime inventory availability')
+})
+
 test('Extension Dock keeps healthy plugin state quiet and technical fields inside advanced information', async () => {
   const script = await readFile(new URL('../src/ui/extensions.mjs', import.meta.url), 'utf8')
   assert.match(script, /if \(presentation\.label === ''\) return ''/u)

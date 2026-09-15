@@ -1997,6 +1997,7 @@ try {
   const previousSetting = previousId === 'memory-tab' ? 'memory' : localStorage.getItem('dsh-dock-setting')
   if (initialTab.dataset.group === 'personal' && ['personal-prompt', 'memory'].includes(previousSetting)) initialSetting = previousSetting
 } catch { /* first visit opens model collaboration */ }
+renderNativePlugins()
 activateTab(initialTab, false, initialSetting)
 await refresh()
 void refreshMarket()
