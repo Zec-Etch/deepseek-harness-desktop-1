@@ -146,7 +146,7 @@ test('direct startup keeps full profile materialization inside the coordinator-o
 
 test('runtime transport telemetry shares the Electron startup scope', async () => {
   const source = await readFile(new URL('../src/electron-app.mjs', import.meta.url), 'utf8')
-  assert.match(source, /\n  const runtimeTransport = desktopRuntimeHost === undefined \? 'pipe' : 'http'\n  const createPrimaryRuntimeController/u)
+  assert.match(source, /\r?\n  const runtimeTransport = desktopRuntimeHost === undefined \? 'pipe' : 'http'\r?\n  const createPrimaryRuntimeController/u)
   assert.match(source, /productMetrics\.observeRuntimeStatus\(status, runtimeTransport\)/u)
 })
 

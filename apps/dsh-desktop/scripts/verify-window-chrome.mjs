@@ -88,6 +88,7 @@ try {
   // Plugin CSS can arrive before React mounts the frame measured below.
   try {
     await page.locator('[data-dsh-frame]').waitFor({ state: 'visible', timeout: runtimeReadyTimeoutMs })
+    await page.locator('[class*="_toggleCluster"]').waitFor({ state: 'visible', timeout: runtimeReadyTimeoutMs })
   } catch (error) {
     console.error('window frame not ready', JSON.stringify(await page.evaluate(() => ({
       url: location.href,

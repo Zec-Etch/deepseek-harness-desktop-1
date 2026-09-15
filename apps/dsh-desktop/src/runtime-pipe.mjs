@@ -3,7 +3,7 @@ import { createServer, createConnection } from 'node:net'
 import { join, posix } from 'node:path'
 import { tmpdir } from 'node:os'
 
-export const RUNTIME_PIPE_PROTOCOL_VERSION = 2
+export const RUNTIME_PIPE_PROTOCOL_VERSION = 3
 export const RUNTIME_PIPE_ADDRESS_ENV = 'DSH_DESKTOP_PIPE_ADDRESS'
 export const RUNTIME_PIPE_TOKEN_ENV = 'DSH_DESKTOP_PIPE_TOKEN'
 export const RUNTIME_PIPE_GENERATION_ENV = 'DSH_DESKTOP_PIPE_GENERATION'
@@ -12,6 +12,8 @@ export const RUNTIME_PIPE_READY_LINE = 'dsh desktop pipe: ready'
 const MAX_FRAME_BYTES = 512 * 1024
 const MAX_BODY_BYTES = 320 * 1024 * 1024
 const CHUNK_BYTES = 192 * 1024
+const FRAGMENT_ID_PATTERN = /^[0-9a-f]{24}$/u
+const FRAGMENT_TYPES = new Set(['fragment-start', 'fragment-chunk', 'fragment-end'])
 // Darwin sockaddr_un.sun_path is only 104 bytes including its terminator.
 // Leave headroom for Node's native conversion and non-ASCII temporary paths.
 export const MAX_POSIX_PIPE_ADDRESS_BYTES = 100
@@ -53,6 +55,7 @@ function createFrameReader(socket) {
   const frames = []
   const waiters = []
   let buffered = Buffer.alloc(0)
+  let fragmented
   let failure
   let ended = false
 
@@ -64,12 +67,69 @@ function createFrameReader(socket) {
       else waiter.resolve(undefined)
     }
   }
+  const fail = (error) => {
+    if (failure !== undefined) return
+    failure = error
+    socket.destroy(error)
+    settle()
+  }
+  const acceptFrame = (frame) => {
+    if (frame?.type === 'fragment-start') {
+      if (
+        fragmented !== undefined
+        || !FRAGMENT_ID_PATTERN.test(frame.id)
+        || !Number.isInteger(frame.bytes)
+        || frame.bytes + 1 <= MAX_FRAME_BYTES
+        || frame.bytes > MAX_BODY_BYTES
+        || !Number.isInteger(frame.chunks)
+        || frame.chunks !== Math.ceil(frame.bytes / CHUNK_BYTES)
+      ) throw pipeProtocolError('runtime pipe fragment start is invalid')
+      fragmented = { id: frame.id, bytes: frame.bytes, chunks: frame.chunks, receivedBytes: 0, parts: [] }
+      return
+    }
+    if (frame?.type === 'fragment-chunk') {
+      if (
+        fragmented === undefined
+        || frame.id !== fragmented.id
+        || frame.index !== fragmented.parts.length
+        || typeof frame.data !== 'string'
+      ) throw pipeProtocolError('runtime pipe fragment chunk is invalid')
+      const part = Buffer.from(frame.data, 'base64')
+      if (
+        part.length === 0
+        || part.length > CHUNK_BYTES
+        || part.toString('base64') !== frame.data
+        || fragmented.receivedBytes + part.length > fragmented.bytes
+      ) throw pipeProtocolError('runtime pipe fragment payload is invalid')
+      fragmented.parts.push(part)
+      fragmented.receivedBytes += part.length
+      return
+    }
+    if (frame?.type === 'fragment-end') {
+      if (
+        fragmented === undefined
+        || frame.id !== fragmented.id
+        || fragmented.parts.length !== fragmented.chunks
+        || fragmented.receivedBytes !== fragmented.bytes
+      ) throw pipeProtocolError('runtime pipe fragmented message is incomplete')
+      const bytes = Buffer.concat(fragmented.parts, fragmented.bytes)
+      fragmented = undefined
+      try {
+        frames.push(JSON.parse(bytes.toString('utf8')))
+      } catch (error) {
+        throw pipeProtocolError('runtime pipe fragmented message is invalid JSON', { cause: error })
+      }
+      return
+    }
+    if (fragmented !== undefined || FRAGMENT_TYPES.has(frame?.type)) {
+      throw pipeProtocolError('runtime pipe fragment sequence is invalid')
+    }
+    frames.push(frame)
+  }
   socket.on('data', (chunk) => {
     buffered = Buffer.concat([buffered, chunk])
     if (buffered.length > MAX_FRAME_BYTES && !buffered.includes(10)) {
-      failure = new Error('runtime pipe frame exceeded the limit')
-      socket.destroy(failure)
-      settle()
+      fail(pipeLimitError('runtime pipe frame exceeded the limit', buffered.length, MAX_FRAME_BYTES))
       return
     }
     for (;;) {
@@ -79,17 +139,15 @@ function createFrameReader(socket) {
       buffered = buffered.subarray(newline + 1)
       if (line.length === 0) continue
       if (line.length > MAX_FRAME_BYTES) {
-        failure = new Error('runtime pipe frame exceeded the limit')
-        socket.destroy(failure)
-        settle()
+        fail(pipeLimitError('runtime pipe frame exceeded the limit', line.length, MAX_FRAME_BYTES))
         return
       }
       try {
-        frames.push(JSON.parse(line.toString('utf8')))
+        acceptFrame(JSON.parse(line.toString('utf8')))
       } catch (error) {
-        failure = new Error('runtime pipe received invalid JSON', { cause: error })
-        socket.destroy(failure)
-        settle()
+        fail(error?.code === 'ERR_DSH_RUNTIME_PIPE_PROTOCOL'
+          ? error
+          : pipeProtocolError('runtime pipe received invalid JSON', { cause: error }))
         return
       }
     }
@@ -100,10 +158,16 @@ function createFrameReader(socket) {
     settle()
   })
   socket.once('end', () => {
+    if (fragmented !== undefined && failure === undefined) {
+      failure = pipeProtocolError('runtime pipe fragmented message ended early')
+    }
     ended = true
     settle()
   })
   socket.once('close', () => {
+    if (fragmented !== undefined && failure === undefined) {
+      failure = pipeProtocolError('runtime pipe fragmented message ended early')
+    }
     ended = true
     settle()
   })
@@ -115,22 +179,71 @@ function createFrameReader(socket) {
   }
 }
 
-async function writeFrame(socket, frame) {
+function pipeLimitError(message, actualBytes, limitBytes) {
+  const error = new Error(`${message} (${actualBytes} > ${limitBytes})`)
+  error.code = 'ERR_DSH_RUNTIME_PIPE_MESSAGE_TOO_LARGE'
+  error.actualBytes = actualBytes
+  error.limitBytes = limitBytes
+  return error
+}
+
+function pipeProtocolError(message, options) {
+  const error = new Error(message, options)
+  error.code = 'ERR_DSH_RUNTIME_PIPE_PROTOCOL'
+  return error
+}
+
+async function writePhysicalFrame(socket, frame) {
   const bytes = Buffer.from(`${JSON.stringify(frame)}\n`)
-  if (bytes.length > MAX_FRAME_BYTES) throw new Error('runtime pipe frame exceeded the limit')
+  if (bytes.length > MAX_FRAME_BYTES) {
+    throw pipeLimitError('runtime pipe frame exceeded the limit', bytes.length, MAX_FRAME_BYTES)
+  }
   if (socket.write(bytes)) return
   await new Promise((resolve, reject) => {
-    const drained = () => {
+    const cleanup = () => {
+      socket.removeListener('drain', drained)
       socket.removeListener('error', failed)
+      socket.removeListener('close', closed)
+    }
+    const drained = () => {
+      cleanup()
       resolve()
     }
     const failed = (error) => {
-      socket.removeListener('drain', drained)
+      cleanup()
       reject(error)
+    }
+    const closed = () => {
+      cleanup()
+      reject(pipeProtocolError('runtime pipe closed before write drained'))
     }
     socket.once('drain', drained)
     socket.once('error', failed)
+    socket.once('close', closed)
   })
+}
+
+async function writeFrame(socket, frame) {
+  const bytes = Buffer.from(JSON.stringify(frame))
+  if (bytes.length + 1 <= MAX_FRAME_BYTES) {
+    await writePhysicalFrame(socket, frame)
+    return
+  }
+  if (bytes.length > MAX_BODY_BYTES) {
+    throw pipeLimitError('runtime pipe logical message exceeded the limit', bytes.length, MAX_BODY_BYTES)
+  }
+  const id = randomBytes(12).toString('hex')
+  const chunks = Math.ceil(bytes.length / CHUNK_BYTES)
+  await writePhysicalFrame(socket, { type: 'fragment-start', id, bytes: bytes.length, chunks })
+  for (let index = 0, offset = 0; offset < bytes.length; index += 1, offset += CHUNK_BYTES) {
+    await writePhysicalFrame(socket, {
+      type: 'fragment-chunk',
+      id,
+      index,
+      data: bytes.subarray(offset, offset + CHUNK_BYTES).toString('base64'),
+    })
+  }
+  await writePhysicalFrame(socket, { type: 'fragment-end', id })
 }
 
 async function connect(identity, signal) {
@@ -402,8 +515,17 @@ export class RuntimePipeClient {
 }
 
 function safeFailureMessage(error) {
+  if (error?.code === 'ERR_DSH_RUNTIME_PIPE_MESSAGE_TOO_LARGE') return 'runtime carrier frame-too-large'
+  if (error?.code === 'ERR_DSH_RUNTIME_PIPE_PROTOCOL') return 'runtime carrier transport-invalid'
   const name = error instanceof Error && typeof error.name === 'string' ? error.name : 'Error'
   return `runtime carrier ${name}`
+}
+
+function reportSafeFailure(error) {
+  if (error?.code !== 'ERR_DSH_RUNTIME_PIPE_MESSAGE_TOO_LARGE') return
+  const actualBytes = Number.isSafeInteger(error.actualBytes) ? error.actualBytes : 'unknown'
+  const limitBytes = Number.isSafeInteger(error.limitBytes) ? error.limitBytes : 'unknown'
+  console.error(`dsh desktop pipe: frame-too-large bytes=${actualBytes} limit=${limitBytes}`)
 }
 
 async function sendResponse(socket, response) {
@@ -540,6 +662,7 @@ export async function createRuntimePipeServer({ identity, runtimeVersion, profil
         }
         throw new Error('runtime pipe operation is invalid')
       } catch (error) {
+        reportSafeFailure(error)
         if (!socket.destroyed) {
           await writeFrame(socket, { type: 'error', message: safeFailureMessage(error) }).catch(() => {})
           socket.end()
