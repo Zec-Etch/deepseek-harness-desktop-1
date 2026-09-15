@@ -1,6 +1,6 @@
 # Desktop 2.5 DSH coupling audit
 
-Authoritative Desktop version: 4.0.0-rc.3.
+Authoritative Desktop version: 4.0.0.
 
 Stable DSH package version: 0.1.5-rc.2.
 

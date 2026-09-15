@@ -42,9 +42,9 @@ The installer includes the main runtime components, so you do not need to separa
 
 [Product Site](https://ningbainb.github.io/deepseek-harness-desktop/) · [Download Latest](https://github.com/ningbainb/deepseek-harness-desktop/releases/latest) · [Documentation](docs/desktop.md) · [Changelog](CHANGELOG.md)
 
-### 4.0.0-rc.3: pre-release candidate
+### 4.0.0: stable release
 
-The current public stable release remains 3.5.0; `main` is now the 4.0 standard-edition release candidate.
+The current public stable release is 4.0.0 and has completed the standard-edition release gates.
 
 - **Official Desktop capabilities integrated early**: exact-pinned public DSH 0.1.5-rc.2 Runtime and split SDK packages are integrated against the official repository's Desktop boundaries, while the community app keeps an independent identity and update path.
 - **Reliable upgrades from 3.5**: legacy plugins are discovered read-only and restored by exact version; broken history projections degrade without blocking transcripts; pet settings, repeated local `.tgz` installs, and Git marketplace failure categories are fixed.
@@ -52,9 +52,9 @@ The current public stable release remains 3.5.0; `main` is now the 4.0 standard-
 - **Unified Skills and desktop behavior**: Skill Center and the conversation skill menu share the same DSH Home; expanding the bottom panel no longer starts a terminal implicitly, and window controls plus hidden-console behavior have regression coverage.
 - **More useful, still minimal metrics**: fixed-result events cover Skills, Agent Team, and local-LAN outcomes, while conversation-import entry and plugin operations retain coarse signals. No conversations, prompts, file contents, paths, model names, token counts, or credentials are collected. See the [privacy policy](PRIVACY.md).
 
-![DeepSeek Harness Desktop 4.0.0-rc.3 model collaboration](docs/screenshots/desktop-4.0.0-rc.3/model-collaboration.png)
+![DeepSeek Harness Desktop 4.0.0 model collaboration](docs/screenshots/desktop-4.0.0-rc.3/model-collaboration.png)
 
-![DeepSeek Harness Desktop 4.0.0-rc.3 conversation Skills and desktop entry points](docs/screenshots/desktop-4.0.0-rc.3/conversation-skills.png)
+![DeepSeek Harness Desktop 4.0.0 conversation Skills and desktop entry points](docs/screenshots/desktop-4.0.0-rc.3/conversation-skills.png)
 
 ### Continuing core capabilities
 
@@ -69,25 +69,25 @@ The current public stable release remains 3.5.0; `main` is now the 4.0 standard-
 
 ## Model collaboration, Skills, and model access
 
-The screenshots below come from the real 4.0.0-rc.3 Electron acceptance environment.
+The screenshots below come from the real final-candidate Electron acceptance environment for 4.0.0.
 
 ### Model collaboration: Agent Team and Value Mode in one place
 
 The session sidebar opens the existing Extension Dock window directly on Model Collaboration. Agent Team handles multi-role coordination, while Value Mode separates controller and worker models. They remain independent and may be enabled separately or together.
 
-![DeepSeek Harness Desktop 4.0.0-rc.3 Model Collaboration page](docs/screenshots/desktop-4.0.0-rc.3/model-collaboration.png)
+![DeepSeek Harness Desktop 4.0.0 Model Collaboration page](docs/screenshots/desktop-4.0.0-rc.3/model-collaboration.png)
 
 ### Skills: one directory model across the conversation and Skill Center
 
 Desktop 4 scans project `.dsh/skills`, user DSH Skills, and user Agents Skills through one discovery contract. The composer can search and insert the same skills shown by Skill Center, including their source and scope.
 
-![DeepSeek Harness Desktop 4.0.0-rc.3 conversation Skills menu](docs/screenshots/desktop-4.0.0-rc.3/conversation-skills.png)
+![DeepSeek Harness Desktop 4.0.0 conversation Skills menu](docs/screenshots/desktop-4.0.0-rc.3/conversation-skills.png)
 
 ### bai provider: consistently promoted in model entry points
 
 The chat picker, model settings, and collaboration controller/worker pickers share one ordering rule: user-pinned models first, then bai, followed by the existing provider order.
 
-![DeepSeek Harness Desktop 4.0.0-rc.3 bai model access](docs/screenshots/desktop-4.0.0-rc.3/bai-models.png)
+![DeepSeek Harness Desktop 4.0.0 bai model access](docs/screenshots/desktop-4.0.0-rc.3/bai-models.png)
 
 See [Desktop architecture and capabilities](docs/desktop.md), [Upgrade and Rollback](docs/upgrade-and-rollback.md), and the [4.0 release notes](docs/launch/release-notes.md) for the implementation boundaries.
 

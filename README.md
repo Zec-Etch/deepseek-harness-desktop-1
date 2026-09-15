@@ -42,9 +42,9 @@ DeepSeek 官方尚未正式发布独立 Desktop 产品；本项目已经把公�
 
 [产品介绍](https://ningbainb.github.io/deepseek-harness-desktop/) · [下载最新版](https://github.com/ningbainb/deepseek-harness-desktop/releases/latest) · [使用文档](docs/desktop.md) · [更新日志](CHANGELOG.md)
 
-### 4.0.0-rc.3：正式发布前候选
+### 4.0.0：正式版
 
-当前公开稳定版仍为 3.5.0；`main` 已进入 4.0 普通版发布候选阶段。
+当前公开稳定版为 4.0.0，已完成普通版正式发布门禁。
 
 - **官方 Desktop 能力已融合**：精确锁定公开的官方 DSH 0.1.5-rc.2 Runtime 与拆分 SDK，并对照官方仓库 Desktop 边界完成生命周期、窗口、协议、更新和数据隔离适配；社区应用身份保持独立。
 - **3.5 覆盖升级更可靠**：旧插件清单只读扫描并按精确版本恢复；历史会话投影异常降级而不阻断正文；宠物设置保存、本地 `.tgz` 重复安装和 Git 市场失败分类已修复。
@@ -52,9 +52,9 @@ DeepSeek 官方尚未正式发布独立 Desktop 产品；本项目已经把公�
 - **Skills 与桌面交互统一**：技能中心和会话技能菜单指向同一 DSH Home；底部面板不再隐式启动终端，窗口控件和隐藏控制台行为完成回归。
 - **埋点更有用也更克制**：增加 Skills、Agent Team 和局域网访问的固定结果事件，并保留会话导入入口与插件操作的粗粒度信号；仍不采集对话、Prompt、文件内容、路径、模型名、Token 或密钥，详见 [隐私政策](PRIVACY.md)。
 
-![DeepSeek Harness Desktop 4.0.0-rc.3 模型协作](docs/screenshots/desktop-4.0.0-rc.3/model-collaboration.png)
+![DeepSeek Harness Desktop 4.0.0 模型协作](docs/screenshots/desktop-4.0.0-rc.3/model-collaboration.png)
 
-![DeepSeek Harness Desktop 4.0.0-rc.3 会话 Skills 与桌面入口](docs/screenshots/desktop-4.0.0-rc.3/conversation-skills.png)
+![DeepSeek Harness Desktop 4.0.0 会话 Skills 与桌面入口](docs/screenshots/desktop-4.0.0-rc.3/conversation-skills.png)
 
 ### 持续提供的核心能力
 
@@ -69,25 +69,25 @@ DeepSeek 官方尚未正式发布独立 Desktop 产品；本项目已经把公�
 
 ## 模型协作、Skills 与模型接入
 
-以下截图来自 4.0.0-rc.3 真实 Electron 验收环境。
+以下截图来自 4.0.0 最终候选的真实 Electron 验收环境。
 
 ### 模型协作：Agent Team 与性价比模式放在同一处
 
 会话侧栏的“模型协作”会直接打开唯一的拓展坞窗口并进入协作页。Agent Team 负责多角色协作，性价比模式负责主控与执行模型分工；两者互不排斥，可独立开启或同时使用。
 
-![DeepSeek Harness Desktop 4.0.0-rc.3 模型协作页面](docs/screenshots/desktop-4.0.0-rc.3/model-collaboration.png)
+![DeepSeek Harness Desktop 4.0.0 模型协作页面](docs/screenshots/desktop-4.0.0-rc.3/model-collaboration.png)
 
 ### Skills：会话菜单与技能中心使用同一目录
 
 4.0 统一扫描项目 `.dsh/skills`、用户 DSH Skills 与用户 Agents Skills。会话输入框可搜索并插入技能，技能中心显示相同来源及作用域，不再出现“侧栏能看到、技能中心看不到”的路径分裂。
 
-![DeepSeek Harness Desktop 4.0.0-rc.3 会话 Skills 菜单](docs/screenshots/desktop-4.0.0-rc.3/conversation-skills.png)
+![DeepSeek Harness Desktop 4.0.0 会话 Skills 菜单](docs/screenshots/desktop-4.0.0-rc.3/conversation-skills.png)
 
 ### bai 供应商：在模型入口中统一优先显示
 
 聊天模型、模型设置以及协作页的主控与执行模型选择器共用排序规则：用户手动置顶优先，其次是 bai 供应商，再保留其余供应商的既有顺序。
 
-![DeepSeek Harness Desktop 4.0.0-rc.3 bai 模型接入](docs/screenshots/desktop-4.0.0-rc.3/bai-models.png)
+![DeepSeek Harness Desktop 4.0.0 bai 模型接入](docs/screenshots/desktop-4.0.0-rc.3/bai-models.png)
 
 详细边界见 [桌面架构与能力](docs/desktop.md)、[升级与回滚指南](docs/upgrade-and-rollback.md) 和 [4.0 发布说明](docs/launch/release-notes.md)。
 

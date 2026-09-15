@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "desktopVersion": "4.0.0-rc.3",
+  "desktopVersion": "4.0.0",
   "upstreamVersion": "0.1.5-rc.2",
   "lockfileSha256": "b1002a9363cd80b67e81be2abd9c783cdc1aacf3b4053f608d4c1b1e8be5c235",
   "policy": {

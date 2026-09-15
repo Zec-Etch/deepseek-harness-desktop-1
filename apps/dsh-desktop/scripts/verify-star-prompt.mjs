@@ -79,7 +79,7 @@ try {
     await firstPage.waitForTimeout(250)
   }
   await firstPrompt.waitFor({ state: 'visible', timeout: 10_000 })
-  await firstPrompt.getByText('4.0.0-rc.3 · 社区支持', { exact: true }).waitFor({ state: 'visible' })
+  await firstPrompt.getByText('4.0.0 · 社区支持', { exact: true }).waitFor({ state: 'visible' })
   await firstPage.getByRole('button', { name: '去 GitHub 点个 Star' }).waitFor({ state: 'visible' })
   await firstPrompt.getByRole('button', { name: '在爱发电支持我' }).waitFor({ state: 'visible' })
   assert.equal(await firstPrompt.locator('.dsh-star-sponsor-link').getAttribute('href'), 'https://afdian.com/a/ningbai')
@@ -97,8 +97,8 @@ try {
   await firstPrompt.waitFor({ state: 'hidden' })
 
   const claimedState = JSON.parse(await readFile(resolve(userData, 'star-prompt-state.json'), 'utf8'))
-  if (!claimedState.shownVersions?.includes('4.0.0-rc.3')) {
-    throw new Error(`4.0.0-rc.3 Star prompt did not persist its once-per-release claim: ${JSON.stringify(claimedState)}`)
+  if (!claimedState.shownVersions?.includes('4.0.0')) {
+    throw new Error(`4.0.0 Star prompt did not persist its once-per-release claim: ${JSON.stringify(claimedState)}`)
   }
   if (!claimedState.shownVersions?.includes('3.4.0')) throw new Error('upgrade discarded the previous release claim')
 
@@ -108,7 +108,7 @@ try {
   const thirdPage = await waitForHarnessPage(electronApp)
   await thirdPage.waitForTimeout(1_600)
   if (await thirdPage.locator('#dsh-desktop-star-prompt[data-open="true"]').isVisible()) {
-    throw new Error('the 4.0.0-rc.3 Star prompt appeared more than once for the same user profile')
+    throw new Error('the 4.0.0 Star prompt appeared more than once for the same user profile')
   }
 
   await electronApp.close()

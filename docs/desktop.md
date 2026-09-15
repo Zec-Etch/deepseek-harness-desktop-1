@@ -4,7 +4,7 @@ DeepSeek Harness Desktop is maintained by repository owner **ningbai牛逼** (`n
 
 ## Architecture
 
-The desktop application is a lifecycle and security layer around the official DSH host. Desktop 4.0.0-rc.3 validates the packaged `@deepseek-ai/dsh@0.1.5-rc.2` CLI as its installation anchor, then composes the `desktop` Profile through the public official app-boot, command-line, HTTP-proxy, launch-environment, settings, session, workspace, renderer, and tool SDKs. The Web application, protocols, data paths, and tools remain official DSH implementations; Desktop owns the native host, immutable Runtime baseline, and transactional boundary around community plugin dependencies.
+The desktop application is a lifecycle and security layer around the official DSH host. Desktop 4.0.0 validates the packaged `@deepseek-ai/dsh@0.1.5-rc.2` CLI as its installation anchor, then composes the `desktop` Profile through the public official app-boot, command-line, HTTP-proxy, launch-environment, settings, session, workspace, renderer, and tool SDKs. The Web application, protocols, data paths, and tools remain official DSH implementations; Desktop owns the native host, immutable Runtime baseline, and transactional boundary around community plugin dependencies.
 
 The community Desktop home is `DSH_HOME` when explicitly supplied or `~/.dsh-community` by default. The desktop app runs the managed `~/.dsh-community/profiles/desktop` profile, which composes `@deepseek-ai/dsh-base`, `@deepseek-ai/dsh-web-app`, `@linxin666/dsh-web-ui-all`, `@tencent-connect/dsh-qqbot`, and `reasoning-slider` while preserving community bundles already added to that profile. DSH 1.1.5 provides the native Codex model adapter through `@deepseek-ai/dsh-base`; the retired standalone Codex providers are removed from Desktop-managed profiles to prevent duplicate provider registration. The native Extension Dock market fetches the public awesome-dsh-plugin index and sends confirmed installs through Desktop's transactional plugin manager; it is not a Runtime bundle. Packaged plugin directories are linked into the profile's `node_modules`; this is runtime package resolution, not a second configuration store. The official Desktop remains free to use its own `~/.dsh` home and package graph.
 
@@ -77,15 +77,15 @@ Model-directory recovery events are coalesced for 30 seconds, so reopening the m
 
 The built-in QQ Bot integration is pinned to `@tencent-connect/dsh-qqbot@0.5.0`. Desktop also packages the matching DSH 1.1.5 user-approval service, allowing QQ conversations to answer supported approval prompts while preserving the existing encrypted credential store, profile isolation, and transactional bind or unbind rollback.
 
-![DeepSeek Harness Desktop 4.0.0-rc.3 model collaboration](screenshots/desktop-4.0.0-rc.3/model-collaboration.png)
+![DeepSeek Harness Desktop 4.0.0 model collaboration](screenshots/desktop-4.0.0-rc.3/model-collaboration.png)
 
-![DeepSeek Harness Desktop 4.0.0-rc.3 conversation Skills menu](screenshots/desktop-4.0.0-rc.3/conversation-skills.png)
+![DeepSeek Harness Desktop 4.0.0 conversation Skills menu](screenshots/desktop-4.0.0-rc.3/conversation-skills.png)
 
-![DeepSeek Harness Desktop 4.0.0-rc.3 bai model access](screenshots/desktop-4.0.0-rc.3/bai-models.png)
+![DeepSeek Harness Desktop 4.0.0 bai model access](screenshots/desktop-4.0.0-rc.3/bai-models.png)
 
 ## Model collaboration, usage, and import
 
-These capabilities remain available in 4.0. The screenshots below are historical 3.2.0 captures; current collaboration, Skills, and model navigation are represented by the 4.0.0-rc.3 captures above.
+These capabilities remain available in 4.0. The screenshots below are historical 3.2.0 captures; current collaboration, Skills, and model navigation are represented by the final-candidate 4.0.0 captures above.
 
 ![DeepSeek Harness Desktop 3.2.0 main workspace and AI coding entry points](screenshots/3.2.0-workspace.webp)
 

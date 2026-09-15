@@ -1,12 +1,11 @@
 # DeepSeek Harness Desktop
 
-> DeepSeek Harness Desktop is a community-maintained, open-source Windows AI coding workspace. Public stable is 3.5.0; the 4.0.0-rc.3 source candidate already integrates the public official DSH Runtime, Web UI, split SDKs, and official-repository Desktop boundaries while retaining an independent community application identity.
+> DeepSeek Harness Desktop is a community-maintained, open-source Windows AI coding workspace. Public stable is 4.0.0, integrating the public official DSH Runtime, Web UI, split SDKs, and official-repository Desktop boundaries while retaining an independent community application identity.
 
 ## Canonical identity
 
 - Product: DeepSeek Harness Desktop
-- Version: 3.5.0
-- Source candidate: 4.0.0-rc.3
+- Version: 4.0.0
 - Platform: Windows 10 and Windows 11, x64
 - License: BSD-3-Clause
 - Maintainer: DeepSeek Harness Desktop Community
@@ -18,13 +17,13 @@
 - Source repository: https://github.com/ningbainb/deepseek-harness-desktop
 - Chinese README: https://github.com/ningbainb/deepseek-harness-desktop/blob/main/README.md
 - English README: https://github.com/ningbainb/deepseek-harness-desktop/blob/main/README.en.md
-- Latest Windows x64 installer: https://github.com/ningbainb/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-Setup-3.5.0-x64.exe
-- v3.5.0 release: https://github.com/ningbainb/deepseek-harness-desktop/releases/tag/desktop-v3.5.0
+- Latest Windows x64 installer: https://github.com/ningbainb/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-Setup-4.0.0-x64.exe
+- v4.0.0 release: https://github.com/ningbainb/deepseek-harness-desktop/releases/tag/desktop-v4.0.0
 - SHA-256 list: https://github.com/ningbainb/deepseek-harness-desktop/releases/latest/download/SHA256SUMS.txt
 - Release manifest: https://github.com/ningbainb/deepseek-harness-desktop/releases/latest/download/release-manifest.json
 - Privacy policy: https://ningbainb.github.io/deepseek-harness-desktop/privacy.html
 
-## What is new in the 4.0 source candidate
+## What is new in 4.0.0
 
 - Official foundation: exact-pinned public `@deepseek-ai/dsh@0.1.5-rc.2`, Web UI, and split SDK packages are integrated against the official repository's observed Desktop boundary. The community app is not an official DeepSeek client and uses a separate application id, data home, protocol, installer identity, and update feed.
 - Upgrade continuity: legacy 3.5 plugins are scanned read-only and restored transactionally; history projection failures degrade without blocking transcripts; local tgz reinstall and pet-save terminal states are fixed.
@@ -32,16 +31,16 @@
 - Desktop behavior: bottom-panel expansion no longer starts a terminal implicitly, Windows subprocess consoles stay hidden, and native window controls have packaged regression coverage.
 - Product metrics: fixed-vocabulary outcomes now include Skills, Agent Team, and local-LAN results while retaining coarse conversation-import entry and plugin-operation signals. Content, prompts, paths, model names, token counts, and credentials remain excluded.
 
-## What remains available from 3.5.0
+## What remains available in 4.0.0
 
-- DSH 1.1.5 core: the official `0.1.5-rc.1` packages are exact-pinned. Desktop composes the Runtime from public split SDKs while validating the official CLI as the install anchor. Settings, Client Store, Session/Workspace controllers, Session Projection, Renderer, and Typert integrations use their current public contracts.
+- DSH core: the official `0.1.5-rc.2` packages are exact-pinned. Desktop composes the Runtime from public split SDKs while validating the official CLI as the install anchor. Settings, Client Store, Session/Workspace controllers, Session Projection, Renderer, and Typert integrations use their current public contracts.
 - Reliability: Session v3 covers transcript import and manual compaction; startup-token and cookie handling, Profile isolation, runtime identity, and Windows hidden subprocess behavior have dedicated checks.
 
 - Dock: grouped model connection, Value Mode, Personal Prompt, Memory, particle theme, and image-understanding settings; consistent theme, centered default settings window, and coalesced dragging.
 - Projects: Create project and Choose workspace share a dialog with a system folder picker; an already connected directory opens its existing workspace.
 - Files: ordinary dropped files are stored under the current workspace and appear as attachment cards. Sending supplies real file references; the model chooses tools to read them. Desktop does not pre-parse files, automatically convert them to Markdown, or inject every file in full. Accepting a file does not guarantee model/tool support for its format. Images use a separate compression and vision path.
 - Memory: saved items, scope/search filters, pending suggestions, and recent preparation activity are visible under Dock > Personal preferences > Memory. Suggestions require confirmation. When memory references are enabled, matching content is sent to the selected model provider; unknown ownership or scope prevents injection.
-- Upgrade: each local user upgrading to 3.5.0 sees the Star prompt once, including users who saw an earlier-version prompt. Closing persists that version; restarting does not repeat it. Previewing does not change the record, and starring is optional.
+- Upgrade: each local user upgrading to 4.0.0 sees the Star prompt once, including users who saw an earlier-version prompt. Closing persists that version; restarting does not repeat it. Previewing does not change the record, and starring is optional.
 
 - Value Mode / 性价比模式: the expert controller model owns task understanding, decomposition, delegation, review, and final synthesis. The subagent worker model completes bounded delegated work. First selection opens a setup guide, preselects the current default model as the expert controller when no explicit controller exists, and requires both model roles plus a strategy before enabling.
 - Value Mode strategies: Saver, Balanced (default), and Powerful. The worker route is bounded to one subagent level, so worker agents do not recursively delegate or invoke expert consultation.
@@ -74,7 +73,7 @@
 - Local/source/test/Fork builds remain disconnected. Diagnostics are exported only after user confirmation and are redacted.
 - Read the full policy at https://ningbainb.github.io/deepseek-harness-desktop/privacy.html.
 
-## Desktop 4.0.0-rc.3 interface screenshots
+## Desktop 4.0.0 final-candidate interface screenshots
 
 - Model Collaboration: https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-4.0.0-collaboration.webp
 - Conversation Skills: https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-4.0.0-skills.webp
@@ -88,7 +87,7 @@
 
 ## Historical 3.2.0 interface references
 
-These features remain available; use the 3.5.0 Dock for current settings navigation and layout. The linked captures remain version-labelled historical evidence.
+These features remain available; use the 4.0.0 Dock for current settings navigation and layout. The linked captures remain version-labelled historical evidence.
 
 - Value Mode three-step setup: https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-3.2.0-value-mode-setup.webp
 - Large-model usage dashboard: https://ningbainb.github.io/deepseek-harness-desktop/assets/desktop-3.2.0-usage-dashboard.webp

@@ -33,11 +33,11 @@ test('pack:mac arguments default to a signed-off unsigned arm64 mac build', () =
   assert.deepEqual(parsePackMacArguments(['--dir']), { dir: true })
   assert.deepEqual(
     electronBuilderArgs([]),
-    ['--mac', '--arm64', '--publish', 'never', '--config.publish.channel=beta'],
+    ['--mac', '--arm64', '--publish', 'never', '--config.publish.channel=latest'],
   )
   assert.deepEqual(
     electronBuilderArgs(['--dir']),
-    ['--mac', '--arm64', '--publish', 'never', '--config.publish.channel=beta', '--dir'],
+    ['--mac', '--arm64', '--publish', 'never', '--config.publish.channel=latest', '--dir'],
   )
   assert.equal(electronBuilderPublishChannel('stable'), 'latest')
   assert.equal(electronBuilderPublishChannel('beta'), 'beta')

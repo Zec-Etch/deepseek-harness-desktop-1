@@ -18,8 +18,8 @@ import QRCode from 'qrcode'
 
 test('star prompt is accessible, animated, dependency-free, and honest about its action', () => {
   const script = createStarPromptSurfaceScript()
-  assert.equal(STAR_PROMPT_VERSION, '4.0.0-rc.3')
-  assert.match(script, /4\.0\.0-rc\.3 · 社区支持/u)
+  assert.equal(STAR_PROMPT_VERSION, '4.0.0')
+  assert.match(script, /4\.0\.0 · 社区支持/u)
   assert.match(STAR_PROMPT_CSS, /dsh-star-prompt-burst/u)
   assert.match(STAR_PROMPT_CSS, /dsh-star-prompt-orbit/u)
   assert.match(STAR_PROMPT_CSS, /cubic-bezier\(0\.22, 1, 0\.36, 1\)/u)
@@ -48,7 +48,7 @@ test('sponsor QR encodes the exact author URL offline and rejects remote QR inpu
   assert.doesNotMatch(createStarPromptSurfaceScript({ sponsorQrDataUrl: 'https://untrusted.invalid/qr.png' }), /untrusted\.invalid/u)
 })
 
-test('star prompt claims only the 4.0 release candidate once, including concurrent calls', async () => {
+test('star prompt claims only the 4.0 release once, including concurrent calls', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'dsh-star-prompt-'))
   const path = join(directory, 'state.json')
   try {
