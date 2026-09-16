@@ -39,6 +39,7 @@ const historyContextTail = 'DSH_HISTORY_CONTEXT_TAIL_4_0'
 const largeFinalText = `${finalText}\n${'历史上下文'.repeat(40_000)}\n${historyContextTail}`
 const contextProbePrompt = 'Verify that the previous history context is still available.'
 const contextRetainedText = 'Previous history context remained available after restart.'
+const sessionTitle = `Agent fixture ${randomUUID()}`
 const largeHistoryBytes = Buffer.byteLength(JSON.stringify({ type: 'duplex-output', value: largeFinalText }))
 assert.ok(largeHistoryBytes > 512 * 1024, `large history fixture is too small: ${largeHistoryBytes}`)
 const requests = []
@@ -211,26 +212,18 @@ async function openCreatedSession(page, sessionId) {
   if (await group.getAttribute('aria-expanded') !== 'true') await group.click({ force: true })
   await page.waitForTimeout(500)
 
-  const expectedTitle = typeof summary.displayTitle === 'string' ? summary.displayTitle : summary.title
-  let sessionRow = typeof expectedTitle === 'string' && expectedTitle !== ''
-    ? page.getByRole('treeitem').filter({ hasText: expectedTitle }).first()
-    : undefined
-  if (sessionRow === undefined || !await sessionRow.isVisible().catch(() => false)) {
-    sessionRow = page.locator('[role="treeitem"][aria-selected="false"]')
-      .filter({ hasText: basename(workspacePath) })
-      .first()
-  }
-  if (await sessionRow.isVisible().catch(() => false)) {
-    await sessionRow.click({ force: true })
-    return
-  }
-
-  const newSession = page
-    .locator('button[aria-label*="中新建会话"], button[aria-label^="New session in"]')
-    .first()
-  await group.hover()
-  await newSession.waitFor({ state: 'visible', timeout: 30_000 })
-  await newSession.click()
+  assert.equal(summary.projections?.values?.title, sessionTitle, 'the session ID must resolve to the fixture history')
+  // The native tree uses sibling rows rather than nesting session rows inside
+  // their workspace treeitem, so locate the unique renamed title globally.
+  const sessionRow = page.getByRole('treeitem').filter({ hasText: sessionTitle })
+  await sessionRow.waitFor({ state: 'visible', timeout: 30_000 })
+  assert.equal(await sessionRow.count(), 1, 'the fixture history must have exactly one navigation target')
+  await sessionRow.click({ force: true })
+  await page.waitForFunction(title => {
+    const row = Array.from(document.querySelectorAll('[role="treeitem"]'))
+      .find(element => element.textContent?.includes(title))
+    return row?.getAttribute('aria-selected') === 'true'
+  }, sessionTitle, { timeout: 30_000 })
 }
 
 try {
@@ -284,10 +277,24 @@ try {
   const workspace = await rpc(page, 'workspace.create', { path: workspacePath })
   const workspaceId = workspace?.workspace?.workspaceId ?? workspace?.workspaceId
   assert.equal(typeof workspaceId, 'string', JSON.stringify(workspace))
-  const session = await rpc(page, 'session.create', { workspaceId })
-  assert.equal(typeof session?.sessionId, 'string', JSON.stringify(session))
-  const sessionId = session.sessionId
-  await openCreatedSession(page, sessionId)
+  const group = page.getByRole('treeitem').filter({ hasText: basename(workspacePath) }).first()
+  await group.waitFor({ state: 'visible', timeout: 30_000 })
+  if (await group.getAttribute('aria-expanded') !== 'true') await group.click({ force: true })
+  await group.hover()
+  const newSession = page.locator('button[aria-label*="中新建会话"], button[aria-label^="New session in"]').first()
+  await newSession.waitFor({ state: 'visible', timeout: 30_000 })
+  await newSession.click()
+  let sessionId
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const listed = await rpc(page, 'session.list', {})
+    const matches = listed.items.filter(item => item.cwd === workspacePath)
+    if (matches.length === 1 && typeof matches[0].sessionId === 'string') {
+      sessionId = matches[0].sessionId
+      break
+    }
+    await page.waitForTimeout(250)
+  }
+  assert.equal(typeof sessionId, 'string', 'the workspace new-session action must create exactly one session')
   const selected = await rpc(page, 'session.selectModel', {
     sessionId,
     provider: 'agent-fixture',
@@ -305,6 +312,7 @@ try {
   await page.getByRole('button', { name: '发送消息', exact: true }).click()
   await promptRequest
   await page.getByRole('paragraph').filter({ hasText: finalText }).last().waitFor({ state: 'visible', timeout: 60_000 })
+  await rpc(page, 'session.rename', { sessionId, title: sessionTitle })
   const agentRequests = requests.filter(request => Array.isArray(request.tools) && request.tools.length > 0)
   const titleRequests = requests.filter(request => !Array.isArray(request.tools) || request.tools.length === 0)
   assert.equal(agentRequests.length, 2, `expected one tool-call round, got ${agentRequests.length} agent requests`)
