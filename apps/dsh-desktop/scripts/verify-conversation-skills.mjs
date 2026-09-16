@@ -123,9 +123,12 @@ try {
 
   await skillsButton.click()
   await search.fill('')
+  const optionCount = await listbox.getByRole('option').count()
+  assert.ok(optionCount >= 1)
+  const keyboardSelection = optionCount > 1 ? 1 : 0
   await page.keyboard.press('ArrowDown')
-  assert.equal(await listbox.getByRole('option').nth(1).getAttribute('aria-selected'), 'true')
-  const selectedName = (await listbox.getByRole('option').nth(1).locator('strong').textContent())?.trim()
+  assert.equal(await listbox.getByRole('option').nth(keyboardSelection).getAttribute('aria-selected'), 'true')
+  const selectedName = (await listbox.getByRole('option').nth(keyboardSelection).locator('strong').textContent())?.trim()
   assert.ok(selectedName)
   await page.keyboard.press('Enter')
   await menu.waitFor({ state: 'hidden' })
