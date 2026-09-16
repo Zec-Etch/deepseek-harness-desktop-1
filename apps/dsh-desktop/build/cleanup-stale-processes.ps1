@@ -527,6 +527,15 @@ namespace DshInstaller
     }
   }
 
+  # A fresh or already-removed installation has no executable mapping to stop.
+  # Do not enumerate unrelated system processes in that case: some hardened CI
+  # hosts expose pseudo executable paths that Win32 rejects during
+  # canonicalization. The transaction helper still retires any stale registry
+  # identity before the new files are written.
+  if ($existingRoots.Count -eq 0) {
+    Complete-Preflight
+  }
+
   $targets = @(Get-InstallProcesses)
   if ($targets.Count -eq 0) {
     Complete-Preflight
