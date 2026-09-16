@@ -551,12 +551,20 @@ try {
   assert.equal(finalState.createdUrls, finalState.revokedUrls)
   assert.equal(finalState.inputDisabled, false)
 
-  const firstIdle = groupIdle[0].totalWorkingSetBytes
-  const lastIdle = groupIdle.at(-1).totalWorkingSetBytes
-  const allowedRetainedGrowthBytes = Math.max(retainedGrowthFloorBytes, Math.round(firstIdle * 0.1))
+  // Working set includes Chromium's shared/discardable image-decode pages. On
+  // Windows runners those pages can stay resident after ImageBitmap.close()
+  // even though they are no longer privately committed to the renderer. Use
+  // private bytes for the retained-memory gate, while continuing to report
+  // working set so release diagnostics still expose residency changes.
+  const firstIdlePrivateBytes = groupIdle[0].totalPrivateBytes
+  const lastIdlePrivateBytes = groupIdle.at(-1).totalPrivateBytes
+  const allowedRetainedPrivateGrowthBytes = Math.max(
+    retainedGrowthFloorBytes,
+    Math.round(firstIdlePrivateBytes * 0.1),
+  )
   assert.ok(
-    lastIdle - firstIdle <= allowedRetainedGrowthBytes,
-    `working set kept growing across image-drop groups: ${JSON.stringify({ groupIdle, allowedRetainedGrowthBytes })}`,
+    lastIdlePrivateBytes - firstIdlePrivateBytes <= allowedRetainedPrivateGrowthBytes,
+    `private memory kept growing across image-drop groups: ${JSON.stringify({ groupIdle, allowedRetainedPrivateGrowthBytes })}`,
   )
   const seriousConsole = rendererConsole.filter(line => !/favicon|DevTools|style-src 'self'|Electron Security Warning/iu.test(line))
   assert.deepEqual(rendererErrors, [])
@@ -584,8 +592,10 @@ try {
       electronWorkingSetPeakBytes: Math.max(...activityMemory.map(sample => sample.totalWorkingSetBytes)),
       electronPrivatePeakBytes: Math.max(...activityMemory.map(sample => sample.totalPrivateBytes)),
       groupIdle,
-      allowedRetainedGrowthBytes,
-      observedRetainedGrowthBytes: lastIdle - firstIdle,
+      allowedRetainedPrivateGrowthBytes,
+      observedRetainedPrivateGrowthBytes: lastIdlePrivateBytes - firstIdlePrivateBytes,
+      observedWorkingSetGrowthBytes:
+        groupIdle.at(-1).totalWorkingSetBytes - groupIdle[0].totalWorkingSetBytes,
       completeProcessTree: treeSamples,
     },
   }, null, 2))
