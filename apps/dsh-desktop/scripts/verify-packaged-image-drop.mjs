@@ -111,10 +111,15 @@ async function openCreatedSession(page, sessionId) {
   }
 
   // Blank Host-created sessions are intentionally omitted from history. Use
-  // the real Desktop entry to create and activate the blank composer instead.
-  const newSession = page.getByRole('button', { name: '新建会话', exact: true }).last()
+  // the workspace-scoped Desktop entry to create and activate the blank
+  // composer instead. Its accessible name includes the workspace name, so an
+  // exact generic label is not a stable locator in the packaged UI.
+  const newSession = page
+    .locator('button[aria-label*="中新建会话"], button[aria-label^="New session in"]')
+    .first()
+  await group.hover()
   await newSession.waitFor({ state: 'visible', timeout: 30_000 })
-  await newSession.click({ force: true })
+  await newSession.click()
 }
 
 async function fixturePayload() {

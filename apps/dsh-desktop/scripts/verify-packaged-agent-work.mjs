@@ -225,9 +225,12 @@ async function openCreatedSession(page, sessionId) {
     return
   }
 
-  const newSession = page.getByRole('button', { name: '新建会话', exact: true }).last()
+  const newSession = page
+    .locator('button[aria-label*="中新建会话"], button[aria-label^="New session in"]')
+    .first()
+  await group.hover()
   await newSession.waitFor({ state: 'visible', timeout: 30_000 })
-  await newSession.click({ force: true })
+  await newSession.click()
 }
 
 try {
