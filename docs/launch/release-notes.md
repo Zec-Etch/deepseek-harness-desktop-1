@@ -24,13 +24,13 @@
 - macOS Apple Silicon arm64：Preview，提供 DMG 与 ZIP，未签名、未公证。
 - Linux x64：Preview，提供 AppImage 与 DEB；可用性取决于发行版、桌面会话和系统沙箱能力。
 
-三个系统由同一发布编排构建。只有三端全部通过依赖、基线、打包和应用冒烟门禁后才会创建本 Release，不发布残缺的平台组合。请只从本项目 GitHub Release 下载，并使用同一 Release 的 `SHA256SUMS.txt`、平台校验文件和 `release-manifest.json` 核对资产。
+三个系统由同一发布编排构建。只有三端全部通过依赖、基线、打包和应用冒烟门禁后才会创建本 Release，不发布残缺的平台组合。请只从本项目 GitHub Release 下载，并使用同一 Release 的 `SHA256SUMS.txt` 与 `release-manifest-all-platforms.json` 核对五个安装资产。原 `release-manifest.json` 是 Windows 构建阶段清单，其中 `SHA256SUMS.txt` 记录的是合并三端前的 Windows 本地文件哈希，不能用于校验 Release 中的公共同名文件；公共校验和以同一 Release 的 `SHA256SUMS.txt` 为准。
 
 ### 说明
 
 匿名埋点仅增加操控中心访问、功能启停结果、Provider 类别、权限检查结果和安全探测结果等固定词表事件。不会记录 URL、域名、页面内容、应用或窗口名称、截图、提示词、工具参数、路径或凭据。
 
-详细说明：[智能操控指南](../smart-control.md) · [升级与回滚](../upgrade-and-rollback.md) · [隐私政策](../../PRIVACY.md)
+详细说明：[智能操控指南](https://github.com/ningbainb/deepseek-harness-desktop/blob/desktop-v4.1.0/docs/smart-control.md) · [升级与回滚](https://github.com/ningbainb/deepseek-harness-desktop/blob/desktop-v4.1.0/docs/upgrade-and-rollback.md) · [隐私政策](https://github.com/ningbainb/deepseek-harness-desktop/blob/desktop-v4.1.0/PRIVACY.md)
 
 本项目由 ningbai牛逼 维护，是社区开源桌面端，并非 DeepSeek 官方客户端。
 
@@ -56,12 +56,12 @@ Incompatible third-party plugins are blocked by default, but informed users reta
 - macOS Apple Silicon arm64: unsigned and unnotarized Preview, distributed as DMG and ZIP.
 - Linux x64: Preview AppImage and DEB, subject to distribution, desktop-session, and sandbox differences.
 
-One workflow builds all three platforms, and the GitHub Release is created only after every platform gate succeeds. Download only from this repository and verify the assets with `SHA256SUMS.txt`, the platform checksum files, and `release-manifest.json` from the same Release.
+One workflow builds all three platforms, and the GitHub Release is created only after every platform gate succeeds. Download only from this repository and verify the five installers with the same Release's `SHA256SUMS.txt` and `release-manifest-all-platforms.json`. The original `release-manifest.json` is scoped to the Windows build: its `SHA256SUMS.txt` hash refers to the pre-merge Windows-local file, not the public combined checksum file. Use the public `SHA256SUMS.txt` for Release downloads.
 
 ### Notice
 
 Anonymous telemetry adds only fixed-vocabulary outcomes for control-center visits, enablement, provider category, permission checks, and safe probes. It excludes URLs, domains, page content, application or window names, screenshots, prompts, tool arguments, paths, and credentials.
 
-Guides: [Smart Control](../smart-control.md) · [Upgrade and rollback](../upgrade-and-rollback.md) · [Privacy](../../PRIVACY.md)
+Guides: [Smart Control](https://github.com/ningbainb/deepseek-harness-desktop/blob/desktop-v4.1.0/docs/smart-control.md) · [Upgrade and rollback](https://github.com/ningbainb/deepseek-harness-desktop/blob/desktop-v4.1.0/docs/upgrade-and-rollback.md) · [Privacy](https://github.com/ningbainb/deepseek-harness-desktop/blob/desktop-v4.1.0/PRIVACY.md)
 
 Maintained by ningbai牛逼 as a community open-source project; it is not an official DeepSeek client.
