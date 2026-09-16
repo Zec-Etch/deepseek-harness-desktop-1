@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { execFile, spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -16,6 +16,32 @@ if (process.platform !== 'win32') throw new Error('Installer lifecycle verificat
 const compiler = await resolveNsisCompiler()
 const root = await mkdtemp(join(tmpdir(), 'dsh-nsis-lifecycle-'))
 const results = []
+
+async function pathExists(path) {
+  return access(path).then(() => true, () => false)
+}
+
+async function collectFailureEvidence({ scenario, exitCode, temporary, install, key }) {
+  const entries = await readdir(temporary).catch(() => [])
+  const logs = entries.filter(name => /^dsh-desktop-install-.*\.log$/u.test(name))
+  const diagnostics = await Promise.all(logs.map(async name => ({
+    name,
+    content: await readFile(join(temporary, name), 'utf16le').catch(error => `<unreadable: ${error.code ?? error.message}>`),
+  })))
+  const registry = await exec('reg.exe', ['QUERY', `HKCU\\${key}`, '/s'], { windowsHide: true })
+    .then(({ stdout }) => stdout.trim(), error => `<unavailable: ${error.code ?? error.message}>`)
+  return JSON.stringify({
+    scenario,
+    exitCode,
+    installDirectoryExists: await pathExists(install),
+    executableExists: await pathExists(join(install, 'DeepSeek Harness Desktop.exe')),
+    asarExists: await pathExists(join(install, 'resources', 'app.asar')),
+    completedMarkerExists: await pathExists(join(install, 'completed.txt')),
+    temporaryEntries: entries,
+    diagnostics,
+    registry,
+  }, null, 2)
+}
 try {
   for (const scenario of ['fresh', 'upgrade', 'commit-failure', 'section-abort', 'uninstall-failure', 'uninstall-launch-failure', 'stale-registration', 'unwritable-log', 'preflight-lock']) {
     const directory = join(root, scenario)
@@ -79,7 +105,10 @@ try {
         await exited
       }
       const success = ['fresh', 'upgrade', 'stale-registration', 'unwritable-log'].includes(scenario)
-      assert.equal(exitCode === 0, success, `${scenario}: unexpected installer exit ${exitCode}`)
+      if ((exitCode === 0) !== success) {
+        const evidence = await collectFailureEvidence({ scenario, exitCode, temporary, install, key })
+        assert.equal(exitCode === 0, success, `${scenario}: unexpected installer exit ${exitCode}\n${evidence}`)
+      }
       const expected = success ? 'new' : 'old'
       assert.equal(await readFile(join(install, 'resources', 'app.asar'), 'utf8'), expected)
       assert.equal(await readFile(join(install, 'DeepSeek Harness Desktop.exe'), 'utf8'), expected)
