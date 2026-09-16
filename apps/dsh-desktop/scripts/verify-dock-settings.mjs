@@ -236,11 +236,15 @@ try {
   const disabledProfile = JSON.parse(await readFile(resolve(temporary, 'dsh-home', 'profiles', 'desktop', 'package.json'), 'utf8'))
   assert.equal(disabledProfile.dsh.profile.bundles.includes('@deepseek-ai/dsh-experimental-agent-team-profile'), false)
   for (const theme of ['dark', 'light']) {
-    await dock.evaluate(async theme => {
-      await window.dshDesktop.setWindowChromeTheme(theme)
+    const appliedTheme = await dock.evaluate(async theme => {
+      const applied = await window.dshDesktop.setWindowChromeTheme(theme)
       document.documentElement.dataset.dshDesktopTheme = theme
+      return {
+        applied,
+        documentTheme: document.documentElement.dataset.dshDesktopTheme,
+      }
     }, theme)
-    await dock.waitForFunction(theme => document.documentElement.dataset.dshDesktopTheme === theme, theme, { polling: 100, timeout: 60_000 })
+    assert.deepEqual(appliedTheme, { applied: theme, documentTheme: theme }, 'Dock theme bridge and document update atomically')
     await applyDockSettingsTheme(settings, theme)
     const color = await settings.evaluate(() => getComputedStyle(document.querySelector('[data-dsh-dock-settings]')).backgroundColor)
     assert.equal(color, theme === 'dark' ? 'rgb(10, 20, 27)' : 'rgb(255, 255, 255)', 'content follows the Dock theme in real Electron')
