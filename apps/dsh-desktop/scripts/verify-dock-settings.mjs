@@ -17,6 +17,14 @@ const temporary = await mkdtemp(resolve(tmpdir(), 'dsh-dock-settings-e2e-'))
 const output = resolve(process.env.DSH_DESKTOP_DOCK_SCREENSHOTS ?? resolve(temporary, 'screenshots'))
 let app
 let settings
+
+async function applyDockSettingsTheme(page, theme) {
+  await page.waitForFunction(expectedTheme => {
+    window.dispatchEvent(new CustomEvent('dsh:dock-theme', { detail: expectedTheme }))
+    return document.querySelector('[data-dsh-dock-settings]')?.getAttribute('data-theme') === expectedTheme
+  }, theme, { polling: 250, timeout: 60_000 })
+}
+
 try {
   await mkdir(output, { recursive: true })
   app = await electron.launch({ executablePath, args: packaged ? [] : [resolve(appDir, 'src/main.mjs')], cwd: appDir,
@@ -233,12 +241,11 @@ try {
       document.documentElement.dataset.dshDesktopTheme = theme
     }, theme)
     await dock.waitForFunction(theme => document.documentElement.dataset.dshDesktopTheme === theme, theme, { polling: 100, timeout: 60_000 })
-    await settings.evaluate(theme => window.dispatchEvent(new CustomEvent('dsh:dock-theme', { detail: theme })), theme)
-    await settings.locator(`[data-dsh-dock-settings][data-theme="${theme}"]`).waitFor()
+    await applyDockSettingsTheme(settings, theme)
     const color = await settings.evaluate(() => getComputedStyle(document.querySelector('[data-dsh-dock-settings]')).backgroundColor)
     assert.equal(color, theme === 'dark' ? 'rgb(10, 20, 27)' : 'rgb(255, 255, 255)', 'content follows the Dock theme in real Electron')
   }
-  await settings.evaluate(() => window.dispatchEvent(new CustomEvent('dsh:dock-theme', { detail: 'light' })))
+  await applyDockSettingsTheme(settings, 'light')
   await settings.screenshot({ path: resolve(output, 'value-mode-light.png') })
   await (await app.browserWindow(dock)).evaluate(window => window.setSize(680, 480))
   await settings.waitForFunction(() => innerWidth < 600, undefined, { polling: 100, timeout: 60_000 })
@@ -282,8 +289,7 @@ try {
   assert.equal(await memory.getByRole('listitem').filter({ hasText: 'Dock memory verification.' }).count(), 1)
   await (await app.browserWindow(dock)).evaluate(window => window.setSize(960, 680))
   ;({ settings } = await openDockSetting(app, main, 'value-mode'))
-  await settings.evaluate(() => window.dispatchEvent(new CustomEvent('dsh:dock-theme', { detail: 'dark' })))
-  await settings.locator('[data-dsh-dock-settings][data-theme="dark"]').waitFor()
+  await applyDockSettingsTheme(settings, 'dark')
   await dock.evaluate(() => { document.documentElement.dataset.dshDesktopTheme = 'dark' })
   await settings.evaluate(() => { document.querySelector('[data-dsh-dock-settings]').scrollTop = 0 })
   const hostImage = await dock.screenshot()
