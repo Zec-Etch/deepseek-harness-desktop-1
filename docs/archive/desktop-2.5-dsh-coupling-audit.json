@@ -4903,7 +4903,7 @@
     {
       "category": "profile-home",
       "path": "apps/dsh-desktop/scripts/verify-packaged-agent-work.mjs",
-      "line": 338,
+      "line": 341,
       "operation": "DSH_HOME"
     },
     {

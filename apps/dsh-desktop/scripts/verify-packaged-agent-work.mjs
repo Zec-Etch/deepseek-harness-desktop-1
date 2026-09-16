@@ -280,21 +280,24 @@ try {
   const group = page.getByRole('treeitem').filter({ hasText: basename(workspacePath) }).first()
   await group.waitFor({ state: 'visible', timeout: 30_000 })
   if (await group.getAttribute('aria-expanded') !== 'true') await group.click({ force: true })
+  const beforeIds = new Set((await rpc(page, 'session.list', {})).items.map(item => item.sessionId))
   await group.hover()
   const newSession = page.locator('button[aria-label*="中新建会话"], button[aria-label^="New session in"]').first()
   await newSession.waitFor({ state: 'visible', timeout: 30_000 })
   await newSession.click()
   let sessionId
+  let observed = []
   for (let attempt = 0; attempt < 60; attempt += 1) {
     const listed = await rpc(page, 'session.list', {})
-    const matches = listed.items.filter(item => item.cwd === workspacePath)
-    if (matches.length === 1 && typeof matches[0].sessionId === 'string') {
-      sessionId = matches[0].sessionId
+    observed = listed.items.map(item => item.sessionId)
+    const created = observed.filter(id => typeof id === 'string' && !beforeIds.has(id))
+    if (created.length === 1) {
+      sessionId = created[0]
       break
     }
     await page.waitForTimeout(250)
   }
-  assert.equal(typeof sessionId, 'string', 'the workspace new-session action must create exactly one session')
+  assert.equal(typeof sessionId, 'string', `the workspace new-session action must create exactly one session: before=${beforeIds.size} after=${observed.length}`)
   const selected = await rpc(page, 'session.selectModel', {
     sessionId,
     provider: 'agent-fixture',
