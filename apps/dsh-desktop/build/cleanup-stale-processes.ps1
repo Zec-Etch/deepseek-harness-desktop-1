@@ -679,5 +679,8 @@ namespace DshInstaller
   exit 32
 } catch {
   Write-Output "preflight-error: $($_.Exception.Message)"
+  Write-Output "preflight-error-type: $($_.Exception.GetType().FullName)"
+  Write-Output "preflight-error-id: $($_.FullyQualifiedErrorId)"
+  Write-Output "preflight-error-stack: $($_.ScriptStackTrace -replace '[\r\n]+', ' | ')"
   exit 33
 }
