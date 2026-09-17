@@ -137,8 +137,10 @@ export interface Config {
    * Which transport `autoTunnel` drives. `cloudflare` (default) runs the
    * bundled quick tunnel; `ssh` opens a reverse SSH forward from a server you
    * control, so the QR link is served by your own HTTPS origin instead of a
-   * random `trycloudflare.com` hostname. In `ssh` mode `publicBaseUrl` is NOT
-   * ignored — it supplies the advertised origin (see `sshTunnelPublicUrl`).
+   * random `trycloudflare.com` hostname. The public origin is `publicBaseUrl`
+   * in every transport: the QR base, the authority the pairing fence trusts,
+   * and the address the tunnel advertises all follow that one setting, so
+   * changing it moves the whole trust decision with it.
    */
   tunnelTransport?: TunnelTransport
   /**
@@ -155,11 +157,6 @@ export interface Config {
   sshTunnelRemotePort?: number
   /** Private key file handed to the ssh client as `-i` (default: its own identity). */
   sshTunnelKeyPath?: string
-  /**
-   * Public origin the QR link is built from while the ssh transport is up.
-   * Falls back to `publicBaseUrl`; `ssh` mode needs one of the two.
-   */
-  sshTunnelPublicUrl?: string
   /**
    * Mobile composer behavior: when true (default), a plain Enter in the
    * phone chat textarea sends the prompt and Shift+Enter inserts a newline.
@@ -185,7 +182,6 @@ export const Config: z<Config> = z.object({
   sshTunnelPort: z.number().step(1).min(1).max(65_535).default(22),
   sshTunnelRemotePort: z.number().step(1).min(1).max(65_535).default(7788),
   sshTunnelKeyPath: z.string(),
-  sshTunnelPublicUrl: z.string(),
   mobileEnterToSend: z.boolean().default(true),
   enabled: z.boolean().default(true),
 })
@@ -197,7 +193,7 @@ const SWEEP_INTERVAL_MS = 10_000
  * Config keys that legitimately resolve to `undefined` when unset (the schema
  * keeps them optional, so `Required` alone would over-narrow them to string).
  */
-type OptionalConfigKey = 'publicBaseUrl' | 'sshTunnelServer' | 'sshTunnelKeyPath' | 'sshTunnelPublicUrl'
+type OptionalConfigKey = 'publicBaseUrl' | 'sshTunnelServer' | 'sshTunnelKeyPath'
 
 /** Fully resolved config: every field non-optional except the optional keys. */
 type ResolvedConfig = Required<Omit<Config, OptionalConfigKey>> & {
@@ -219,7 +215,6 @@ const DEFAULTS: ResolvedConfig = {
   sshTunnelPort: 22,
   sshTunnelRemotePort: 7788,
   sshTunnelKeyPath: undefined,
-  sshTunnelPublicUrl: undefined,
   mobileEnterToSend: true,
   enabled: true,
 }
@@ -244,7 +239,6 @@ export function apply(ctx: Context, config?: Config): void {
     sshTunnelPort: config?.sshTunnelPort ?? DEFAULTS.sshTunnelPort,
     sshTunnelRemotePort: config?.sshTunnelRemotePort ?? DEFAULTS.sshTunnelRemotePort,
     sshTunnelKeyPath: config?.sshTunnelKeyPath,
-    sshTunnelPublicUrl: config?.sshTunnelPublicUrl,
     mobileEnterToSend: config?.mobileEnterToSend ?? DEFAULTS.mobileEnterToSend,
     enabled: config?.enabled ?? DEFAULTS.enabled,
   }
@@ -268,7 +262,6 @@ export function apply(ctx: Context, config?: Config): void {
       sshTunnelPort: value.sshTunnelPort ?? DEFAULTS.sshTunnelPort,
       sshTunnelRemotePort: value.sshTunnelRemotePort ?? DEFAULTS.sshTunnelRemotePort,
       sshTunnelKeyPath: value.sshTunnelKeyPath,
-      sshTunnelPublicUrl: value.sshTunnelPublicUrl,
       mobileEnterToSend: value.mobileEnterToSend ?? DEFAULTS.mobileEnterToSend,
       enabled: value.enabled ?? DEFAULTS.enabled,
     }
@@ -512,7 +505,7 @@ export function apply(ctx: Context, config?: Config): void {
     // deployment that already configured one needs no second field.
     autoTunnel = value.autoTunnel === true
     activeTransport = value.tunnelTransport
-    const advertisedOrigin = value.sshTunnelPublicUrl ?? value.publicBaseUrl
+    const advertisedOrigin = value.publicBaseUrl
     sshTunnel.options = {
       server: value.sshTunnelServer,
       sshPort: value.sshTunnelPort,
@@ -542,7 +535,7 @@ export function apply(ctx: Context, config?: Config): void {
         service.setTunnelStatus({ state: 'failed', error: 'sshTunnelServer is not configured' })
       } else {
         if (advertisedOrigin === undefined) {
-          console.warn('remote-web-ui: ssh tunnel transport has no advertised origin — set sshTunnelPublicUrl or publicBaseUrl so QR links can be built')
+          console.warn('remote-web-ui: ssh tunnel transport has no advertised origin — set publicBaseUrl so QR links can be built')
         } else if (!isSecurePublicBaseUrl(advertisedOrigin)) {
           console.warn(`remote-web-ui: ignoring malformed ssh tunnel public origin ${JSON.stringify(advertisedOrigin)} (expected https://host[:port])`)
         }

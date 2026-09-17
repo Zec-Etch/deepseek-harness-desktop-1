@@ -106,7 +106,7 @@ dsh plugin --profile web add link:$(pwd)/packages/dsh-remote-web-ui
 - **`sshTunnelPort`**（默认 22）：SSH 服务端口。
 - **`sshTunnelRemotePort`**（默认 7788）：在服务器回环上绑定的端口，即你反向代理指向的上游。
 - **`sshTunnelKeyPath`**：作为 `-i` 传给 ssh 客户端的私钥；留空则使用客户端自身的身份。
-- **`sshTunnelPublicUrl`**：二维码链接使用的公网 origin，如 `https://dsh.example.com`；留空回退到 `publicBaseUrl`。与 cloudflare 方式不同，这里不会忽略 `publicBaseUrl`。
+- **`publicBaseUrl`** 是公网 origin 的唯一来源：二维码链接由它构建，配对围栏严格按它信任来访主机，隧道也按它对外宣告——因此在任何传输方式下，改它就等于整体改掉信任的外部域名。
 
 客户端以 `BatchMode=yes`（绝不弹提示）、`ExitOnForwardFailure=yes`（绑定被拒即刻退出，而不是静默无效）与保活参数运行，崩溃按退避重启。服务器账号需接受非交互式密钥登录，其反向代理需转发到上面那个回环端口。手机的数据通道是 `/m/api`，位于连接插件 `/api` 围栏之外，因此 ssh 传输同样不需要任何 harness 定制；若代理无法转发 Server-Sent Events，代价仅是失去实时推送，移动端聊天会回退到轮询。
 

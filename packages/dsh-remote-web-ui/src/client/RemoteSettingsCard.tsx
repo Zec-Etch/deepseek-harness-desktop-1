@@ -40,8 +40,6 @@ export interface RemoteSettings {
   sshTunnelRemotePort?: number
   /** Private key file handed to the ssh client as `-i`. */
   sshTunnelKeyPath?: string
-  /** Public origin the QR link uses while the ssh tunnel is up. */
-  sshTunnelPublicUrl?: string
   /** Mobile composer: plain Enter sends; off means Enter inserts a newline. */
   mobileEnterToSend?: boolean
 }
@@ -82,8 +80,6 @@ export interface RemoteSettingsCardState extends CardShell {
   sshTunnelRemotePort: CardFieldState
   /** SSH private key path. */
   sshTunnelKeyPath: CardFieldState
-  /** Public origin advertised while the ssh tunnel is up. */
-  sshTunnelPublicUrl: CardFieldState
   /** Mobile composer Enter-to-send switch. */
   mobileEnterToSend: CardFieldState
 }
@@ -118,7 +114,6 @@ export class RemoteSettingsCardController {
       numberField('sshTunnelPort'),
       numberField('sshTunnelRemotePort'),
       textField('sshTunnelKeyPath'),
-      textField('sshTunnelPublicUrl'),
       booleanField('mobileEnterToSend'),
     ])
     this.store = this.form.bind(() => this.projection())
@@ -141,7 +136,6 @@ export class RemoteSettingsCardController {
       sshTunnelPort: this.form.field('sshTunnelPort'),
       sshTunnelRemotePort: this.form.field('sshTunnelRemotePort'),
       sshTunnelKeyPath: this.form.field('sshTunnelKeyPath'),
-      sshTunnelPublicUrl: this.form.field('sshTunnelPublicUrl'),
       mobileEnterToSend: this.form.field('mobileEnterToSend'),
     }
   }
@@ -340,16 +334,6 @@ export function RemoteSettingsCard(props: RemoteSettingsCardProps) {
         {...state.sshTunnelKeyPath}
         onEdit={(text) => { props.edit('sshTunnelKeyPath', text) }}
         onReset={() => { props.resetField('sshTunnelKeyPath') }}
-      />
-      <ValueField
-        id="settings-remote-ssh-public-url"
-        label={t('settings.sshTunnelPublicUrl')}
-        hint={t('settings.sshTunnelPublicUrlHint')}
-        placeholder="https://dsh.example.com"
-        {...fieldProps}
-        {...state.sshTunnelPublicUrl}
-        onEdit={(text) => { props.edit('sshTunnelPublicUrl', text) }}
-        onReset={() => { props.resetField('sshTunnelPublicUrl') }}
       />
       <BooleanField
         id="settings-remote-mobile-enter"

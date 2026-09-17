@@ -261,7 +261,7 @@ behavior changes.
 - **`sshTunnelPort`** (default 22): the SSH server port.
 - **`sshTunnelRemotePort`** (default 7788): the port bound on the server loopback, i.e. the upstream your reverse proxy points at.
 - **`sshTunnelKeyPath`**: the private key passed to the ssh client as `-i`; leave blank to use the client's own identity.
-- **`sshTunnelPublicUrl`**: the public origin the QR link is built from, e.g. `https://dsh.example.com`; it falls back to `publicBaseUrl`. Unlike cloudflare mode, `publicBaseUrl` is not ignored here.
+- **`publicBaseUrl`** is the single source of truth for the public origin: the QR link is built from it, the pairing fence trusts exactly that host, and the tunnel advertises it — so changing it moves the whole trust decision with it, in every transport.
 
 The client runs with `BatchMode=yes` (it never prompts), with
 `ExitOnForwardFailure=yes` (a refused bind exits at once instead of silently
