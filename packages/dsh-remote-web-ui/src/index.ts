@@ -23,7 +23,7 @@ import { isTrustedApiRequest, makeRoutes } from './routes.ts'
 import { makeMobileRoutes } from './mobile-routes.ts'
 import { makeMobileApiRoutes } from './mobile-api.ts'
 import { createMobileGatewayProxy } from './mobile-gateway.ts'
-import { desktopLanGatewayBase, lanIPv4Addresses } from './lan.ts'
+import { desktopLanGatewayBase, lanIPv4Addresses, resolveTunnelTarget } from './lan.ts'
 import { TunnelManager, type TunnelInfo } from './tunnel.ts'
 import { SshTunnelManager } from './ssh-tunnel.ts'
 import {
@@ -475,18 +475,17 @@ export function apply(ctx: Context, config?: Config): void {
       keyPath: value.sshTunnelKeyPath,
       publicUrl: advertisedOrigin,
     }
-    // The bind facts are not final while plugins are applied: a launch that
-    // lets the OS pick the port (`--port 0`) reports 0 here and only exposes
-    // the real port once the server has listened. The ssh transport therefore
-    // takes a resolver and re-reads it on every attempt, so it converges on
-    // the bound port instead of failing on the configured placeholder. A
-    // wildcard bind is reached over loopback.
-    const sshLocalTarget = (): string | undefined => {
-      const port = ctx.webServer.port
-      if (!Number.isInteger(port) || port < 1 || port > 65_535) return undefined
-      const host = ctx.webServer.host === '0.0.0.0' ? '127.0.0.1' : ctx.webServer.host
-      return `http://${host}:${String(port)}`
-    }
+    // A Desktop-managed runtime serves over Electron's private OS pipe and
+    // disables the TCP webserver, so its port never becomes usable: there the
+    // forward targets the Desktop LAN gateway instead — the one TCP face that
+    // exists, and the surface the mobile routes are scoped to. A plain web or
+    // CLI run binds a real port, which only appears after listen; hence the
+    // resolver, re-read on every attempt.
+    const sshLocalTarget = (): string | undefined => resolveTunnelTarget({
+      gatewayBase: desktopLanGatewayBase(),
+      host: ctx.webServer.host,
+      port: ctx.webServer.port,
+    })
     const localTarget = `http://127.0.0.1:${String(ctx.webServer.port)}`
     if (autoTunnel && activeTransport === 'ssh') {
       cloudflareTunnel.stop()

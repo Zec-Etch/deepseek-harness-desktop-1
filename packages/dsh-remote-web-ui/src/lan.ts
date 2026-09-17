@@ -52,3 +52,29 @@ export function desktopLanGatewayBase(
   if (!Number.isInteger(port) || port < 1024 || port > 65_535) return undefined
   return { address: url.hostname, base: `http://${url.hostname}:${String(port)}` }
 }
+
+/**
+ * The local origin a tunnel should forward to.
+ *
+ * A Desktop-managed runtime runs over Electron's private OS pipe: the TCP
+ * webserver row is disabled, so `webServer.port` never becomes usable and the
+ * only reachable TCP face is the Desktop LAN gateway — the narrow surface that
+ * already serves the mobile routes and rewrites its own authority upstream.
+ * Everywhere else (the `dsh web` CLI and plain desktop runs) the bound web
+ * server is the right target, and a wildcard bind is reached over loopback.
+ * @param input - the gateway base (when the app owns one), the bound host and
+ * the bound port (which reads as 0 until the server has listened).
+ * @returns the origin to forward to, or undefined while it cannot be named yet.
+ */
+export function resolveTunnelTarget(input: {
+  gatewayBase?: { base: string } | undefined
+  host?: string | undefined
+  port?: number | undefined
+}): string | undefined {
+  const gateway = input.gatewayBase
+  if (gateway !== undefined) return gateway.base
+  const port = input.port
+  if (port === undefined || !Number.isInteger(port) || port < 1 || port > 65_535) return undefined
+  const host = input.host === undefined || input.host === '0.0.0.0' ? '127.0.0.1' : input.host
+  return `http://${host}:${String(port)}`
+}
