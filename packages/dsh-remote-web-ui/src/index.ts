@@ -323,13 +323,27 @@ export function apply(ctx: Context, config?: Config): void {
   const onTunnelPhase = (transport: TunnelTransport) => (info: TunnelInfo): void => {
     // A transport that is no longer selected must never publish state.
     if (!autoTunnel || activeTransport !== transport) return
+    if (transport === 'ssh') {
+      // The ssh transport mints nothing: its advertised origin is the
+      // configured publicBaseUrl, which the settings path publishes the moment
+      // it changes. The tunnel therefore only reports its own health, and a
+      // rebind or a crash never touches the trusted authority — the entry
+      // address stays exactly what the operator configured.
+      if (info.phase === 'running' && info.url !== undefined) {
+        service.setTunnelStatus({ state: 'running', url: info.url })
+      } else if (info.phase === 'starting') {
+        service.setTunnelStatus({ state: 'starting' })
+      } else if (info.phase === 'failed') {
+        service.setTunnelStatus(info.error === undefined ? { state: 'failed' } : { state: 'failed', error: info.error })
+      }
+      return
+    }
     if (info.phase === 'running' && info.url !== undefined) {
       service.setPublicBaseUrl(info.url)
       service.setTunnelStatus({ state: 'running', url: info.url })
     } else if (info.phase === 'starting') {
-      // A restart mints a NEW hostname (cloudflare) or rebinds the forward
-      // (ssh): the previous URL dies with the old process, so clear it now
-      // rather than advertising a dead link.
+      // A restart mints a NEW hostname: the previous URL dies with the old
+      // process, so clear it now rather than advertising a dead link.
       service.setPublicBaseUrl(undefined)
       service.setTunnelStatus({ state: 'starting' })
     } else if (info.phase === 'failed') {
@@ -527,6 +541,16 @@ export function apply(ctx: Context, config?: Config): void {
     const localTarget = `http://127.0.0.1:${String(ctx.webServer.port)}`
     if (autoTunnel && activeTransport === 'ssh') {
       cloudflareTunnel.stop()
+      // The trusted entry address is configuration, not something the tunnel
+      // mints: publish it here so editing the public address changes what the
+      // pairing fence trusts on the very next request, with no tunnel restart
+      // and no window where the old authority is still accepted.
+      if (advertisedOrigin !== undefined && !isSecurePublicBaseUrl(advertisedOrigin)) {
+        console.warn(`remote-web-ui: ignoring malformed ssh tunnel public origin ${JSON.stringify(advertisedOrigin)} (expected https://host[:port])`)
+        service.setPublicBaseUrl(undefined)
+      } else {
+        service.setPublicBaseUrl(advertisedOrigin)
+      }
       if (value.sshTunnelServer === undefined || value.sshTunnelServer.trim() === '') {
         // Without a destination there is no forward to establish: stay
         // stopped and say so, rather than reporting a tunnel that cannot run.
@@ -536,8 +560,6 @@ export function apply(ctx: Context, config?: Config): void {
       } else {
         if (advertisedOrigin === undefined) {
           console.warn('remote-web-ui: ssh tunnel transport has no advertised origin — set publicBaseUrl so QR links can be built')
-        } else if (!isSecurePublicBaseUrl(advertisedOrigin)) {
-          console.warn(`remote-web-ui: ignoring malformed ssh tunnel public origin ${JSON.stringify(advertisedOrigin)} (expected https://host[:port])`)
         }
         sshTunnel.start(sshLocalTarget)
       }
