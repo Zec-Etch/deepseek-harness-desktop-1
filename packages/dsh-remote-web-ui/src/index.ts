@@ -475,6 +475,18 @@ export function apply(ctx: Context, config?: Config): void {
       keyPath: value.sshTunnelKeyPath,
       publicUrl: advertisedOrigin,
     }
+    // The bind facts are not final while plugins are applied: a launch that
+    // lets the OS pick the port (`--port 0`) reports 0 here and only exposes
+    // the real port once the server has listened. The ssh transport therefore
+    // takes a resolver and re-reads it on every attempt, so it converges on
+    // the bound port instead of failing on the configured placeholder. A
+    // wildcard bind is reached over loopback.
+    const sshLocalTarget = (): string | undefined => {
+      const port = ctx.webServer.port
+      if (!Number.isInteger(port) || port < 1 || port > 65_535) return undefined
+      const host = ctx.webServer.host === '0.0.0.0' ? '127.0.0.1' : ctx.webServer.host
+      return `http://${host}:${String(port)}`
+    }
     const localTarget = `http://127.0.0.1:${String(ctx.webServer.port)}`
     if (autoTunnel && activeTransport === 'ssh') {
       cloudflareTunnel.stop()
@@ -489,7 +501,7 @@ export function apply(ctx: Context, config?: Config): void {
         } else if (!isSecurePublicBaseUrl(advertisedOrigin)) {
           console.warn(`remote-web-ui: ignoring malformed ssh tunnel public origin ${JSON.stringify(advertisedOrigin)} (expected https://host[:port])`)
         }
-        sshTunnel.start(localTarget)
+        sshTunnel.start(sshLocalTarget)
       }
     } else if (autoTunnel) {
       sshTunnel.stop()

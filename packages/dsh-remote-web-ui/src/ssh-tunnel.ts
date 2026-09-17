@@ -65,6 +65,8 @@ export interface SshTunnelOptions {
   timer?: { setTimeout(fn: () => void, ms: number): unknown; clearTimeout(t: unknown): void }
   /** How long the process must stay alive before the forward counts as up. */
   readyDelayMs?: number
+  /** How long to wait before re-resolving an unknown local target (default 1000). */
+  targetWaitMs?: number
   /** First restart delay after an unexpected failure (exponential base). */
   restartBaseMs?: number
   /** Cap on the exponential restart delay. */
@@ -75,6 +77,7 @@ export interface SshTunnelOptions {
 const nodeTimer = { setTimeout, clearTimeout }
 
 const DEFAULT_READY_DELAY_MS = 1_500
+const DEFAULT_TARGET_WAIT_MS = 1_000
 const DEFAULT_RESTART_BASE_MS = 5_000
 const DEFAULT_RESTART_MAX_MS = 60_000
 const DEFAULT_REMOTE_PORT = 7788
@@ -186,6 +189,9 @@ export class SshTunnelManager {
   private phase: TunnelPhase = 'stopped'
   private url: string | undefined
   private error: string | undefined
+  /** Resolver for the local target (re-read on every attempt). */
+  private targetProvider: (() => string | undefined) | undefined
+  /** Last resolved target (the fixed form when `start` was given a string). */
   private targetUrl: string | undefined
   private handle: SshProcess | undefined
   private readyTimer: unknown | undefined
@@ -220,16 +226,33 @@ export class SshTunnelManager {
   }
 
   /**
-   * Start (or keep) the forward toward `targetUrl`. Restarting with a
-   * different target tears the old process down first; restarting with the
-   * same target while already starting or running is a no-op.
-   * @param targetUrl - the local dsh web URL, e.g. `http://127.0.0.1:3080`.
+   * Start (or keep) the forward toward a local target. The target may be a
+   * fixed URL or a provider re-resolved on every attempt: the local dsh web
+   * port is only known AFTER the server binds (an OS-assigned `--port 0`
+   * reads as 0 while plugins are being applied), so a provider lets the
+   * transport converge on the real port instead of failing on the configured
+   * placeholder. Restarting with a different target tears the old process
+   * down first; re-arming the same target while already live is a no-op.
+   * @param target - the local dsh web URL, or a provider of it (undefined
+   * while the port is still unknown).
    */
-  start(targetUrl: string): void {
-    if (this.targetUrl === targetUrl && (this.phase === 'starting' || this.phase === 'running')) return
+  start(target: string | (() => string | undefined)): void {
+    const provider = typeof target === 'function' ? target : () => target
+    const live = this.phase === 'starting' || this.phase === 'running'
+    if (live && this.targetProvider !== undefined) {
+      const next = typeof target === 'string' ? target : this.resolveTarget()
+      if (next === undefined || next === this.targetUrl) {
+        // Same destination (or not resolvable yet): refresh the resolver so a
+        // settings edit cannot bounce a healthy forward. A moved destination
+        // (the web server rebound on another port) falls through and restarts.
+        this.targetProvider = provider
+        return
+      }
+    }
     this.teardown()
     this.stopping = false
-    this.targetUrl = targetUrl
+    this.targetProvider = provider
+    this.targetUrl = undefined
     this.attempts = 0
     this.attempt()
   }
@@ -238,6 +261,7 @@ export class SshTunnelManager {
   stop(): void {
     this.teardown()
     this.stopping = false
+    this.targetProvider = undefined
     this.targetUrl = undefined
     this.url = undefined
     this.error = undefined
@@ -262,11 +286,24 @@ export class SshTunnelManager {
   }
 
   private attempt(): void {
-    if (this.stopping || this.targetUrl === undefined) return
+    if (this.stopping || this.targetProvider === undefined) return
     this.setPhase('starting')
     this.handle = undefined
     this.url = undefined
     this.error = undefined
+
+    // The local port is only known after the web server binds, so an
+    // unresolved target means "not ready yet": keep waiting on a short timer
+    // instead of reporting a failure the user cannot act on.
+    const targetUrl = this.resolveTarget()
+    if (targetUrl === undefined) {
+      this.restartTimer = this.timer.setTimeout(() => {
+        this.restartTimer = undefined
+        this.attempt()
+      }, this.options.targetWaitMs ?? DEFAULT_TARGET_WAIT_MS)
+      return
+    }
+    this.targetUrl = targetUrl
 
     let spec: SshForwardSpec
     let args: string[]
@@ -326,6 +363,18 @@ export class SshTunnelManager {
         }
       }
     }, this.options.readyDelayMs ?? DEFAULT_READY_DELAY_MS)
+  }
+
+  /** Resolve the current local target, or undefined while it is unknown. */
+  private resolveTarget(): string | undefined {
+    try {
+      const value = this.targetProvider?.()
+      return value === undefined || value === '' ? undefined : value
+    } catch {
+      // A throwing resolver is a host-side bug; keep waiting rather than
+      // taking the tunnel down over it.
+      return undefined
+    }
   }
 
   private fail(message: string): void {

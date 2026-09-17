@@ -211,6 +211,51 @@ describe('SshTunnelManager', () => {
     expect(h.spawnArgs[0]).toContain('root@dsh.example.com')
   })
 
+  it('waits for a target the host cannot name yet instead of failing on it', () => {
+    // The web server reports port 0 while plugins are applied (an OS-assigned
+    // launch): that is "not ready", not a configuration error.
+    const h = makeHarness()
+    let port = 0
+    h.manager.start(() => (port === 0 ? undefined : `http://127.0.0.1:${String(port)}`))
+    expect(h.manager.info.phase).toBe('starting')
+    expect(h.manager.info.error).toBeUndefined()
+    expect(h.processes).toHaveLength(0)
+
+    port = 43126
+    h.fireOne() // the target wait elapses and the real port is now readable
+    expect(h.processes).toHaveLength(1)
+    expect(h.spawnArgs[0]).toContain('127.0.0.1:7788:127.0.0.1:43126')
+
+    h.fireOne() // the readiness delay elapses
+    expect(h.manager.info).toEqual({ phase: 'running', url: 'https://dsh.example.com' })
+  })
+
+  it('re-arming the same live target only refreshes the resolver', () => {
+    const h = makeHarness()
+    const target = (): string => 'http://127.0.0.1:3080'
+    h.manager.start(target)
+    h.fireOne()
+    expect(h.manager.info.phase).toBe('running')
+    h.manager.start(target)
+    expect(h.processes).toHaveLength(1)
+    expect(h.manager.info.phase).toBe('running')
+  })
+
+  it('restarts when the resolved target moves under a live forward', () => {
+    const h = makeHarness()
+    let port = 3080
+    const target = (): string => `http://127.0.0.1:${String(port)}`
+    h.manager.start(target)
+    h.fireOne()
+    expect(h.manager.info.phase).toBe('running')
+
+    port = 3081 // the web server rebound elsewhere
+    h.manager.start(target)
+    expect(h.processes).toHaveLength(2)
+    expect(h.manager.info.phase).toBe('starting')
+    expect(h.spawnArgs[1]).toContain('127.0.0.1:7788:127.0.0.1:3081')
+  })
+
   it('stays running without a URL when no public origin is configured', () => {
     const h = makeHarness({ publicUrl: undefined })
     h.manager.start('http://127.0.0.1:3080')
