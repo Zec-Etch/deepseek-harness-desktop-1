@@ -23,7 +23,8 @@ import { isTrustedApiRequest, makeRoutes } from './routes.ts'
 import { makeMobileRoutes } from './mobile-routes.ts'
 import { makeMobileApiRoutes } from './mobile-api.ts'
 import { createMobileGatewayProxy } from './mobile-gateway.ts'
-import { desktopLanGatewayBase, lanIPv4Addresses, resolveTunnelTarget } from './lan.ts'
+import { desktopLanGatewayBase, lanIPv4Addresses } from './lan.ts'
+import { startLocalFace, type LocalFace } from './local-face.ts'
 import { TunnelManager, type TunnelInfo } from './tunnel.ts'
 import { SshTunnelManager } from './ssh-tunnel.ts'
 import {
@@ -452,6 +453,50 @@ export function apply(ctx: Context, config?: Config): void {
     enabled: () => resolve().enabled,
   })
   ctx.effect(() => ctx.on('api/gate', gate), 'remote-web-ui: api gate')
+
+  // ── local tunnel face ───────────────────────────────────────────────────
+  // A Desktop-managed runtime serves over Electron's private OS pipe and
+  // disables the TCP webserver, so a tunnel has no bound port to forward to.
+  // The Desktop LAN gateway is a TCP face, but it lives inside the packaged
+  // app (unreachable for plugin updates) and refuses any Host but its own LAN
+  // authority — a request arriving through a public reverse proxy is answered
+  // 421, and making the proxy impersonate the LAN authority would also drop
+  // the device cookie's Secure flag. The plugin therefore serves its own
+  // loopback face, and the tunnel targets that.
+  //
+  // The face exposes exactly the paths a remote client may reach — the same
+  // set the Desktop LAN gateway allows — so the loopback-only control routes
+  // (issue / stop / device management / update) stay off any TCP surface.
+  const REMOTE_FACE_EXACT_PATHS = new Set([
+    '/m',
+    '/m/mobile.js',
+    '/m/api/events.mux',
+    '/api/pair/accept',
+    '/api/pair/heartbeat',
+  ])
+  const remoteFaceRoutes = routes.filter(route => route.kind === 'exact'
+    ? REMOTE_FACE_EXACT_PATHS.has(route.path)
+    : route.path === '/m/api')
+  let localFace: LocalFace | undefined
+  let localFaceStart: Promise<LocalFace | undefined> | undefined
+  const ensureLocalFace = (): Promise<LocalFace | undefined> => {
+    if (localFace !== undefined) return Promise.resolve(localFace)
+    localFaceStart ??= startLocalFace(remoteFaceRoutes)
+      .then((face) => { localFace = face; return face })
+      .catch((error: unknown) => {
+        console.warn('remote-web-ui: could not start the local tunnel face', error)
+        return undefined
+      })
+      .finally(() => { localFaceStart = undefined })
+    return localFaceStart
+  }
+  const closeLocalFace = (): void => {
+    const face = localFace
+    localFace = undefined
+    if (face !== undefined) void face.close().catch(() => {})
+  }
+  ctx.effect(() => () => { closeLocalFace() }, 'remote-web-ui: local tunnel face')
+
   const sync = (): void => {
     const value = resolve()
     service.config = {
@@ -475,17 +520,17 @@ export function apply(ctx: Context, config?: Config): void {
       keyPath: value.sshTunnelKeyPath,
       publicUrl: advertisedOrigin,
     }
-    // A Desktop-managed runtime serves over Electron's private OS pipe and
-    // disables the TCP webserver, so its port never becomes usable: there the
-    // forward targets the Desktop LAN gateway instead — the one TCP face that
-    // exists, and the surface the mobile routes are scoped to. A plain web or
-    // CLI run binds a real port, which only appears after listen; hence the
-    // resolver, re-read on every attempt.
-    const sshLocalTarget = (): string | undefined => resolveTunnelTarget({
-      gatewayBase: desktopLanGatewayBase(),
-      host: ctx.webServer.host,
-      port: ctx.webServer.port,
-    })
+    // The ssh transport forwards to the plugin's own loopback face. That face
+    // is the only local origin that exists in every desktop mode (a pipe-only
+    // runtime binds no port at all), and it keeps the request's own authority,
+    // so the pairing fence and the device cookie's Secure flag behave exactly
+    // as they do on a plain web run. The face binds asynchronously, so this
+    // resolver reports "not ready yet" until it is listening.
+    const sshLocalTarget = (): string | undefined => {
+      void ensureLocalFace()
+      const port = localFace?.port
+      return port === undefined ? undefined : `http://127.0.0.1:${String(port)}`
+    }
     const localTarget = `http://127.0.0.1:${String(ctx.webServer.port)}`
     if (autoTunnel && activeTransport === 'ssh') {
       cloudflareTunnel.stop()
@@ -493,6 +538,7 @@ export function apply(ctx: Context, config?: Config): void {
         // Without a destination there is no forward to establish: stay
         // stopped and say so, rather than reporting a tunnel that cannot run.
         sshTunnel.stop()
+        closeLocalFace()
         service.setTunnelStatus({ state: 'failed', error: 'sshTunnelServer is not configured' })
       } else {
         if (advertisedOrigin === undefined) {
@@ -504,6 +550,7 @@ export function apply(ctx: Context, config?: Config): void {
       }
     } else if (autoTunnel) {
       sshTunnel.stop()
+      closeLocalFace()
       if (value.publicBaseUrl !== undefined) {
         console.warn('remote-web-ui: autoTunnel is on — ignoring the manually configured publicBaseUrl')
       }
@@ -511,6 +558,7 @@ export function apply(ctx: Context, config?: Config): void {
     } else {
       cloudflareTunnel.stop()
       sshTunnel.stop()
+      closeLocalFace()
       // A malformed public base is ignored with a warning — LAN-only behavior
       // stays intact rather than silently minting unusable QR links.
       if (value.publicBaseUrl !== undefined && !isSecurePublicBaseUrl(value.publicBaseUrl)) {
