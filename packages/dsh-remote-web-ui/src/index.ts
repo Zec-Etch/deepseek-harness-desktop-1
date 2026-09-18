@@ -10,7 +10,8 @@
 
 import { createRequire } from 'node:module'
 import { setInterval as nodeSetInterval } from 'node:timers'
-import type { IncomingMessage } from 'node:http'
+import { dirname, join } from 'node:path'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-settings'
 import z from 'schemastery'
@@ -24,7 +25,7 @@ import { makeMobileRoutes } from './mobile-routes.ts'
 import { makeMobileApiRoutes } from './mobile-api.ts'
 import { createMobileGatewayProxy } from './mobile-gateway.ts'
 import { desktopLanGatewayBase, lanIPv4Addresses } from './lan.ts'
-import { startLocalFace, type LocalFace } from './local-face.ts'
+import { startLocalFace, makeFetchDispatch, type FullSurface, type LocalFace, type RuntimeFetchDispatcher } from './local-face.ts'
 import { TunnelManager, type TunnelInfo } from './tunnel.ts'
 import { SshTunnelManager } from './ssh-tunnel.ts'
 import {
@@ -97,6 +98,13 @@ export const REMOTE_WEB_UI_SETTINGS_NAMESPACE = 'remote-web-ui'
  */
 export type TunnelTransport = 'cloudflare' | 'ssh'
 
+/**
+ * How much of the application the tunnelled local face exposes. `mobile` is
+ * the standalone phone surface (the default, and the narrowest surface that
+ * still works); `full` is the complete browser interface.
+ */
+export type TunnelSurface = 'mobile' | 'full'
+
 /** Plugin config, validated by the same-named schemastery schema. */
 export interface Config {
   /** Token lifetime in ms; the QR link dies after this. */
@@ -158,6 +166,17 @@ export interface Config {
   /** Private key file handed to the ssh client as `-i` (default: its own identity). */
   sshTunnelKeyPath?: string
   /**
+   * What the tunnelled local face exposes. `mobile` (default) serves only the
+   * paths a remote client needs — the standalone phone surface and its data
+   * channel — so the loopback-only control routes stay off every TCP surface.
+   * `full` serves the complete browser interface instead: the built frontend
+   * plus every runtime path, including `/api`, so a paired device sees the same
+   * application the desktop does. Full scope exposes the host's tool surface
+   * (command execution, file access) to whoever holds a paired-device cookie;
+   * keep `requirePairingForLan` on and `publicBaseUrl` on a domain you control.
+   */
+  tunnelSurface?: TunnelSurface
+  /**
    * Mobile composer behavior: when true (default), a plain Enter in the
    * phone chat textarea sends the prompt and Shift+Enter inserts a newline.
    * When false, plain Enter inserts a newline and only the send button
@@ -182,6 +201,7 @@ export const Config: z<Config> = z.object({
   sshTunnelPort: z.number().step(1).min(1).max(65_535).default(22),
   sshTunnelRemotePort: z.number().step(1).min(1).max(65_535).default(7788),
   sshTunnelKeyPath: z.string(),
+  tunnelSurface: z.union(['mobile', 'full']).default('mobile'),
   mobileEnterToSend: z.boolean().default(true),
   enabled: z.boolean().default(true),
 })
@@ -215,6 +235,7 @@ const DEFAULTS: ResolvedConfig = {
   sshTunnelPort: 22,
   sshTunnelRemotePort: 7788,
   sshTunnelKeyPath: undefined,
+  tunnelSurface: 'mobile',
   mobileEnterToSend: true,
   enabled: true,
 }
@@ -239,6 +260,7 @@ export function apply(ctx: Context, config?: Config): void {
     sshTunnelPort: config?.sshTunnelPort ?? DEFAULTS.sshTunnelPort,
     sshTunnelRemotePort: config?.sshTunnelRemotePort ?? DEFAULTS.sshTunnelRemotePort,
     sshTunnelKeyPath: config?.sshTunnelKeyPath,
+    tunnelSurface: config?.tunnelSurface ?? DEFAULTS.tunnelSurface,
     mobileEnterToSend: config?.mobileEnterToSend ?? DEFAULTS.mobileEnterToSend,
     enabled: config?.enabled ?? DEFAULTS.enabled,
   }
@@ -262,6 +284,7 @@ export function apply(ctx: Context, config?: Config): void {
       sshTunnelPort: value.sshTunnelPort ?? DEFAULTS.sshTunnelPort,
       sshTunnelRemotePort: value.sshTunnelRemotePort ?? DEFAULTS.sshTunnelRemotePort,
       sshTunnelKeyPath: value.sshTunnelKeyPath,
+      tunnelSurface: value.tunnelSurface ?? DEFAULTS.tunnelSurface,
       mobileEnterToSend: value.mobileEnterToSend ?? DEFAULTS.mobileEnterToSend,
       enabled: value.enabled ?? DEFAULTS.enabled,
     }
@@ -320,6 +343,7 @@ export function apply(ctx: Context, config?: Config): void {
   const sshTunnel = new SshTunnelManager()
   let autoTunnel = resolved.autoTunnel
   let activeTransport: TunnelTransport = resolved.tunnelTransport
+  let activeSurface: TunnelSurface = resolved.tunnelSurface
   const onTunnelPhase = (transport: TunnelTransport) => (info: TunnelInfo): void => {
     // A transport that is no longer selected must never publish state.
     if (!autoTunnel || activeTransport !== transport) return
@@ -471,9 +495,12 @@ export function apply(ctx: Context, config?: Config): void {
   // the device cookie's Secure flag. The plugin therefore serves its own
   // loopback face, and the tunnel targets that.
   //
-  // The face exposes exactly the paths a remote client may reach — the same
-  // set the Desktop LAN gateway allows — so the loopback-only control routes
-  // (issue / stop / device management / update) stay off any TCP surface.
+  // In the default `mobile` scope the face exposes exactly the paths a remote
+  // client needs — the same set the Desktop LAN gateway allows — so the
+  // loopback-only control routes (issue / stop / device management / update)
+  // stay off any TCP surface. In `full` scope it serves the complete browser
+  // interface instead: the built frontend (a pipe-only runtime does not serve
+  // it; Electron does) plus the runtime's own dispatcher for everything else.
   const REMOTE_FACE_EXACT_PATHS = new Set([
     '/m',
     '/m/mobile.js',
@@ -484,11 +511,57 @@ export function apply(ctx: Context, config?: Config): void {
   const remoteFaceRoutes = routes.filter(route => route.kind === 'exact'
     ? REMOTE_FACE_EXACT_PATHS.has(route.path)
     : route.path === '/m/api')
+  /** The built frontend's directory, resolved from this host's own graph. */
+  const frontendDistDir = (): string | undefined => {
+    try {
+      return join(dirname(requireFromHost.resolve('@deepseek-ai/dsh-web-frontend/package.json')), 'dist')
+    } catch {
+      return undefined
+    }
+  }
+  /** The full-scope wiring, or undefined when this runtime offers no dispatch. */
+  const fullSurface = (): FullSurface | undefined => {
+    const server = ctx.webServer as unknown as {
+      handle?: (req: IncomingMessage, res: ServerResponse) => unknown
+      fetch?: (request: Request) => Promise<Response>
+      renderIndex?: (html: string) => string
+    }
+    if (typeof server.handle === 'function') {
+      // A TCP webserver already serves the whole surface, frontend included.
+      return { dispatch: async (req, res) => { await server.handle?.(req, res) } }
+    }
+    if (typeof server.fetch !== 'function') return undefined
+    const dist = frontendDistDir()
+    const renderIndex = server.renderIndex
+    return {
+      ...(dist === undefined ? {} : { distDir: dist }),
+      dispatch: makeFetchDispatch(server as RuntimeFetchDispatcher),
+      ...(typeof renderIndex === 'function'
+        ? { renderIndex: (html: string) => renderIndex.call(server, html) }
+        : {}),
+    }
+  }
   let localFace: LocalFace | undefined
   let localFaceStart: Promise<LocalFace | undefined> | undefined
-  const ensureLocalFace = (): Promise<LocalFace | undefined> => {
-    if (localFace !== undefined) return Promise.resolve(localFace)
-    localFaceStart ??= startLocalFace(remoteFaceRoutes)
+  let localFaceScope: TunnelSurface | undefined
+  const closeLocalFace = (): void => {
+    const face = localFace
+    localFace = undefined
+    localFaceScope = undefined
+    if (face !== undefined) void face.close().catch(() => {})
+  }
+  const ensureLocalFace = (scope: TunnelSurface): Promise<LocalFace | undefined> => {
+    if (localFace !== undefined && localFaceScope === scope) return Promise.resolve(localFace)
+    // A scope change moves the face to a new port; the caller rebuilds the
+    // forward so it never keeps pointing at the closed one.
+    if (localFace !== undefined) closeLocalFace()
+    if (localFaceStart !== undefined) return localFaceStart
+    const full = scope === 'full' ? fullSurface() : undefined
+    if (scope === 'full' && full === undefined) {
+      console.warn('remote-web-ui: full tunnel surface is unavailable on this runtime — serving the mobile surface')
+    }
+    localFaceScope = full === undefined ? 'mobile' : scope
+    localFaceStart = startLocalFace(remoteFaceRoutes, full === undefined ? {} : { full })
       .then((face) => { localFace = face; return face })
       .catch((error: unknown) => {
         console.warn('remote-web-ui: could not start the local tunnel face', error)
@@ -496,11 +569,6 @@ export function apply(ctx: Context, config?: Config): void {
       })
       .finally(() => { localFaceStart = undefined })
     return localFaceStart
-  }
-  const closeLocalFace = (): void => {
-    const face = localFace
-    localFace = undefined
-    if (face !== undefined) void face.close().catch(() => {})
   }
   ctx.effect(() => () => { closeLocalFace() }, 'remote-web-ui: local tunnel face')
 
@@ -519,6 +587,13 @@ export function apply(ctx: Context, config?: Config): void {
     // deployment that already configured one needs no second field.
     autoTunnel = value.autoTunnel === true
     activeTransport = value.tunnelTransport
+    // A surface change moves the face to a new port, so the live forward must
+    // be rebuilt instead of being left pointing at the closed listener.
+    if (value.tunnelSurface !== activeSurface) {
+      activeSurface = value.tunnelSurface
+      sshTunnel.stop()
+      closeLocalFace()
+    }
     const advertisedOrigin = value.publicBaseUrl
     sshTunnel.options = {
       server: value.sshTunnelServer,
@@ -534,7 +609,7 @@ export function apply(ctx: Context, config?: Config): void {
     // as they do on a plain web run. The face binds asynchronously, so this
     // resolver reports "not ready yet" until it is listening.
     const sshLocalTarget = (): string | undefined => {
-      void ensureLocalFace()
+      void ensureLocalFace(activeSurface)
       const port = localFace?.port
       return port === undefined ? undefined : `http://127.0.0.1:${String(port)}`
     }

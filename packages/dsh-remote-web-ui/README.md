@@ -272,6 +272,21 @@ outside the connection plugin's `/api` fence, so the ssh transport needs no
 harness customization either; a proxy that cannot forward Server-Sent Events
 only costs live push, where the mobile chat falls back to polling.
 
+### Exposing the whole interface
+
+`tunnelSurface` selects what the tunnelled face exposes. `mobile` (the
+default) serves only the phone surface and its data channel, so the
+loopback-only control routes never reach a TCP surface. `full` serves the
+complete application instead: the built frontend plus every other runtime
+path, including `/api`, so a paired device sees the same interface the desktop
+does — one runtime, one set of sessions.
+
+Full scope is a deliberate trade. The host's tool surface — command execution,
+file access — becomes reachable to whoever holds a paired-device cookie, which
+is exactly what the official `--host 0.0.0.0` guard refuses to expose. Keep
+`requirePairingForLan` on, keep `publicBaseUrl` on a domain only you control,
+and use 停止 to cut devices off. The phone still renders the desktop layout.
+
 ### Manual tunnels (bring your own)
 
 The QR link is normally a LAN URL, so a phone outside the house cannot use

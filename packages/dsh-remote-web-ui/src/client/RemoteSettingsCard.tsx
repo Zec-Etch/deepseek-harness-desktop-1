@@ -40,6 +40,8 @@ export interface RemoteSettings {
   sshTunnelRemotePort?: number
   /** Private key file handed to the ssh client as `-i`. */
   sshTunnelKeyPath?: string
+  /** What the tunnel exposes: the mobile surface, or the whole application. */
+  tunnelSurface?: TunnelSurface
   /** Mobile composer: plain Enter sends; off means Enter inserts a newline. */
   mobileEnterToSend?: boolean
 }
@@ -49,6 +51,9 @@ export type RemoteApiMode = 'mobile-only' | 'legacy-full-api'
 
 /** Automatic-tunnel transports exposed by the remote plugin. */
 export type TunnelTransport = 'cloudflare' | 'ssh'
+
+/** How much of the application the tunnel exposes. */
+export type TunnelSurface = 'mobile' | 'full'
 
 /** What the remote-control card renders. */
 export interface RemoteSettingsCardState extends CardShell {
@@ -80,6 +85,8 @@ export interface RemoteSettingsCardState extends CardShell {
   sshTunnelRemotePort: CardFieldState
   /** SSH private key path. */
   sshTunnelKeyPath: CardFieldState
+  /** Tunnelled surface scope. */
+  tunnelSurface: CardFieldState
   /** Mobile composer Enter-to-send switch. */
   mobileEnterToSend: CardFieldState
 }
@@ -114,6 +121,7 @@ export class RemoteSettingsCardController {
       numberField('sshTunnelPort'),
       numberField('sshTunnelRemotePort'),
       textField('sshTunnelKeyPath'),
+      choiceField('tunnelSurface', ['mobile', 'full']),
       booleanField('mobileEnterToSend'),
     ])
     this.store = this.form.bind(() => this.projection())
@@ -136,6 +144,7 @@ export class RemoteSettingsCardController {
       sshTunnelPort: this.form.field('sshTunnelPort'),
       sshTunnelRemotePort: this.form.field('sshTunnelRemotePort'),
       sshTunnelKeyPath: this.form.field('sshTunnelKeyPath'),
+      tunnelSurface: this.form.field('tunnelSurface'),
       mobileEnterToSend: this.form.field('mobileEnterToSend'),
     }
   }
@@ -334,6 +343,20 @@ export function RemoteSettingsCard(props: RemoteSettingsCardProps) {
         {...state.sshTunnelKeyPath}
         onEdit={(text) => { props.edit('sshTunnelKeyPath', text) }}
         onReset={() => { props.resetField('sshTunnelKeyPath') }}
+      />
+      <ChoiceField
+        id="settings-remote-tunnel-surface"
+        label={t('settings.tunnelSurface')}
+        hint={t('settings.tunnelSurfaceHint')}
+        inheritLabel={t('settings.inherit')}
+        choices={[
+          { value: 'mobile', label: t('settings.tunnelSurfaceMobile') },
+          { value: 'full', label: t('settings.tunnelSurfaceFull') },
+        ]}
+        {...choiceFieldProps}
+        {...state.tunnelSurface}
+        onEdit={(text) => { props.edit('tunnelSurface', text) }}
+        onReset={() => { props.resetField('tunnelSurface') }}
       />
       <BooleanField
         id="settings-remote-mobile-enter"
