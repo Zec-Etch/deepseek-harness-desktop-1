@@ -287,6 +287,15 @@ is exactly what the official `--host 0.0.0.0` guard refuses to expose. Keep
 `requirePairingForLan` on, keep `publicBaseUrl` on a domain only you control,
 and use 停止 to cut devices off. The phone still renders the desktop layout.
 
+Pairing stays the outer door of the full surface. The runtime authorizes `/api`
+with its own browser-session cookie, minted from a process launch token that
+the Electron pipe carries internally and a plain browser never has — serving
+the shell without it produces a "reconnecting" screen. A device that already
+holds the paired-device cookie is therefore sent through that exchange once
+(the runtime mints its cookie and redirects to a clean `/`), while anything
+unpaired receives the runtime's own refusal. Pair from the QR link first, then
+open `/`.
+
 ### Manual tunnels (bring your own)
 
 The QR link is normally a LAN URL, so a phone outside the house cannot use

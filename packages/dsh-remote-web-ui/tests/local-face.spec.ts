@@ -220,6 +220,57 @@ describe('startLocalFace in full scope', () => {
     expect(calls[0].url).toContain('/api/pair/accept')
   })
 
+  it('lets the session handshake own the shell answer', async () => {
+    const distDir = await makeDist()
+    const seen: string[] = []
+    const face = await startLocalFace([], {
+      full: {
+        distDir,
+        dispatch: () => {},
+        authorizeIndex: (req, res) => {
+          seen.push(req.url ?? '')
+          if ((req.url ?? '').startsWith('/?token=')) {
+            // The runtime's exchange answers for itself.
+            res.writeHead(303, { location: '/', 'set-cookie': 'dsh-auth-x=y' })
+            res.end()
+            return false
+          }
+          return true
+        },
+      },
+    })
+    faces.push(face)
+    const base = `http://127.0.0.1:${String(face.port)}`
+
+    const exchanged = await fetch(`${base}/?token=t`, { redirect: 'manual' })
+    expect(exchanged.status).toBe(303)
+    expect(exchanged.headers.get('set-cookie')).toContain('dsh-auth-x')
+
+    const shell = await fetch(`${base}/`)
+    expect(shell.status).toBe(200)
+    expect(await shell.text()).toContain('id="root"')
+    expect(seen).toEqual(['/?token=t', '/'])
+  })
+
+  it('serves no shell when the handshake refuses', async () => {
+    const distDir = await makeDist()
+    const face = await startLocalFace([], {
+      full: {
+        distDir,
+        dispatch: () => {},
+        authorizeIndex: (_req, res) => {
+          res.writeHead(401, { 'content-type': 'text/plain' })
+          res.end('unauthorized')
+          return false
+        },
+      },
+    })
+    faces.push(face)
+    const response = await fetch(`http://127.0.0.1:${String(face.port)}/`)
+    expect(response.status).toBe(401)
+    expect(await response.text()).toBe('unauthorized')
+  })
+
   it('streams a long-lived response so the live event channel survives', async () => {
     const face = await startLocalFace([], {
       full: {

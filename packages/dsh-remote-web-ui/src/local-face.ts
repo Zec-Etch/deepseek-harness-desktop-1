@@ -53,6 +53,13 @@ export interface FullSurface {
   distDir?: string
   /** Serve one request the face does not answer from disk. */
   dispatch(req: IncomingMessage, res: ServerResponse): void | Promise<void>
+  /**
+   * Decide whether this request may receive the application shell. The caller
+   * owns the answer: returning false means it already wrote the response (an
+   * exchange redirect, a challenge, or a refusal), which is how the runtime's
+   * browser-session handshake is honoured instead of bypassed.
+   */
+  authorizeIndex?(req: IncomingMessage, res: ServerResponse): boolean
   /** Apply the host's index injections to the raw index.html. */
   renderIndex?(html: string): string
 }
@@ -169,7 +176,14 @@ async function serveFile(res: ServerResponse, filename: string): Promise<boolean
 }
 
 /** Serve the SPA index (with the host's injections when it can provide them). */
-async function serveIndex(res: ServerResponse, full: FullSurface): Promise<void> {
+async function serveIndex(
+  req: IncomingMessage,
+  res: ServerResponse,
+  full: FullSurface,
+): Promise<void> {
+  // The runtime's browser-session handshake runs first: the shell is only
+  // meaningful to a session the runtime will also authorize on /api.
+  if (full.authorizeIndex !== undefined && !full.authorizeIndex(req, res)) return
   if (full.distDir === undefined) {
     writePlain(res, 404, 'not found')
     return
@@ -212,7 +226,7 @@ async function handleFull(
       await full.dispatch(req, res)
       return
     }
-    await serveIndex(res, full)
+    await serveIndex(req, res, full)
     return
   }
   await full.dispatch(req, res)

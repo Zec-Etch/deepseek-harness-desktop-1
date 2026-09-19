@@ -19,7 +19,7 @@ import type {} from '@deepseek-ai/dsh-api-gateway'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type { UserScopeService } from '@ningbainb/dsh-user-scope'
 import { isSafePairingCookieName, isSecurePublicBaseUrl, PairingService } from './pairing.ts'
-import { makeGateListener, type RemoteApiMode } from './gate.ts'
+import { makeGateListener, readCookie, type RemoteApiMode } from './gate.ts'
 import { isTrustedApiRequest, makeRoutes } from './routes.ts'
 import { makeMobileRoutes } from './mobile-routes.ts'
 import { makeMobileApiRoutes } from './mobile-api.ts'
@@ -519,6 +519,59 @@ export function apply(ctx: Context, config?: Config): void {
       return undefined
     }
   }
+  /**
+   * The runtime's browser-session handshake, kept as the shell's outer door.
+   *
+   * A browser reaches `/api` only with the runtime's own `dsh-auth-<authority>`
+   * cookie, which the runtime mints from its process launch token — a
+   * credential the Electron pipe carries internally and a plain browser never
+   * has. Serving the shell without it produces exactly the "reconnecting"
+   * screen: the interface loads and every call is refused.
+   *
+   * A device that already holds this plugin's paired-device cookie is sent
+   * through the exchange once (the runtime then mints its cookie and redirects
+   * to a clean `/`); every other request receives the runtime's own identical
+   * refusal. The pairing gate therefore stays the outer door — no process
+   * token is ever handed to an unpaired caller.
+   */
+  const authorizeFullIndex = (req: IncomingMessage, res: ServerResponse): boolean => {
+    const connection = ctx.get('connection') as {
+      authorizeIndex?: (request: IncomingMessage, response: ServerResponse) => boolean
+      authenticatedUrl?: (base: string) => string
+    } | undefined
+    if (connection?.authorizeIndex === undefined) return true
+    let url: URL
+    try {
+      url = new URL(req.url ?? '/', 'http://local')
+    } catch {
+      return true
+    }
+    if (url.searchParams.has('token')) {
+      // The exchange itself: the runtime writes the redirect and the cookie, or
+      // its refusal. Never serve the shell in its place.
+      return connection.authorizeIndex(req, res) === true
+    }
+    const deviceId = readCookie(req.headers.cookie, service.config.cookieName)
+    const paired = deviceId !== undefined && service.hasDevice(deviceId)
+    const origin = service.publicBaseUrl
+    if (paired && origin !== undefined && typeof connection.authenticatedUrl === 'function') {
+      try {
+        const target = new URL(connection.authenticatedUrl(origin))
+        res.writeHead(303, {
+          location: `${target.pathname}${target.search}`,
+          'cache-control': 'no-store',
+          'referrer-policy': 'no-referrer',
+        })
+        res.end()
+        return false
+      } catch {
+        // Fall through to the runtime's own challenge.
+      }
+    }
+    // A browser that already holds the session cookie sees the shell; anything
+    // else receives the runtime's identical refusal.
+    return connection.authorizeIndex(req, res) === true
+  }
   /** The full-scope wiring, or undefined when this runtime offers no dispatch. */
   const fullSurface = (): FullSurface | undefined => {
     const server = ctx.webServer as unknown as {
@@ -536,6 +589,7 @@ export function apply(ctx: Context, config?: Config): void {
     return {
       ...(dist === undefined ? {} : { distDir: dist }),
       dispatch: makeFetchDispatch(server as RuntimeFetchDispatcher),
+      authorizeIndex: authorizeFullIndex,
       ...(typeof renderIndex === 'function'
         ? { renderIndex: (html: string) => renderIndex.call(server, html) }
         : {}),
